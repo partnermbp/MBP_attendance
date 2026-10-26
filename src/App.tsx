@@ -6,13 +6,15 @@ import { supabase } from './lib/supabase';
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 
-function getLinkType(): string | null {
+function getInitialLinkType(): string | null {
   const hash = new URLSearchParams(
     window.location.hash.replace(/^#/, '')
   );
   const query = new URLSearchParams(window.location.search);
 
-  return hash.get('type') ?? query.get('type');
+  const type = hash.get('type') ?? query.get('type');
+
+  return type === 'invite' || type === 'recovery' ? type : null;
 }
 
 export default function App() {
@@ -23,6 +25,9 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [passwordFlow, setPasswordFlow] = useState<string | null>(
+    getInitialLinkType
+  );
 
   useEffect(() => {
     const client = supabase;
@@ -34,35 +39,21 @@ export default function App() {
 
     let alive = true;
 
-    async function loadSession() {
-      if (!client) return;
-
-      const { data, error } = await client.auth.getSession();
-
+    client.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
 
-      if (error) {
-        setMessage(error.message);
-      }
+      if (error) setMessage(error.message);
 
-      const currentSession = data.session;
-      setSession(currentSession);
+      setSession(data.session);
 
-      const linkType = getLinkType();
-
-      if (
-        currentSession &&
-        (linkType === 'invite' || linkType === 'recovery')
-      ) {
+      if (passwordFlow && data.session) {
         setScreen('set-password');
-      } else if (currentSession) {
+      } else if (data.session) {
         setScreen('signed-in');
       } else {
         setScreen('login');
       }
-    }
-
-    void loadSession();
+    });
 
     const {
       data: { subscription },
@@ -72,15 +63,12 @@ export default function App() {
       setSession(nextSession);
 
       if (
-        event === 'PASSWORD_RECOVERY' ||
-        getLinkType() === 'invite' ||
-        getLinkType() === 'recovery'
+        passwordFlow ||
+        event === 'PASSWORD_RECOVERY'
       ) {
-        setScreen('set-password');
+        setScreen(nextSession ? 'set-password' : 'login');
       } else if (nextSession) {
-        setScreen((current) =>
-          current === 'set-password' ? current : 'signed-in'
-        );
+        setScreen('signed-in');
       } else {
         setScreen('login');
       }
@@ -90,19 +78,17 @@ export default function App() {
       alive = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [passwordFlow]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     setBusy(true);
     setMessage('');
 
     try {
-      const { data, error } = await client.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
@@ -125,9 +111,7 @@ export default function App() {
 
   async function handleSetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     if (password.length < 8) {
       setMessage('Use a password with at least 8 characters.');
@@ -143,7 +127,7 @@ export default function App() {
     setMessage('');
 
     try {
-      const { error } = await client.auth.updateUser({ password });
+      const { data, error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         setMessage(error.message);
@@ -151,19 +135,19 @@ export default function App() {
       }
 
       const { data: sessionData, error: sessionError } =
-        await client.auth.getSession();
+        await supabase.auth.getSession();
 
       if (sessionError) {
-        setMessage(
-          'Password updated, but session retrieval failed. Please sign in again.'
-        );
+        setMessage('Password updated. Please sign in with your new password.');
         setScreen('login');
+        setPasswordFlow(null);
         return;
       }
 
       setSession(sessionData.session);
       setPassword('');
       setConfirmPassword('');
+      setPasswordFlow(null);
       setScreen(sessionData.session ? 'signed-in' : 'login');
 
       window.history.replaceState(
@@ -181,14 +165,13 @@ export default function App() {
   }
 
   async function handleLogout() {
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     setBusy(true);
     setMessage('');
 
     try {
-      const { error } = await client.auth.signOut();
+      const { error } = await supabase.auth.signOut();
 
       if (error) {
         setMessage(error.message);
@@ -198,6 +181,7 @@ export default function App() {
       setSession(null);
       setPassword('');
       setConfirmPassword('');
+      setPasswordFlow(null);
       setScreen('login');
       setMessage('You have signed out.');
     } catch {
@@ -257,10 +241,7 @@ export default function App() {
         <section style={panelStyle}>
           <h1>Attendance CRM</h1>
           <p>Supabase is not configured.</p>
-          <p>
-            Check the VITE_SUPABASE_URL and
-            VITE_SUPABASE_PUBLISHABLE_KEY GitHub Actions secrets.
-          </p>
+          <p>Check the GitHub Actions secrets for your Supabase URL and publishable key.</p>
         </section>
       </main>
     );
@@ -269,19 +250,14 @@ export default function App() {
   return (
     <main style={pageStyle}>
       <section style={panelStyle}>
-        <p style={{ color: '#82b4ff', fontWeight: 700 }}>
-          ATTENDANCE CRM
-        </p>
+        <p style={{ color: '#82b4ff', fontWeight: 700 }}>ATTENDANCE CRM</p>
 
         {screen === 'loading' && <p>Checking your session...</p>}
 
         {screen === 'login' && (
           <>
             <h1>Welcome back</h1>
-            <p style={{ color: '#b7c0d1' }}>
-              Sign in with your approved account.
-            </p>
-
+            <p style={{ color: '#b7c0d1' }}>Sign in with your approved account.</p>
             <form onSubmit={handleLogin}>
               <label htmlFor="email">Email address</label>
               <input
@@ -293,11 +269,7 @@ export default function App() {
                 onChange={(event) => setEmail(event.target.value)}
                 style={inputStyle}
               />
-
-              <label
-                htmlFor="password"
-                style={{ display: 'block', marginTop: 18 }}
-              >
+              <label htmlFor="password" style={{ display: 'block', marginTop: 18 }}>
                 Password
               </label>
               <input
@@ -309,12 +281,7 @@ export default function App() {
                 onChange={(event) => setPassword(event.target.value)}
                 style={inputStyle}
               />
-
-              <button
-                type="submit"
-                disabled={busy}
-                style={buttonStyle}
-              >
+              <button type="submit" disabled={busy} style={buttonStyle}>
                 {busy ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
@@ -327,7 +294,6 @@ export default function App() {
             <p style={{ color: '#b7c0d1' }}>
               Choose a password with at least 8 characters.
             </p>
-
             <form onSubmit={handleSetPassword}>
               <label htmlFor="new-password">New password</label>
               <input
@@ -340,11 +306,7 @@ export default function App() {
                 onChange={(event) => setPassword(event.target.value)}
                 style={inputStyle}
               />
-
-              <label
-                htmlFor="confirm-password"
-                style={{ display: 'block', marginTop: 18 }}
-              >
+              <label htmlFor="confirm-password" style={{ display: 'block', marginTop: 18 }}>
                 Confirm password
               </label>
               <input
@@ -354,17 +316,10 @@ export default function App() {
                 minLength={8}
                 required
                 value={confirmPassword}
-                onChange={(event) =>
-                  setConfirmPassword(event.target.value)
-                }
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 style={inputStyle}
               />
-
-              <button
-                type="submit"
-                disabled={busy}
-                style={buttonStyle}
-              >
+              <button type="submit" disabled={busy} style={buttonStyle}>
                 {busy ? 'Saving password...' : 'Create password'}
               </button>
             </form>
@@ -376,26 +331,17 @@ export default function App() {
             <h1>You're signed in</h1>
             <p>Account: {session?.user.email ?? 'Authenticated user'}</p>
             <p style={{ color: '#b7c0d1' }}>
-              Basic authentication is connected. Role enforcement,
-              email OTP, Telegram verification, and attendance features
-              are not yet enabled in this screen.
+              Basic authentication is connected. Role enforcement, email OTP,
+              Telegram verification, and attendance features are not yet enabled.
             </p>
-
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleLogout}
-              style={buttonStyle}
-            >
+            <button type="button" disabled={busy} onClick={handleLogout} style={buttonStyle}>
               {busy ? 'Signing out...' : 'Sign out'}
             </button>
           </>
         )}
 
         {message && (
-          <p role="status" style={{ overflowWrap: 'anywhere' }}>
-            {message}
-          </p>
+          <p role="status" style={{ overflowWrap: 'anywhere' }}>{message}</p>
         )}
 
         <p style={{ color: '#98a2b3', fontSize: 13 }}>
