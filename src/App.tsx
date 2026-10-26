@@ -103,9 +103,7 @@ export default function App() {
       const [attendanceResult, shiftsResult] = await Promise.all([
         supabase
           .from('attendance')
-          .select(
-            'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng'
-          )
+          .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
           .eq('employee_id', userId)
           .order('check_in', { ascending: false })
           .limit(20),
