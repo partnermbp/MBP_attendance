@@ -88,7 +88,7 @@ export default function App() {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.updateUser({ password });
         email: email.trim().toLowerCase(),
         password,
       });
