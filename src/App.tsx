@@ -72,6 +72,7 @@ export default function App() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [locationNote, setLocationNote] = useState('');
+  const [locationTest, setLocationTest] = useState('');
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -258,6 +259,23 @@ export default function App() {
       setMessage('Unable to save the password. Please try again.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  
+  async function handleTestLocation() {
+    setLocationTest('Requesting location permission...');
+    try {
+      const coords = await getLocation();
+      setLocationTest(
+        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, Longitude: ${coords.longitude.toFixed(5)}. Not saved.`
+      );
+    } catch (error) {
+      setLocationTest(
+        error instanceof Error
+          ? error.message
+          : 'Could not retrieve location.'
+      );
     }
   }
 
@@ -533,6 +551,19 @@ export default function App() {
               );
             })()}
             {locationNote && <p style={{ color: '#f4c76b' }}>{locationNote}</p>}
+            <button
+              type="button"
+              onClick={handleTestLocation}
+              disabled={busy}
+              style={{ ...buttonStyle, marginTop: 12 }}
+            >
+              Test location
+            </button>
+            {locationTest && (
+              <p role="status" style={{ overflowWrap: 'anywhere' }}>
+                {locationTest}
+              </p>
+            )}
           </div>
 
           <div style={{ marginTop: 28 }}>
