@@ -25,6 +25,11 @@ type Shift = {
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
 function readPasswordFlow(): PasswordFlow {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(window.location.search);
@@ -35,11 +40,25 @@ function readPasswordFlow(): PasswordFlow {
   return type === 'invite' || type === 'recovery' ? type : null;
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString();
+function formatDate(value: string, timezone?: string | null) {
+  const date = new Date(value);
+
+  if (timezone) {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: timezone,
+      }).format(date);
+    } catch {
+      // Fall back to the browser's local timezone.
+    }
+  }
+
+  return date.toLocaleString();
 }
 
-function getLocation(): Promise<{ latitude: number; longitude: number }> {
+function getLocation(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Location is not supported by this browser.'));
@@ -50,7 +69,11 @@ function getLocation(): Promise<{ latitude: number; longitude: number }> {
       ({ coords }) => {
         if (
           !Number.isFinite(coords.latitude) ||
-          !Number.isFinite(coords.longitude)
+          !Number.isFinite(coords.longitude) ||
+          coords.latitude < -90 ||
+          coords.latitude > 90 ||
+          coords.longitude < -180 ||
+          coords.longitude > 180
         ) {
           reject(new Error('The browser returned invalid coordinates.'));
           return;
@@ -79,6 +102,10 @@ function getLocation(): Promise<{ latitude: number; longitude: number }> {
   });
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Please try again.';
+}
+
 export default function App() {
   const [passwordFlow, setPasswordFlow] =
     useState<PasswordFlow>(readPasswordFlow);
@@ -103,10 +130,13 @@ export default function App() {
       const [attendanceResult, shiftsResult] = await Promise.all([
         supabase
           .from('attendance')
-          .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+          .select(
+            'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone'
+          )
           .eq('employee_id', userId)
           .order('check_in', { ascending: false })
           .limit(20),
+
         supabase
           .from('shifts')
           .select('id, starts_at, ends_at')
@@ -116,7 +146,9 @@ export default function App() {
       ]);
 
       if (attendanceResult.error) {
-        setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
+        setMessage(
+          `Could not load attendance: ${attendanceResult.error.message}`
+        );
       } else {
         setAttendance((attendanceResult.data ?? []) as Attendance[]);
       }
@@ -294,13 +326,12 @@ export default function App() {
 
     try {
       const coords = await getLocation();
+
       setLocationTest(
         `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, longitude: ${coords.longitude.toFixed(5)}. Not saved.`
       );
     } catch (error) {
-      setLocationTest(
-        error instanceof Error ? error.message : 'Could not retrieve location.'
-      );
+      setLocationTest(getErrorMessage(error));
     }
   }
 
@@ -312,67 +343,103 @@ export default function App() {
     setLocationTest('');
 
     try {
-      const openRecord = attendance.find((item) => !item.check_out);
-
-      if (openRecord) {
-        setMessage('You already have an open attendance record.');
-        return;
-      }
-
-      let coords: { latitude: number; longitude: number };
+      let coords: Coordinates;
 
       try {
         coords = await getLocation();
       } catch (error) {
         setMessage(
-          `Check-in blocked: GPS location is required. ${
-            error instanceof Error
-              ? error.message
-              : 'Location could not be retrieved.'
-          } Allow location access and try again.`
+          `Check-in blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
         );
         return;
       }
 
-      const { error } = await supabase.from('attendance').insert({
-        employee_id: session.user.id,
-        check_in: new Date().toISOString(),
-        check_in_lat: coords.latitude,
-        check_in_lng: coords.longitude,
-      });
+      // Resolve the timezone from the current GPS coordinates.
+      const { data: timezoneData, error: timezoneError } =
+        await supabase.functions.invoke('resolve-timezone', {
+          body: {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          },
+        });
 
-      if (error) {
-        setMessage(`Check-in failed: ${error.message}`);
+      if (timezoneError) {
+        setMessage(
+          `Could not determine your timezone: ${timezoneError.message}`
+        );
         return;
       }
 
-      setMessage('Check-in recorded successfully with GPS coordinates.');
+      const timezone = timezoneData?.timezone;
+
+      if (typeof timezone !== 'string' || !timezone.trim()) {
+        setMessage(
+          'The timezone service did not return a valid timezone. Check-in was not recorded.'
+        );
+        return;
+      }
+
+      // The database calculates work_date using this timezone and prevents
+      // duplicate open check-ins for the same work date.
+      const { error: checkInError } = await supabase.rpc(
+        'check_in_with_timezone',
+        {
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_timezone: timezone,
+        }
+      );
+
+      if (checkInError) {
+        setMessage(`Check-in failed: ${checkInError.message}`);
+        return;
+      }
+
+      setMessage(`Check-in recorded successfully. Timezone: ${timezone}.`);
       await loadDashboard(session.user.id);
-    } catch {
-      setMessage('Unable to check in. Please try again.');
+    } catch (error) {
+      setMessage(`Unable to check in: ${getErrorMessage(error)}`);
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleCheckOut() {
+  async function handleCheckOut(attendanceId: string) {
     if (!supabase || !session) return;
 
     setBusy(true);
     setMessage('');
+    setLocationTest('');
 
     try {
-      const { error } = await supabase.rpc('check_out_now');
+      let coords: Coordinates;
+
+      try {
+        coords = await getLocation();
+      } catch (error) {
+        setMessage(
+          `Check-out blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
+        );
+        return;
+      }
+
+      // Close only the selected attendance session, never an arbitrary
+      // open record belonging to this employee.
+      const { error } = await supabase.rpc('check_out_attendance', {
+        p_attendance_id: attendanceId,
+        p_latitude: coords.latitude,
+        p_longitude: coords.longitude,
+      });
 
       if (error) {
         setMessage(`Check-out failed: ${error.message}`);
         return;
       }
 
-      setMessage('Check-out recorded successfully.');
+      setMessage('Check-out recorded successfully with GPS coordinates.');
       await loadDashboard(session.user.id);
-    } catch {
-      setMessage('Unable to check out. Please try again.');
+    } catch (error) {
+      setMessage(`Unable to check out: ${getErrorMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -449,6 +516,14 @@ export default function App() {
     opacity: busy ? 0.7 : 1,
   };
 
+  // Ignore legacy open records without a work_date. This prevents the
+  // existing legacy record from being selected for checkout automatically.
+  // If a prior day's dated session was never closed, it remains eligible
+  // for checkout until a newer dated session is opened.
+  const openRecord = attendance
+    .filter((item) => !item.check_out && item.work_date && item.work_timezone)
+    .sort((a, b) => b.check_in.localeCompare(a.check_in))[0];
+
   if (!supabase) {
     return (
       <main style={pageStyle}>
@@ -473,7 +548,10 @@ export default function App() {
       {screen === 'login' && (
         <section style={{ ...panelStyle, maxWidth: 430 }}>
           <h1>Welcome back</h1>
-          <p style={{ color: '#b7c0d1' }}>Sign in with your approved account.</p>
+          <p style={{ color: '#b7c0d1' }}>
+            Sign in with your approved account.
+          </p>
+
           <form onSubmit={handleLogin}>
             <label htmlFor="email">Email address</label>
             <input
@@ -486,7 +564,10 @@ export default function App() {
               style={inputStyle}
             />
 
-            <label htmlFor="login-password" style={{ display: 'block', marginTop: 18 }}>
+            <label
+              htmlFor="login-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
               Password
             </label>
             <input
@@ -513,12 +594,24 @@ export default function App() {
       {screen === 'set-password' && (
         <section style={{ ...panelStyle, maxWidth: 430 }}>
           <h1>Create your password</h1>
-          <p style={{ color: '#b7c0d1' }}>Create a password for your invited account.</p>
+          <p style={{ color: '#b7c0d1' }}>
+            Create a password for your invited account.
+          </p>
+
           <form onSubmit={handleSetPassword}>
             <label htmlFor="invited-email">Invited email</label>
-            <input id="invited-email" type="email" value={email} readOnly style={inputStyle} />
+            <input
+              id="invited-email"
+              type="email"
+              value={email}
+              readOnly
+              style={inputStyle}
+            />
 
-            <label htmlFor="new-password" style={{ display: 'block', marginTop: 18 }}>
+            <label
+              htmlFor="new-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
               New password
             </label>
             <input
@@ -532,7 +625,10 @@ export default function App() {
               style={inputStyle}
             />
 
-            <label htmlFor="confirm-password" style={{ display: 'block', marginTop: 18 }}>
+            <label
+              htmlFor="confirm-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
               Confirm password
             </label>
             <input
@@ -560,58 +656,76 @@ export default function App() {
       {screen === 'signed-in' && session && (
         <section style={panelStyle}>
           <h1>Employee dashboard</h1>
-          <p style={{ color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+          <p
+            style={{
+              color: '#b7c0d1',
+              overflowWrap: 'anywhere',
+            }}
+          >
             Signed in as {session.user.email}
           </p>
 
-          <section style={{
-            padding: 18,
-            margin: '20px 0',
-            borderRadius: 12,
-            border: '1px solid #344054',
-          }}>
-            <h2 style={{ marginTop: 0 }}>Today's attendance</h2>
-            {(() => {
-              const openRecord = attendance.find((item) => !item.check_out);
+          <section
+            style={{
+              padding: 18,
+              margin: '20px 0',
+              borderRadius: 12,
+              border: '1px solid #344054',
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Attendance session</h2>
 
-              return (
-                <>
-                  <p>
-                    {openRecord
-                      ? `Checked in at ${formatDate(openRecord.check_in)}`
-                      : 'You are currently checked out.'}
-                  </p>
+            {openRecord ? (
+              <>
+                <p>
+                  Check-in:{' '}
+                  {formatDate(openRecord.check_in, openRecord.work_timezone)}
+                </p>
+                <p style={{ color: '#b7c0d1' }}>
+                  Work date: {openRecord.work_date}
+                  {' · '}
+                  {openRecord.work_timezone}
+                </p>
+                <p>
+                  Status: <strong>Not checked out</strong>
+                </p>
 
-                  {openRecord ? (
-                    <button
-                      disabled={busy}
-                      onClick={handleCheckOut}
-                      style={buttonStyle}
-                    >
-                      {busy ? 'Please wait…' : 'Check out'}
-                    </button>
-                  ) : (
-                    <button
-                      disabled={busy || loadingDashboard}
-                      onClick={handleCheckIn}
-                      style={buttonStyle}
-                    >
-                      {busy ? 'Getting location…' : 'Check in'}
-                    </button>
-                  )}
-                </>
-              );
-            })()}
+                <button
+                  disabled={busy || loadingDashboard}
+                  onClick={() => void handleCheckOut(openRecord.id)}
+                  style={buttonStyle}
+                >
+                  {busy ? 'Please wait…' : 'Check out'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p>
+                  No dated open attendance session was found. You can start a
+                  new session; the database will prevent a duplicate open
+                  session for the same work date.
+                </p>
+
+                <button
+                  disabled={busy || loadingDashboard}
+                  onClick={() => void handleCheckIn()}
+                  style={buttonStyle}
+                >
+                  {busy ? 'Processing…' : 'Check in'}
+                </button>
+              </>
+            )}
 
             <div style={{ marginTop: 16 }}>
               <button
                 type="button"
-                onClick={handleTestLocation}
+                onClick={() => void handleTestLocation()}
                 disabled={busy}
                 style={{ ...buttonStyle, background: '#475467' }}
               >
                 Test location
               </button>
+
               {locationTest && (
                 <p role="status" style={{ overflowWrap: 'anywhere' }}>
                   {locationTest}
@@ -622,10 +736,13 @@ export default function App() {
 
           <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
+
             {loadingDashboard && <p>Loading shifts…</p>}
+
             {!loadingDashboard && shifts.length === 0 && (
               <p>No shifts are scheduled for this account yet.</p>
             )}
+
             {shifts.map((shift) => (
               <article
                 key={shift.id}
@@ -636,18 +753,25 @@ export default function App() {
                   borderRadius: 10,
                 }}
               >
-                <p style={{ margin: '0 0 6px' }}>Start: {formatDate(shift.starts_at)}</p>
-                <p style={{ margin: 0 }}>End: {formatDate(shift.ends_at)}</p>
+                <p style={{ margin: '0 0 6px' }}>
+                  Start: {formatDate(shift.starts_at)}
+                </p>
+                <p style={{ margin: 0 }}>
+                  End: {formatDate(shift.ends_at)}
+                </p>
               </article>
             ))}
           </section>
 
           <section style={{ marginTop: 28 }}>
             <h2>Recent attendance</h2>
+
             {loadingDashboard && <p>Loading attendance…</p>}
+
             {!loadingDashboard && attendance.length === 0 && (
               <p>No attendance records yet.</p>
             )}
+
             {attendance.map((item) => (
               <article
                 key={item.id}
@@ -658,21 +782,74 @@ export default function App() {
                   borderRadius: 10,
                 }}
               >
-                <p style={{ margin: '0 0 6px' }}>Check-in: {formatDate(item.check_in)}</p>
                 <p style={{ margin: '0 0 6px' }}>
-                  Check-out: {item.check_out ? formatDate(item.check_out) : 'Not checked out'}
+                  Work date: {item.work_date ?? 'Not assigned'}
                 </p>
-                <p style={{ margin: 0, color: '#b7c0d1', overflowWrap: 'anywhere' }}>
-                  Check-in GPS: {item.check_in_lat != null && item.check_in_lng != null
+
+                <p style={{ margin: '0 0 6px' }}>
+                  Check-in:{' '}
+                  {formatDate(item.check_in, item.work_timezone)}
+                </p>
+
+                <p style={{ margin: '0 0 6px' }}>
+                  Check-out:{' '}
+                  {item.check_out
+                    ? formatDate(item.check_out, item.work_timezone)
+                    : 'Not checked out'}
+                </p>
+
+                <p
+                  style={{
+                    margin: '0 0 6px',
+                    color: '#b7c0d1',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  Timezone: {item.work_timezone ?? 'Not recorded'}
+                </p>
+
+                <p
+                  style={{
+                    margin: '0 0 6px',
+                    color: '#b7c0d1',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  Check-in GPS:{' '}
+                  {item.check_in_lat != null && item.check_in_lng != null
                     ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
+                    : 'Not recorded'}
+                </p>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: '#b7c0d1',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  Check-out GPS:{' '}
+                  {item.check_out_lat != null && item.check_out_lng != null
+                    ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
                     : 'Not recorded'}
                 </p>
               </article>
             ))}
           </section>
 
-          <div style={{ marginTop: 28, borderTop: '1px solid #344054', paddingTop: 20 }}>
-            <button type="button" disabled={busy} onClick={handleLogout} style={buttonStyle}>
+          <div
+            style={{
+              marginTop: 28,
+              borderTop: '1px solid #344054',
+              paddingTop: 20,
+            }}
+          >
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void handleLogout()}
+              style={buttonStyle}
+            >
               {busy ? 'Please wait…' : 'Sign out'}
             </button>
           </div>
@@ -695,8 +872,16 @@ export default function App() {
         </p>
       )}
 
-      <p style={{ maxWidth: 760, margin: '20px auto', color: '#98a2b3', fontSize: 13 }}>
-        Authorized accounts only. Check-in requires browser location permission. The test button does not save location.
+      <p
+        style={{
+          maxWidth: 760,
+          margin: '20px auto',
+          color: '#98a2b3',
+          fontSize: 13,
+        }}
+      >
+        Authorized accounts only. Check-in and check-out require browser
+        location permission. Test location does not save coordinates.
       </p>
     </main>
   );
