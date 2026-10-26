@@ -1,144 +1,218 @@
 
-import {
-  ShieldCheck,
-  Users,
-  Clock3,
-  MapPin,
-  CalendarDays,
-  Settings,
-  LockKeyhole,
-  Database,
-} from 'lucide-react';
-import { supabaseConfigured } from './lib/supabase';
-
-const sections = [
-  { name: 'Overview', icon: Clock3 },
-  { name: 'Employees', icon: Users },
-  { name: 'Attendance', icon: CalendarDays },
-  { name: 'Locations', icon: MapPin },
-  { name: 'Settings', icon: Settings },
-];
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './lib/supabase';
 
 export default function App() {
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">
-            <ShieldCheck size={23} />
-          </div>
-          <div>
-            <strong>WorkTrack</strong>
-            <small>Attendance CRM</small>
-          </div>
-        </div>
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
 
-        <div className="nav-label">WORKSPACE</div>
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
 
-        <nav>
-          {sections.map((section, index) => {
-            const Icon = section.icon;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) setMessage(error.message);
+      setSession(data.session);
+      setLoading(false);
+    });
 
-            return (
-              <button
-                key={section.name}
-                className={`nav-item ${index === 0 ? 'active' : ''}`}
-                onClick={() => {
-                  if (index !== 0) {
-                    alert('This section will be enabled in a later step.');
-                  }
-                }}
-              >
-                <Icon size={18} />
-                <span>{section.name}</span>
-              </button>
-            );
-          })}
-        </nav>
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
 
-        <div className="sidebar-footer">
-          <LockKeyhole size={15} />
-          <span>Access-controlled workspace</span>
-        </div>
-      </aside>
+    return () => subscription.unsubscribe();
+  }, []);
 
-      <section className="main-panel">
-        <header className="topbar">
-          <div>
-            <div className="eyebrow">WORKSPACE / OVERVIEW</div>
-            <h1>Attendance dashboard</h1>
-          </div>
-          <span className="preview-badge">PREVIEW</span>
-        </header>
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
 
-        <section className="welcome">
-          <div>
-            <p className="eyebrow">YOUR TEAM, AT A GLANCE</p>
-            <h2>Welcome to WorkTrack</h2>
-            <p>
-              A central workspace for attendance, schedules,
-              employee management and team permissions.
-            </p>
-          </div>
-          <div className="welcome-icon">
-            <Users size={38} />
-          </div>
+    setSubmitting(true);
+    setMessage('');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    setSubmitting(false);
+    setMessage(
+      error
+        ? error.message
+        : 'Signed in successfully.'
+    );
+  }
+
+  async function handleLogout() {
+    if (!supabase) return;
+
+    const { error } = await supabase.auth.signOut();
+    setMessage(error ? error.message : 'You have signed out.');
+  }
+
+  const pageStyle = {
+    minHeight: '100vh',
+    background: '#101522',
+    color: '#f4f6fb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    fontFamily: 'system-ui, sans-serif',
+  } as const;
+
+  const panelStyle = {
+    width: '100%',
+    maxWidth: '420px',
+    background: '#1a2232',
+    border: '1px solid #344054',
+    borderRadius: '16px',
+    padding: '28px',
+    boxSizing: 'border-box' as const,
+  };
+
+  const inputStyle = {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    padding: '12px',
+    marginTop: '7px',
+    border: '1px solid #475467',
+    borderRadius: '8px',
+    background: '#101522',
+    color: '#ffffff',
+    fontSize: '16px',
+  };
+
+  if (!supabase) {
+    return (
+      <main style={pageStyle}>
+        <section style={panelStyle}>
+          <h1>Attendance CRM</h1>
+          <p>Supabase is not configured.</p>
+          <p>
+            Check the VITE_SUPABASE_URL and
+            VITE_SUPABASE_PUBLISHABLE_KEY
+            GitHub Actions secrets.
+          </p>
         </section>
+      </main>
+    );
+  }
 
-        <div className="section-heading">
-          <div>
-            <h2>Workspace setup</h2>
-            <p>Connect and configure your application.</p>
-          </div>
-        </div>
+  if (loading) {
+    return (
+      <main style={pageStyle}>
+        <p>Loading your session...</p>
+      </main>
+    );
+  }
 
-        <div className="setup-grid">
-          <article className="setup-card">
-            <div className="card-icon"><Database size={20} /></div>
-            <h3>Database connection</h3>
-            <span className={`status ${supabaseConfigured ? 'status-ready' : 'status-pending'}`}>
-              {supabaseConfigured ? 'Configuration found' : 'Setup required'}
-            </span>
-            <p>
-              {supabaseConfigured
-                ? 'Connection settings are present. Authentication and database access still need testing.'
-                : 'Add your Supabase project URL and publishable key to the deployment environment.'}
-            </p>
-          </article>
+  if (session) {
+    return (
+      <main style={pageStyle}>
+        <section style={panelStyle}>
+          <p style={{ color: '#82b4ff' }}>
+            ATTENDANCE CRM
+          </p>
+          <h1>You’re signed in</h1>
+          <p>Account: {session.user.email}</p>
+          <p style={{ color: '#b7c0d1' }}>
+            Authentication is connected. Attendance
+            and role permissions are not yet enabled
+            in this screen.
+          </p>
+          <button
+            onClick={handleLogout}
+            style={{
+              ...inputStyle,
+              background: '#315ee7',
+              border: 0,
+              cursor: 'pointer',
+            }}
+          >
+            Sign out
+          </button>
+          {message && <p role="status">{message}</p>}
+        </section>
+      </main>
+    );
+  }
 
-          <article className="setup-card">
-            <div className="card-icon"><Users size={20} /></div>
-            <h3>Team access</h3>
-            <span className="status status-pending">Not configured</span>
-            <p>
-              Admin invitations, manager assignments and employee
-              permissions will be connected after backend setup.
-            </p>
-          </article>
+  return (
+    <main style={pageStyle}>
+      <section style={panelStyle}>
+        <p style={{ color: '#82b4ff', fontWeight: 700 }}>
+          ATTENDANCE CRM
+        </p>
+        <h1>Welcome back</h1>
+        <p style={{ color: '#b7c0d1' }}>
+          Sign in with your approved work account.
+        </p>
 
-          <article className="setup-card">
-            <div className="card-icon"><Clock3 size={20} /></div>
-            <h3>Attendance</h3>
-            <span className="status status-pending">Not configured</span>
-            <p>
-              Check-in, check-out, shifts and attendance history
-              will be connected to your database.
-            </p>
-          </article>
-        </div>
+        <form onSubmit={handleLogin}>
+          <label htmlFor="email">Work email</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            style={inputStyle}
+          />
 
-        <div className="notice">
-          <LockKeyhole size={19} />
-          <div>
-            <strong>Development preview</strong>
-            <p>
-              This screen uses no employee records and collects no
-              location data. It is not yet connected to live attendance.
-            </p>
-          </div>
-        </div>
+          <label
+            htmlFor="password"
+            style={{ display: 'block', marginTop: '18px' }}
+          >
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            style={inputStyle}
+          />
 
-        <footer>WorkTrack · Attendance CRM · Development build</footer>
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              ...inputStyle,
+              marginTop: '22px',
+              background: '#315ee7',
+              border: 0,
+              cursor: submitting ? 'wait' : 'pointer',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+
+        {message && (
+          <p role="status" style={{ overflowWrap: 'anywhere' }}>
+            {message}
+          </p>
+        )}
+
+        <p style={{ color: '#98a2b3', fontSize: '13px' }}>
+          Access is for authorized users only.
+          Registration is not available on this screen.
+        </p>
       </section>
     </main>
   );
