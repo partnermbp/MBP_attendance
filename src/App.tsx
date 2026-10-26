@@ -30,6 +30,14 @@ type Coordinates = {
   longitude: number;
 };
 
+const BREAK_MINUTES = 60;
+const APPROVED_EMAIL_DOMAINS = [
+  'mostbet.partners',
+  'infradim.com',
+  'starson.cloud',
+  'double.global',
+];
+
 function readPasswordFlow(): PasswordFlow {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(window.location.search);
@@ -51,11 +59,91 @@ function formatDate(value: string, timezone?: string | null) {
         timeZone: timezone,
       }).format(date);
     } catch {
-      // Fall back to the browser's local timezone.
+      // Fall back to browser-local formatting.
     }
   }
 
   return date.toLocaleString();
+}
+
+function getLocalDate(timezone: string, instant = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant);
+
+  const part = (type: string) =>
+    parts.find((item) => item.type === type)?.value ?? '';
+
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function getElapsedMilliseconds(start: string, end: string) {
+  return Math.max(0, new Date(end).getTime() - new Date(start).getTime());
+}
+
+function formatDuration(milliseconds: number) {
+  const totalMinutes = Math.floor(milliseconds / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+}
+
+function getSessionDuration(item: Attendance, now: number) {
+  const start = new Date(item.check_in).getTime();
+
+  if (!Number.isFinite(start)) {
+    return {
+      elapsed: 'Unavailable',
+      worked: 'Unavailable',
+      breakDeduction: 'Not applied',
+      status: 'Invalid timestamp',
+    };
+  }
+
+  const end = item.check_out
+    ? new Date(item.check_out).getTime()
+    : now;
+
+  if (!Number.isFinite(end) || end < start) {
+    return {
+      elapsed: 'Unavailable',
+      worked: 'Unavailable',
+      breakDeduction: 'Not applied',
+      status: 'Invalid timestamp',
+    };
+  }
+
+  const elapsedMilliseconds = end - start;
+
+  if (!item.check_out) {
+    return {
+      elapsed: formatDuration(elapsedMilliseconds),
+      worked: 'Pending checkout',
+      breakDeduction: 'Not applied yet',
+      status: 'Open session',
+    };
+  }
+
+  const breakMilliseconds = Math.min(
+    BREAK_MINUTES * 60000,
+    elapsedMilliseconds
+  );
+
+  const workedMilliseconds = Math.max(
+    0,
+    elapsedMilliseconds - BREAK_MINUTES * 60000
+  );
+
+  return {
+    elapsed: formatDuration(elapsedMilliseconds),
+    worked: formatDuration(workedMilliseconds),
+    breakDeduction: formatDuration(breakMilliseconds),
+    status: 'Completed',
+  };
 }
 
 function getLocation(): Promise<Coordinates> {
@@ -106,6 +194,18 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Please try again.';
 }
 
+function isApprovedEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+
+  if (normalized === 'partnermbp@gmail.com') return true;
+
+  const separator = normalized.lastIndexOf('@');
+  if (separator < 1) return false;
+
+  const domain = normalized.slice(separator + 1);
+  return APPROVED_EMAIL_DOMAINS.includes(domain);
+}
+
 export default function App() {
   const [passwordFlow, setPasswordFlow] =
     useState<PasswordFlow>(readPasswordFlow);
@@ -120,6 +220,15 @@ export default function App() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [locationTest, setLocationTest] = useState('');
+  const [clockNow, setClockNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setClockNow(Date.now());
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -135,14 +244,14 @@ export default function App() {
           )
           .eq('employee_id', userId)
           .order('check_in', { ascending: false })
-          .limit(20),
+          .limit(100),
 
         supabase
           .from('shifts')
           .select('id, starts_at, ends_at')
           .eq('employee_id', userId)
           .order('starts_at', { ascending: true })
-          .limit(20),
+          .limit(100),
       ]);
 
       if (attendanceResult.error) {
@@ -240,12 +349,19 @@ export default function App() {
     event.preventDefault();
     if (!supabase) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!isApprovedEmail(normalizedEmail)) {
+      setMessage('This email address is not on the approved account list.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
       });
 
@@ -287,6 +403,14 @@ export default function App() {
         setMessage(
           'Your invitation session has expired. Ask the administrator for a new invitation.'
         );
+        return;
+      }
+
+      if (
+        !data.user.email ||
+        !isApprovedEmail(data.user.email)
+      ) {
+        setMessage('This account email is not approved for this application.');
         return;
       }
 
@@ -354,7 +478,6 @@ export default function App() {
         return;
       }
 
-      // Resolve the timezone from the current GPS coordinates.
       const { data: timezoneData, error: timezoneError } =
         await supabase.functions.invoke('resolve-timezone', {
           body: {
@@ -379,8 +502,6 @@ export default function App() {
         return;
       }
 
-      // The database calculates work_date using this timezone and prevents
-      // duplicate open check-ins for the same work date.
       const { error: checkInError } = await supabase.rpc(
         'check_in_with_timezone',
         {
@@ -423,8 +544,6 @@ export default function App() {
         return;
       }
 
-      // Close only the selected attendance session, never an arbitrary
-      // open record belonging to this employee.
       const { error } = await supabase.rpc('check_out_attendance', {
         p_attendance_id: attendanceId,
         p_latitude: coords.latitude,
@@ -516,12 +635,20 @@ export default function App() {
     opacity: busy ? 0.7 : 1,
   };
 
-  // Ignore legacy open records without a work_date. This prevents the
-  // existing legacy record from being selected for checkout automatically.
-  // If a prior day's dated session was never closed, it remains eligible
-  // for checkout until a newer dated session is opened.
+  // Only today's open session in its own saved timezone is the active session.
+  // Older open sessions remain in history and are not automatically checked out.
   const openRecord = attendance
-    .filter((item) => !item.check_out && item.work_date && item.work_timezone)
+    .filter((item) => {
+      if (item.check_out || !item.work_date || !item.work_timezone) {
+        return false;
+      }
+
+      try {
+        return getLocalDate(item.work_timezone, new Date(clockNow)) === item.work_date;
+      } catch {
+        return false;
+      }
+    })
     .sort((a, b) => b.check_in.localeCompare(a.check_in))[0];
 
   if (!supabase) {
@@ -687,6 +814,16 @@ export default function App() {
                   {openRecord.work_timezone}
                 </p>
                 <p>
+                  Elapsed time:{' '}
+                  <strong>
+                    {getSessionDuration(openRecord, clockNow).elapsed}
+                  </strong>
+                </p>
+                <p style={{ color: '#b7c0d1' }}>
+                  Final worked time and break deduction will be calculated after
+                  checkout.
+                </p>
+                <p>
                   Status: <strong>Not checked out</strong>
                 </p>
 
@@ -701,9 +838,9 @@ export default function App() {
             ) : (
               <>
                 <p>
-                  No dated open attendance session was found. You can start a
-                  new session; the database will prevent a duplicate open
-                  session for the same work date.
+                  No open session was found for the current work date in its
+                  saved timezone. Older open sessions remain in attendance
+                  history and will not be closed automatically.
                 </p>
 
                 <button
@@ -772,69 +909,89 @@ export default function App() {
               <p>No attendance records yet.</p>
             )}
 
-            {attendance.map((item) => (
-              <article
-                key={item.id}
-                style={{
-                  padding: 14,
-                  marginBottom: 10,
-                  border: '1px solid #344054',
-                  borderRadius: 10,
-                }}
-              >
-                <p style={{ margin: '0 0 6px' }}>
-                  Work date: {item.work_date ?? 'Not assigned'}
-                </p>
+            {attendance.map((item) => {
+              const duration = getSessionDuration(item, clockNow);
 
-                <p style={{ margin: '0 0 6px' }}>
-                  Check-in:{' '}
-                  {formatDate(item.check_in, item.work_timezone)}
-                </p>
-
-                <p style={{ margin: '0 0 6px' }}>
-                  Check-out:{' '}
-                  {item.check_out
-                    ? formatDate(item.check_out, item.work_timezone)
-                    : 'Not checked out'}
-                </p>
-
-                <p
+              return (
+                <article
+                  key={item.id}
                   style={{
-                    margin: '0 0 6px',
-                    color: '#b7c0d1',
-                    overflowWrap: 'anywhere',
+                    padding: 14,
+                    marginBottom: 10,
+                    border: '1px solid #344054',
+                    borderRadius: 10,
                   }}
                 >
-                  Timezone: {item.work_timezone ?? 'Not recorded'}
-                </p>
+                  <p style={{ margin: '0 0 6px' }}>
+                    Work date: {item.work_date ?? 'Not assigned'}
+                  </p>
 
-                <p
-                  style={{
-                    margin: '0 0 6px',
-                    color: '#b7c0d1',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  Check-in GPS:{' '}
-                  {item.check_in_lat != null && item.check_in_lng != null
-                    ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
-                    : 'Not recorded'}
-                </p>
+                  <p style={{ margin: '0 0 6px' }}>
+                    Check-in:{' '}
+                    {formatDate(item.check_in, item.work_timezone)}
+                  </p>
 
-                <p
-                  style={{
-                    margin: 0,
-                    color: '#b7c0d1',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  Check-out GPS:{' '}
-                  {item.check_out_lat != null && item.check_out_lng != null
-                    ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
-                    : 'Not recorded'}
-                </p>
-              </article>
-            ))}
+                  <p style={{ margin: '0 0 6px' }}>
+                    Check-out:{' '}
+                    {item.check_out
+                      ? formatDate(item.check_out, item.work_timezone)
+                      : 'Not checked out'}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Elapsed time: {duration.elapsed}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Worked time: {duration.worked}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Break deduction: {duration.breakDeduction}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Status: {duration.status}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: '0 0 6px',
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Timezone: {item.work_timezone ?? 'Not recorded'}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: '0 0 6px',
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Check-in GPS:{' '}
+                    {item.check_in_lat != null && item.check_in_lng != null
+                      ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
+                      : 'Not recorded'}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Check-out GPS:{' '}
+                    {item.check_out_lat != null && item.check_out_lng != null
+                      ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
+                      : 'Not recorded'}
+                  </p>
+                </article>
+              );
+            })}
           </section>
 
           <div
@@ -881,7 +1038,9 @@ export default function App() {
         }}
       >
         Authorized accounts only. Check-in and check-out require browser
-        location permission. Test location does not save coordinates.
+        location permission. Test location does not save coordinates. Active
+        sessions show elapsed time; final worked time deducts one hour from
+        completed sessions.
       </p>
     </main>
   );
