@@ -24,7 +24,10 @@ export default function App() {
     let alive = true;
 
     const detectSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const client = supabase;
+      if (!client) return;
+
+      const { data, error } = await client.auth.getSession();
 
       if (!alive) return;
 
@@ -58,7 +61,7 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    } } = client.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
 
       if (
@@ -138,7 +141,8 @@ export default function App() {
       return;
     }
 
-    setSession(data.session ?? session);
+    const { data: sessionData } = await supabase.auth.getSession();
+    setSession(sessionData.session);
     setPassword('');
     setConfirmPassword('');
     setScreen('signed-in');
