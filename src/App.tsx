@@ -6,73 +6,73 @@ import { supabase } from './lib/supabase';
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 
+function getLinkType(): string | null {
+  const hash = new URLSearchParams(
+    window.location.hash.replace(/^#/, '')
+  );
+  const query = new URLSearchParams(window.location.search);
+
+  return hash.get('type') ?? query.get('type');
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
+  const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [session, setSession] = useState<Session | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+
+    if (!client) {
       setScreen('login');
       return;
     }
 
     let alive = true;
 
-    const detectSession = async () => {
-      const client = supabase;
-      if (!client) return;
-
+    async function loadSession() {
       const { data, error } = await client.auth.getSession();
 
       if (!alive) return;
 
-      if (error) setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+      }
 
       const currentSession = data.session;
       setSession(currentSession);
 
-      const hash = window.location.hash;
-      const params = new URLSearchParams(hash.replace(/^#/, ''));
-      const query = new URLSearchParams(window.location.search);
+      const linkType = getLinkType();
 
-      const recovery =
-        params.get('type') === 'recovery' ||
-        query.get('type') === 'recovery';
-
-      const invite =
-        params.get('type') === 'invite' ||
-        query.get('type') === 'invite';
-
-      if (currentSession && (recovery || invite)) {
+      if (
+        currentSession &&
+        (linkType === 'invite' || linkType === 'recovery')
+      ) {
         setScreen('set-password');
       } else if (currentSession) {
         setScreen('signed-in');
       } else {
         setScreen('login');
       }
-    };
+    }
 
-    void detectSession();
+    void loadSession();
 
     const {
       data: { subscription },
-    } } = client.auth.onAuthStateChange((event, nextSession) => {
+    } = client.auth.onAuthStateChange((event, nextSession) => {
+      if (!alive) return;
+
       setSession(nextSession);
 
       if (
         event === 'PASSWORD_RECOVERY' ||
-        (nextSession &&
-          ['SIGNED_IN', 'INITIAL_SESSION'].includes(event) &&
-          ['invite', 'recovery'].includes(
-            new URLSearchParams(
-              window.location.hash.replace(/^#/, '')
-            ).get('type') ?? ''
-          ))
+        getLinkType() === 'invite' ||
+        getLinkType() === 'recovery'
       ) {
         setScreen('set-password');
       } else if (nextSession) {
@@ -92,32 +92,40 @@ export default function App() {
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase) return;
+
+    const client = supabase;
+    if (!client) return;
 
     setBusy(true);
     setMessage('');
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-    setBusy(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      setSession(data.session);
+      setPassword('');
+      setScreen('signed-in');
+      setMessage('Signed in successfully.');
+    } catch {
+      setMessage('Unable to sign in. Please try again.');
+    } finally {
+      setBusy(false);
     }
-
-    setSession(data.session);
-    setScreen('signed-in');
-    setPassword('');
-    setMessage('Signed in successfully.');
   }
 
   async function handleSetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase) return;
+
+    const client = supabase;
+    if (!client) return;
 
     if (password.length < 8) {
       setMessage('Use a password with at least 8 characters.');
@@ -132,43 +140,72 @@ export default function App() {
     setBusy(true);
     setMessage('');
 
-    const { data, error } = await supabase.auth.updateUser({ password });
+    try {
+      const { error } = await client.auth.updateUser({ password });
 
-    setBusy(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      const { data: sessionData, error: sessionError } =
+        await client.auth.getSession();
+
+      if (sessionError) {
+        setMessage(
+          'Password updated, but session retrieval failed. Please sign in again.'
+        );
+        setScreen('login');
+        return;
+      }
+
+      setSession(sessionData.session);
+      setPassword('');
+      setConfirmPassword('');
+      setScreen(sessionData.session ? 'signed-in' : 'login');
+
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+      setMessage('Password created successfully.');
+    } catch {
+      setMessage('Unable to update the password. Please try again.');
+    } finally {
+      setBusy(false);
     }
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    setSession(sessionData.session);
-    setPassword('');
-    setConfirmPassword('');
-    setScreen('signed-in');
-    window.history.replaceState(
-      {},
-      document.title,
-      window.location.pathname
-    );
-    setMessage('Password created successfully.');
   }
 
   async function handleLogout() {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
 
     setBusy(true);
-    const { error } = await supabase.auth.signOut();
-    setBusy(false);
+    setMessage('');
 
-    setMessage(error ? error.message : 'You have signed out.');
-    if (!error) {
+    try {
+      const { error } = await client.auth.signOut();
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
       setSession(null);
+      setPassword('');
+      setConfirmPassword('');
       setScreen('login');
+      setMessage('You have signed out.');
+    } catch {
+      setMessage('Unable to sign out. Please try again.');
+    } finally {
+      setBusy(false);
     }
   }
 
-  const page: React.CSSProperties = {
+  const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
@@ -180,7 +217,7 @@ export default function App() {
     fontFamily: 'system-ui, sans-serif',
   };
 
-  const panel: React.CSSProperties = {
+  const panelStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: 430,
     padding: 28,
@@ -190,7 +227,7 @@ export default function App() {
     background: '#1a2232',
   };
 
-  const field: React.CSSProperties = {
+  const inputStyle: React.CSSProperties = {
     display: 'block',
     width: '100%',
     boxSizing: 'border-box',
@@ -203,8 +240,8 @@ export default function App() {
     fontSize: 16,
   };
 
-  const primary: React.CSSProperties = {
-    ...field,
+  const buttonStyle: React.CSSProperties = {
+    ...inputStyle,
     marginTop: 20,
     border: 0,
     background: '#315ee7',
@@ -214,24 +251,27 @@ export default function App() {
 
   if (!supabase) {
     return (
-      <main style={page}>
-        <section style={panel}>
+      <main style={pageStyle}>
+        <section style={panelStyle}>
           <h1>Attendance CRM</h1>
           <p>Supabase is not configured.</p>
-          <p>Check the GitHub Actions secrets for the Supabase URL and publishable key.</p>
+          <p>
+            Check the VITE_SUPABASE_URL and
+            VITE_SUPABASE_PUBLISHABLE_KEY GitHub Actions secrets.
+          </p>
         </section>
       </main>
     );
   }
 
   return (
-    <main style={page}>
-      <section style={panel}>
+    <main style={pageStyle}>
+      <section style={panelStyle}>
         <p style={{ color: '#82b4ff', fontWeight: 700 }}>
           ATTENDANCE CRM
         </p>
 
-        {screen === 'loading' && <p>Checking your session…</p>}
+        {screen === 'loading' && <p>Checking your session...</p>}
 
         {screen === 'login' && (
           <>
@@ -241,18 +281,21 @@ export default function App() {
             </p>
 
             <form onSubmit={handleLogin}>
-              <label htmlFor="email">Work email</label>
+              <label htmlFor="email">Email address</label>
               <input
                 id="email"
                 type="email"
                 autoComplete="username"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={field}
+                onChange={(event) => setEmail(event.target.value)}
+                style={inputStyle}
               />
 
-              <label htmlFor="password" style={{ display: 'block', marginTop: 18 }}>
+              <label
+                htmlFor="password"
+                style={{ display: 'block', marginTop: 18 }}
+              >
                 Password
               </label>
               <input
@@ -261,12 +304,16 @@ export default function App() {
                 autoComplete="current-password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={field}
+                onChange={(event) => setPassword(event.target.value)}
+                style={inputStyle}
               />
 
-              <button type="submit" disabled={busy} style={primary}>
-                {busy ? 'Signing in…' : 'Sign in'}
+              <button
+                type="submit"
+                disabled={busy}
+                style={buttonStyle}
+              >
+                {busy ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
           </>
@@ -276,7 +323,7 @@ export default function App() {
           <>
             <h1>Create your password</h1>
             <p style={{ color: '#b7c0d1' }}>
-              Choose a password for your account. Use at least 8 characters.
+              Choose a password with at least 8 characters.
             </p>
 
             <form onSubmit={handleSetPassword}>
@@ -288,11 +335,14 @@ export default function App() {
                 minLength={8}
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={field}
+                onChange={(event) => setPassword(event.target.value)}
+                style={inputStyle}
               />
 
-              <label htmlFor="confirm-password" style={{ display: 'block', marginTop: 18 }}>
+              <label
+                htmlFor="confirm-password"
+                style={{ display: 'block', marginTop: 18 }}
+              >
                 Confirm password
               </label>
               <input
@@ -302,12 +352,18 @@ export default function App() {
                 minLength={8}
                 required
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                style={field}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
+                style={inputStyle}
               />
 
-              <button type="submit" disabled={busy} style={primary}>
-                {busy ? 'Saving password…' : 'Create password'}
+              <button
+                type="submit"
+                disabled={busy}
+                style={buttonStyle}
+              >
+                {busy ? 'Saving password...' : 'Create password'}
               </button>
             </form>
           </>
@@ -315,19 +371,21 @@ export default function App() {
 
         {screen === 'signed-in' && (
           <>
-            <h1>You’re signed in</h1>
+            <h1>You're signed in</h1>
             <p>Account: {session?.user.email ?? 'Authenticated user'}</p>
             <p style={{ color: '#b7c0d1' }}>
-              Authentication is connected. Role checks, OTP, Telegram verification,
-              and attendance features are not enabled in this screen yet.
+              Basic authentication is connected. Role enforcement,
+              email OTP, Telegram verification, and attendance features
+              are not yet enabled in this screen.
             </p>
+
             <button
               type="button"
               disabled={busy}
               onClick={handleLogout}
-              style={primary}
+              style={buttonStyle}
             >
-              {busy ? 'Signing out…' : 'Sign out'}
+              {busy ? 'Signing out...' : 'Sign out'}
             </button>
           </>
         )}
