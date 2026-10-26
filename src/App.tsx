@@ -35,6 +35,8 @@ export default function App() {
     let alive = true;
 
     async function loadSession() {
+      if (!client) return;
+
       const { data, error } = await client.auth.getSession();
 
       if (!alive) return;
