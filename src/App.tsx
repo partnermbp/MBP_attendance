@@ -80,10 +80,6 @@ function getLocalDate(timezone: string, instant = new Date()): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-function getElapsedMilliseconds(start: string, end: string) {
-  return Math.max(0, new Date(end).getTime() - new Date(start).getTime());
-}
-
 function formatDuration(milliseconds: number) {
   const totalMinutes = Math.floor(milliseconds / 60000);
   const hours = Math.floor(totalMinutes / 60);
