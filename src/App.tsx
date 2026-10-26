@@ -12,6 +12,8 @@ type Attendance = {
   check_in_lng: number | null;
   check_out_lat: number | null;
   check_out_lng: number | null;
+  work_date: string | null;
+  work_timezone: string | null;
 };
 
 type Shift = {
