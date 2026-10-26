@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -13,23 +13,21 @@ function readPasswordFlow(): PasswordFlow {
   );
   const query = new URLSearchParams(window.location.search);
 
-  const errorCode = hash.get('error_code') ?? query.get('error_code');
+  const errorCode =
+    hash.get('error_code') ?? query.get('error_code');
+
   if (errorCode) return null;
 
   const type = hash.get('type') ?? query.get('type');
 
-  if (type === 'invite' || type === 'recovery') {
-    return type;
-  }
-
-  return null;
+  return type === 'invite' || type === 'recovery' ? type : null;
 }
 
 export default function App() {
+  const initialFlow = useRef<PasswordFlow>(readPasswordFlow());
+
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
-  const [passwordFlow, setPasswordFlow] =
-    useState<PasswordFlow>(readPasswordFlow);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -46,25 +44,33 @@ export default function App() {
 
     let alive = true;
 
-    const initialFlow = readPasswordFlow();
-    if (initialFlow) {
-      setPasswordFlow(initialFlow);
+    function applySession(nextSession: Session | null) {
+      if (!alive) return;
+
+      setSession(nextSession);
+
+      if (nextSession?.user.email) {
+        setEmail(nextSession.user.email);
+      }
+
+      if (
+        nextSession &&
+        (initialFlow.current === 'invite' ||
+          initialFlow.current === 'recovery')
+      ) {
+        setScreen('set-password');
+      } else if (nextSession) {
+        setScreen('signed-in');
+      } else {
+        setScreen('login');
+      }
     }
 
     client.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
 
       if (error) setMessage(error.message);
-
-      setSession(data.session);
-
-      if (data.session && (initialFlow || passwordFlow)) {
-        setScreen('set-password');
-      } else if (data.session) {
-        setScreen('signed-in');
-      } else {
-        setScreen('login');
-      }
+      applySession(data.session);
     });
 
     const {
@@ -72,37 +78,41 @@ export default function App() {
     } = client.auth.onAuthStateChange((event, nextSession) => {
       if (!alive) return;
 
-      setSession(nextSession);
-
       if (event === 'PASSWORD_RECOVERY') {
-        setPasswordFlow('recovery');
-        setScreen(nextSession ? 'set-password' : 'login');
-      } else if (nextSession && (initialFlow || passwordFlow)) {
-        setScreen('set-password');
-      } else if (nextSession) {
-        setScreen('signed-in');
-      } else {
-        setScreen('login');
+        initialFlow.current = 'recovery';
       }
+
+      if (
+        event === 'SIGNED_IN' &&
+        initialFlow.current === 'invite'
+      ) {
+        setSession(nextSession);
+        if (nextSession?.user.email) {
+          setEmail(nextSession.user.email);
+        }
+        setScreen('set-password');
+        return;
+      }
+
+      applySession(nextSession);
     });
 
     return () => {
       alive = false;
       subscription.unsubscribe();
     };
-  }, [passwordFlow]);
+  }, []);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     setBusy(true);
     setMessage('');
 
     try {
-      const { data, error } = await client.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
@@ -114,6 +124,7 @@ export default function App() {
 
       setSession(data.session);
       setPassword('');
+      initialFlow.current = null;
       setScreen('signed-in');
       setMessage('Signed in successfully.');
     } catch {
@@ -123,11 +134,12 @@ export default function App() {
     }
   }
 
-  async function handleSetPassword(event: FormEvent<HTMLFormElement>) {
+  async function handleSetPassword(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     if (password.length < 8) {
       setMessage('Use a password with at least 8 characters.');
@@ -143,18 +155,45 @@ export default function App() {
     setMessage('');
 
     try {
-      const { error } = await client.auth.updateUser({ password });
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+
+      if (userError || !userData.user) {
+        setMessage(
+          'Your invitation session is invalid or expired. Please ask the administrator for a new invitation.'
+        );
+        return;
+      }
+
+      const invitedEmail = userData.user.email ?? email;
+
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
 
       if (error) {
         setMessage(error.message);
         return;
       }
 
-      const { data, error: sessionError } = await client.auth.getSession();
-
+      setEmail(invitedEmail);
       setPassword('');
       setConfirmPassword('');
-      setPasswordFlow(null);
+      setSession(null);
+      initialFlow.current = null;
+
+      // End the invitation session so the user signs in
+      // explicitly with the password they just created.
+      const { error: signOutError } =
+        await supabase.auth.signOut();
+
+      if (signOutError) {
+        setMessage(
+          'Password saved, but automatic sign-out failed. Please sign out and then log in with your new password.'
+        );
+        setScreen('signed-in');
+        return;
+      }
 
       window.history.replaceState(
         {},
@@ -162,33 +201,25 @@ export default function App() {
         window.location.pathname
       );
 
-      if (sessionError || !data.session) {
-        setSession(null);
-        setScreen('login');
-        setMessage(
-          'Password saved. Please sign in using your new password.'
-        );
-      } else {
-        setSession(data.session);
-        setScreen('signed-in');
-        setMessage('Password created successfully.');
-      }
+      setScreen('login');
+      setMessage(
+        'Password created successfully. Please sign in with your new password.'
+      );
     } catch {
-      setMessage('Unable to update the password. Please try again.');
+      setMessage('Unable to save the password. Please try again.');
     } finally {
       setBusy(false);
     }
   }
 
   async function handleLogout() {
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
 
     setBusy(true);
     setMessage('');
 
     try {
-      const { error } = await client.auth.signOut();
+      const { error } = await supabase.auth.signOut();
 
       if (error) {
         setMessage(error.message);
@@ -198,7 +229,7 @@ export default function App() {
       setSession(null);
       setPassword('');
       setConfirmPassword('');
-      setPasswordFlow(null);
+      initialFlow.current = null;
       setScreen('login');
       setMessage('You have signed out.');
     } catch {
@@ -274,7 +305,9 @@ export default function App() {
           ATTENDANCE CRM
         </p>
 
-        {screen === 'loading' && <p>Checking your session...</p>}
+        {screen === 'loading' && (
+          <p>Checking your session...</p>
+        )}
 
         {screen === 'login' && (
           <>
@@ -311,7 +344,11 @@ export default function App() {
                 style={inputStyle}
               />
 
-              <button type="submit" disabled={busy} style={buttonStyle}>
+              <button
+                type="submit"
+                disabled={busy}
+                style={buttonStyle}
+              >
                 {busy ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
@@ -322,11 +359,29 @@ export default function App() {
           <>
             <h1>Create your password</h1>
             <p style={{ color: '#b7c0d1' }}>
-              Choose a password with at least 8 characters.
+              Create a password for your invited account.
             </p>
 
             <form onSubmit={handleSetPassword}>
-              <label htmlFor="new-password">New password</label>
+              <label htmlFor="invited-email">Invited email</label>
+              <input
+                id="invited-email"
+                type="email"
+                value={email}
+                readOnly
+                style={{
+                  ...inputStyle,
+                  opacity: 0.8,
+                  cursor: 'not-allowed',
+                }}
+              />
+
+              <label
+                htmlFor="new-password"
+                style={{ display: 'block', marginTop: 18 }}
+              >
+                New password
+              </label>
               <input
                 id="new-password"
                 type="password"
@@ -357,7 +412,11 @@ export default function App() {
                 style={inputStyle}
               />
 
-              <button type="submit" disabled={busy} style={buttonStyle}>
+              <button
+                type="submit"
+                disabled={busy}
+                style={buttonStyle}
+              >
                 {busy ? 'Saving password...' : 'Create password'}
               </button>
             </form>
@@ -367,11 +426,13 @@ export default function App() {
         {screen === 'signed-in' && (
           <>
             <h1>You're signed in</h1>
-            <p>Account: {session?.user.email ?? 'Authenticated user'}</p>
+            <p>
+              Account: {session?.user.email ?? 'Authenticated user'}
+            </p>
             <p style={{ color: '#b7c0d1' }}>
-              Basic authentication is connected. Email OTP, Telegram
-              verification, role enforcement, and attendance features
-              are not yet enabled.
+              Basic authentication is connected. Email OTP,
+              Telegram verification, role enforcement, and
+              attendance features are not yet enabled.
             </p>
 
             <button
@@ -386,7 +447,10 @@ export default function App() {
         )}
 
         {message && (
-          <p role="status" style={{ overflowWrap: 'anywhere' }}>
+          <p
+            role="status"
+            style={{ overflowWrap: 'anywhere' }}
+          >
             {message}
           </p>
         )}
