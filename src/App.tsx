@@ -24,9 +24,7 @@ type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
 function readPasswordFlow(): PasswordFlow {
-  const hash = new URLSearchParams(
-    window.location.hash.replace(/^#/, '')
-  );
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(window.location.search);
 
   if (hash.get('error_code') ?? query.get('error_code')) return null;
@@ -47,20 +45,41 @@ function getLocation(): Promise<{ latitude: number; longitude: number }> {
     }
 
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
+      ({ coords }) => {
+        if (
+          !Number.isFinite(coords.latitude) ||
+          !Number.isFinite(coords.longitude)
+        ) {
+          reject(new Error('The browser returned invalid coordinates.'));
+          return;
+        }
+
         resolve({
           latitude: coords.latitude,
           longitude: coords.longitude,
-        }),
-      () => reject(new Error('Location permission was not granted.')),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error('Location permission was denied.'));
+        } else if (error.code === error.TIMEOUT) {
+          reject(new Error('Location request timed out. Please try again.'));
+        } else {
+          reject(new Error('Your current location is unavailable.'));
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      }
     );
   });
 }
 
 export default function App() {
-  const [initialFlow] = useState<PasswordFlow>(readPasswordFlow);
-  const [passwordFlow, setPasswordFlow] = useState<PasswordFlow>(initialFlow);
+  const [passwordFlow, setPasswordFlow] =
+    useState<PasswordFlow>(readPasswordFlow);
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
@@ -71,7 +90,6 @@ export default function App() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
-  const [locationNote, setLocationNote] = useState('');
   const [locationTest, setLocationTest] = useState('');
 
   const loadDashboard = useCallback(async (userId: string) => {
@@ -79,38 +97,42 @@ export default function App() {
 
     setLoadingDashboard(true);
 
-    const [attendanceResult, shiftsResult] = await Promise.all([
-      supabase
-        .from('attendance')
-        .select(
-          'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng'
-        )
-        .eq('employee_id', userId)
-        .order('check_in', { ascending: false })
-        .limit(20),
-      supabase
-        .from('shifts')
-        .select('id, starts_at, ends_at')
-        .eq('employee_id', userId)
-        .order('starts_at', { ascending: true })
-        .limit(20),
-    ]);
+    try {
+      const [attendanceResult, shiftsResult] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select(
+            'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng'
+          )
+          .eq('employee_id', userId)
+          .order('check_in', { ascending: false })
+          .limit(20),
+        supabase
+          .from('shifts')
+          .select('id, starts_at, ends_at')
+          .eq('employee_id', userId)
+          .order('starts_at', { ascending: true })
+          .limit(20),
+      ]);
 
-    if (attendanceResult.error) {
-      setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
-    } else {
-      setAttendance((attendanceResult.data ?? []) as Attendance[]);
+      if (attendanceResult.error) {
+        setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
+      } else {
+        setAttendance((attendanceResult.data ?? []) as Attendance[]);
+      }
+
+      if (shiftsResult.error) {
+        setMessage((current) =>
+          current || `Could not load shifts: ${shiftsResult.error.message}`
+        );
+      } else {
+        setShifts((shiftsResult.data ?? []) as Shift[]);
+      }
+    } catch {
+      setMessage('Unable to load dashboard data. Please refresh.');
+    } finally {
+      setLoadingDashboard(false);
     }
-
-    if (shiftsResult.error) {
-      setMessage((current) =>
-        current || `Could not load shifts: ${shiftsResult.error.message}`
-      );
-    } else {
-      setShifts((shiftsResult.data ?? []) as Shift[]);
-    }
-
-    setLoadingDashboard(false);
   }, []);
 
   useEffect(() => {
@@ -153,8 +175,8 @@ export default function App() {
 
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordFlow('recovery');
-        setScreen('set-password');
         setSession(nextSession);
+        setScreen('set-password');
         return;
       }
 
@@ -195,8 +217,9 @@ export default function App() {
         password,
       });
 
-      if (error) setMessage(error.message);
-      else {
+      if (error) {
+        setMessage(error.message);
+      } else {
         setPassword('');
         setPasswordFlow(null);
         setMessage('Signed in successfully.');
@@ -229,7 +252,9 @@ export default function App() {
       const { data, error: userError } = await supabase.auth.getUser();
 
       if (userError || !data.user) {
-        setMessage('Your invitation session has expired. Ask the administrator for a new invitation.');
+        setMessage(
+          'Your invitation session has expired. Ask the administrator for a new invitation.'
+        );
         return;
       }
 
@@ -248,7 +273,9 @@ export default function App() {
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
-        setMessage('Password saved. Please sign out and then log in with your new password.');
+        setMessage(
+          'Password saved. Please sign out and log in with your new password.'
+        );
         return;
       }
 
@@ -262,19 +289,17 @@ export default function App() {
     }
   }
 
-  
   async function handleTestLocation() {
-    setLocationTest('Requesting location permission...');
+    setLocationTest('Requesting current location…');
+
     try {
       const coords = await getLocation();
       setLocationTest(
-        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, Longitude: ${coords.longitude.toFixed(5)}. Not saved.`
+        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, longitude: ${coords.longitude.toFixed(5)}. Not saved.`
       );
     } catch (error) {
       setLocationTest(
-        error instanceof Error
-          ? error.message
-          : 'Could not retrieve location.'
+        error instanceof Error ? error.message : 'Could not retrieve location.'
       );
     }
   }
@@ -284,7 +309,7 @@ export default function App() {
 
     setBusy(true);
     setMessage('');
-    setLocationNote('');
+    setLocationTest('');
 
     try {
       const openRecord = attendance.find((item) => !item.check_out);
@@ -294,37 +319,34 @@ export default function App() {
         return;
       }
 
-      let coords: { latitude: number; longitude: number } | null = null;
+      let coords: { latitude: number; longitude: number };
 
       try {
         coords = await getLocation();
-      } catch {
-        setLocationNote('Location was unavailable. Check-in will be attempted without coordinates.');
+      } catch (error) {
+        setMessage(
+          `Check-in blocked: GPS location is required. ${
+            error instanceof Error
+              ? error.message
+              : 'Location could not be retrieved.'
+          } Allow location access and try again.`
+        );
+        return;
       }
 
-      const payload: {
-        employee_id: string;
-        check_in: string;
-        check_in_lat?: number;
-        check_in_lng?: number;
-      } = {
+      const { error } = await supabase.from('attendance').insert({
         employee_id: session.user.id,
         check_in: new Date().toISOString(),
-      };
-
-      if (coords) {
-        payload.check_in_lat = coords.latitude;
-        payload.check_in_lng = coords.longitude;
-      }
-
-      const { error } = await supabase.from('attendance').insert(payload);
+        check_in_lat: coords.latitude,
+        check_in_lng: coords.longitude,
+      });
 
       if (error) {
         setMessage(`Check-in failed: ${error.message}`);
         return;
       }
 
-      setMessage('Check-in recorded successfully.');
+      setMessage('Check-in recorded successfully with GPS coordinates.');
       await loadDashboard(session.user.id);
     } catch {
       setMessage('Unable to check in. Please try again.');
@@ -338,7 +360,6 @@ export default function App() {
 
     setBusy(true);
     setMessage('');
-    setLocationNote('');
 
     try {
       const { error } = await supabase.rpc('check_out_now');
@@ -431,7 +452,7 @@ export default function App() {
   if (!supabase) {
     return (
       <main style={pageStyle}>
-        <section style={panelStyle}>
+        <section style={{ ...panelStyle, maxWidth: 430 }}>
           <h1>Attendance CRM</h1>
           <p>Supabase is not configured. Check the GitHub Actions secrets.</p>
         </section>
@@ -446,7 +467,7 @@ export default function App() {
       </header>
 
       {screen === 'loading' && (
-        <section style={panelStyle}>Checking your session...</section>
+        <section style={panelStyle}>Checking your session…</section>
       )}
 
       {screen === 'login' && (
@@ -464,6 +485,7 @@ export default function App() {
               onChange={(event) => setEmail(event.target.value)}
               style={inputStyle}
             />
+
             <label htmlFor="login-password" style={{ display: 'block', marginTop: 18 }}>
               Password
             </label>
@@ -476,8 +498,13 @@ export default function App() {
               onChange={(event) => setPassword(event.target.value)}
               style={inputStyle}
             />
-            <button type="submit" disabled={busy} style={{ ...buttonStyle, width: '100%', marginTop: 20 }}>
-              {busy ? 'Signing in...' : 'Sign in'}
+
+            <button
+              type="submit"
+              disabled={busy}
+              style={{ ...buttonStyle, width: '100%', marginTop: 20 }}
+            >
+              {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </section>
@@ -490,7 +517,10 @@ export default function App() {
           <form onSubmit={handleSetPassword}>
             <label htmlFor="invited-email">Invited email</label>
             <input id="invited-email" type="email" value={email} readOnly style={inputStyle} />
-            <label htmlFor="new-password" style={{ display: 'block', marginTop: 18 }}>New password</label>
+
+            <label htmlFor="new-password" style={{ display: 'block', marginTop: 18 }}>
+              New password
+            </label>
             <input
               id="new-password"
               type="password"
@@ -501,7 +531,10 @@ export default function App() {
               onChange={(event) => setPassword(event.target.value)}
               style={inputStyle}
             />
-            <label htmlFor="confirm-password" style={{ display: 'block', marginTop: 18 }}>Confirm password</label>
+
+            <label htmlFor="confirm-password" style={{ display: 'block', marginTop: 18 }}>
+              Confirm password
+            </label>
             <input
               id="confirm-password"
               type="password"
@@ -512,8 +545,13 @@ export default function App() {
               onChange={(event) => setConfirmPassword(event.target.value)}
               style={inputStyle}
             />
-            <button type="submit" disabled={busy} style={{ ...buttonStyle, width: '100%', marginTop: 20 }}>
-              {busy ? 'Saving password...' : 'Create password'}
+
+            <button
+              type="submit"
+              disabled={busy}
+              style={{ ...buttonStyle, width: '100%', marginTop: 20 }}
+            >
+              {busy ? 'Saving password…' : 'Create password'}
             </button>
           </form>
         </section>
@@ -526,7 +564,7 @@ export default function App() {
             Signed in as {session.user.email}
           </p>
 
-          <div style={{
+          <section style={{
             padding: 18,
             margin: '20px 0',
             borderRadius: 12,
@@ -535,94 +573,130 @@ export default function App() {
             <h2 style={{ marginTop: 0 }}>Today's attendance</h2>
             {(() => {
               const openRecord = attendance.find((item) => !item.check_out);
+
               return (
                 <>
-                  <p>{openRecord ? `Checked in at ${formatDate(openRecord.check_in)}` : 'You are currently checked out.'}</p>
+                  <p>
+                    {openRecord
+                      ? `Checked in at ${formatDate(openRecord.check_in)}`
+                      : 'You are currently checked out.'}
+                  </p>
+
                   {openRecord ? (
-                    <button disabled={busy} onClick={handleCheckOut} style={buttonStyle}>
-                      {busy ? 'Please wait...' : 'Check out'}
+                    <button
+                      disabled={busy}
+                      onClick={handleCheckOut}
+                      style={buttonStyle}
+                    >
+                      {busy ? 'Please wait…' : 'Check out'}
                     </button>
                   ) : (
-                    <button disabled={busy || loadingDashboard} onClick={handleCheckIn} style={buttonStyle}>
-                      {busy ? 'Please wait...' : 'Check in'}
+                    <button
+                      disabled={busy || loadingDashboard}
+                      onClick={handleCheckIn}
+                      style={buttonStyle}
+                    >
+                      {busy ? 'Getting location…' : 'Check in'}
                     </button>
                   )}
                 </>
               );
             })()}
-            {locationNote && <p style={{ color: '#f4c76b' }}>{locationNote}</p>}
-            <button
-              type="button"
-              onClick={handleTestLocation}
-              disabled={busy}
-              style={{ ...buttonStyle, marginTop: 12 }}
-            >
-              Test location
-            </button>
-            {locationTest && (
-              <p role="status" style={{ overflowWrap: 'anywhere' }}>
-                {locationTest}
-              </p>
-            )}
-          </div>
 
-          <div style={{ marginTop: 28 }}>
+            <div style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={handleTestLocation}
+                disabled={busy}
+                style={{ ...buttonStyle, background: '#475467' }}
+              >
+                Test location
+              </button>
+              {locationTest && (
+                <p role="status" style={{ overflowWrap: 'anywhere' }}>
+                  {locationTest}
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
-            {loadingDashboard && <p>Loading shifts...</p>}
-            {!loadingDashboard && shifts.length === 0 && <p>No shifts are scheduled for this account yet.</p>}
+            {loadingDashboard && <p>Loading shifts…</p>}
+            {!loadingDashboard && shifts.length === 0 && (
+              <p>No shifts are scheduled for this account yet.</p>
+            )}
             {shifts.map((shift) => (
-              <article key={shift.id} style={{
-                padding: 14,
-                marginBottom: 10,
-                border: '1px solid #344054',
-                borderRadius: 10,
-              }}>
+              <article
+                key={shift.id}
+                style={{
+                  padding: 14,
+                  marginBottom: 10,
+                  border: '1px solid #344054',
+                  borderRadius: 10,
+                }}
+              >
                 <p style={{ margin: '0 0 6px' }}>Start: {formatDate(shift.starts_at)}</p>
                 <p style={{ margin: 0 }}>End: {formatDate(shift.ends_at)}</p>
               </article>
             ))}
-          </div>
+          </section>
 
-          <div style={{ marginTop: 28 }}>
+          <section style={{ marginTop: 28 }}>
             <h2>Recent attendance</h2>
-            {loadingDashboard && <p>Loading attendance...</p>}
-            {!loadingDashboard && attendance.length === 0 && <p>No attendance records yet.</p>}
+            {loadingDashboard && <p>Loading attendance…</p>}
+            {!loadingDashboard && attendance.length === 0 && (
+              <p>No attendance records yet.</p>
+            )}
             {attendance.map((item) => (
-              <article key={item.id} style={{
-                padding: 14,
-                marginBottom: 10,
-                border: '1px solid #344054',
-                borderRadius: 10,
-              }}>
+              <article
+                key={item.id}
+                style={{
+                  padding: 14,
+                  marginBottom: 10,
+                  border: '1px solid #344054',
+                  borderRadius: 10,
+                }}
+              >
                 <p style={{ margin: '0 0 6px' }}>Check-in: {formatDate(item.check_in)}</p>
-                <p style={{ margin: 0 }}>Check-out: {item.check_out ? formatDate(item.check_out) : 'Not checked out'}</p>
+                <p style={{ margin: '0 0 6px' }}>
+                  Check-out: {item.check_out ? formatDate(item.check_out) : 'Not checked out'}
+                </p>
+                <p style={{ margin: 0, color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                  Check-in GPS: {item.check_in_lat != null && item.check_in_lng != null
+                    ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
+                    : 'Not recorded'}
+                </p>
               </article>
             ))}
-          </div>
+          </section>
 
           <div style={{ marginTop: 28, borderTop: '1px solid #344054', paddingTop: 20 }}>
             <button type="button" disabled={busy} onClick={handleLogout} style={buttonStyle}>
-              {busy ? 'Please wait...' : 'Sign out'}
+              {busy ? 'Please wait…' : 'Sign out'}
             </button>
           </div>
         </section>
       )}
 
       {message && (
-        <p role="status" style={{
-          maxWidth: 760,
-          margin: '12px auto',
-          padding: 12,
-          borderRadius: 8,
-          background: '#202b3e',
-          overflowWrap: 'anywhere',
-        }}>
+        <p
+          role="status"
+          style={{
+            maxWidth: 760,
+            margin: '12px auto',
+            padding: 12,
+            borderRadius: 8,
+            background: '#202b3e',
+            overflowWrap: 'anywhere',
+          }}
+        >
           {message}
         </p>
       )}
 
       <p style={{ maxWidth: 760, margin: '20px auto', color: '#98a2b3', fontSize: 13 }}>
-        Authorized accounts only. Location is requested for check-in and is not continuously tracked by this version.
+        Authorized accounts only. Check-in requires browser location permission. The test button does not save location.
       </p>
     </main>
   );
