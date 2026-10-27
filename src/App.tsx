@@ -1374,7 +1374,7 @@ export default function App() {
             )}
 
             {isAdmin && (() => {
-              const today = getLocalDate(null);
+              const today = getLocalDate(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
               const defaultStart = new Date(`${today}T12:00:00`);
               defaultStart.setDate(defaultStart.getDate() - 6);
               const startKey = reportStartDate || `${defaultStart.getFullYear()}-${String(defaultStart.getMonth()+1).padStart(2,'0')}-${String(defaultStart.getDate()).padStart(2,'0')}`;
