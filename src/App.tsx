@@ -34,6 +34,7 @@ type Profile = {
 };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
+type CrmPage = 'dashboard' | 'attendance' | 'team' | 'telegram';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
 type Coordinates = {
@@ -232,7 +233,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
-  const [navOpen, setNavOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(true);
+  const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -1072,10 +1074,18 @@ export default function App() {
       )}
 
       {screen === 'signed-in' && session && (
-        <section style={panelStyle}>
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}><button type="button" aria-label="Toggle CRM navigation" onClick={() => setNavOpen(v => !v)} style={{ display:'grid', placeItems:'center', width:42, height:42, borderRadius:10, border:'1px solid #475467', background:'#202b3e', color:'#fff', cursor:'pointer' }}>{navOpen ? <X size={21}/> : <Menu size={21}/>}</button><span style={{ color:'#b7c0d1', fontSize:13 }}>CRM navigation</span></div>
-          {navOpen && <><button aria-label="Close navigation backdrop" onClick={() => setNavOpen(false)} style={{ position:'fixed', inset:0, zIndex:30, border:0, background:'#0008' }}/><aside style={{ position:'fixed', zIndex:31, inset:'0 auto 0 0', width:'min(290px,85vw)', padding:22, background:'#151e30', color:'#dce4f2', boxShadow:'8px 0 30px #0005' }}><div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}><strong style={{color:'#fff'}}>Mostbet Partner CRM</strong><button onClick={() => setNavOpen(false)} aria-label="Close menu" style={{background:'transparent',border:0,color:'#fff'}}><X/></button></div>{[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'crm-dashboard'},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance-records'},{label:'Team management',icon:<Users size={18}/>,id:'team-management'},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram-analytics'}].map(item=><button key={item.id} onClick={()=>{document.getElementById(item.id)?.scrollIntoView({behavior:'smooth',block:'start'});setNavOpen(false)}} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'13px 12px',marginBottom:6,textAlign:'left',border:0,borderRadius:9,background:'transparent',color:'#dce4f2',cursor:'pointer'}}>{item.icon}{item.label}</button>)}</aside></>}
-          <div id="crm-dashboard" />
+        <div style={{display:'grid',gridTemplateColumns:navOpen?'250px minmax(0,1fr)':'64px minmax(0,1fr)',gap:18,alignItems:'start',width:'100%',maxWidth:1600,margin:'0 auto'}}>
+          <aside style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151e30',border:'1px solid #344054',borderRadius:14,color:'#dce4f2'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#202b3e',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
+            <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#344054':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&item.label}</button>)}
+            </nav>
+            {navOpen&&<div style={{marginTop:30,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
+          </aside>
+          <main style={{minWidth:0}}>
+          <section style={panelStyle}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management',telegram:'Telegram chats & analytics'}[activePage]}</strong></div>
+          {activePage === 'dashboard' && <>
           <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
             style={{
@@ -1227,7 +1237,9 @@ export default function App() {
             </p>
           </section>}
 
-          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && <div id="team-management"><div id="telegram-analytics"><ManagementTools supabase={supabase} profile={profile} profiles={profiles} /></div></div>}
+          </>}
+          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
+          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
@@ -1258,6 +1270,7 @@ export default function App() {
             ))}
           </section>}
 
+          {activePage === 'attendance' && <>
           <section style={{ marginTop: 28 }}>
             <h2>{isAdmin ? 'Team attendance report' : 'Attendance report'}</h2>
             <p style={{ color: '#b7c0d1' }}>
@@ -1475,7 +1488,10 @@ export default function App() {
               {busy ? 'Please wait…' : 'Sign out'}
             </button>
           </div>
+          </>}
         </section>
+          </main>
+        </div>
       )}
 
       {mapPreview && <div role="dialog" aria-modal="true" aria-label={mapPreview.title} onClick={() => setMapPreview(null)} style={{position:'fixed',inset:0,zIndex:100,display:'grid',placeItems:'center',padding:18,background:'#0009'}}><section onClick={e=>e.stopPropagation()} style={{width:'min(760px,100%)',background:'#151e30',color:'#f8fafc',border:'1px solid #475467',borderRadius:14,overflow:'hidden',boxShadow:'0 20px 70px #0008'}}><header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px'}}><strong>{mapPreview.title}</strong><button type="button" onClick={()=>setMapPreview(null)} aria-label="Close map" style={{background:'transparent',border:0,color:'#fff',cursor:'pointer'}}><X/></button></header><iframe title={mapPreview.title} src={`https://www.openstreetmap.org/export/embed.html?marker=${mapPreview.latitude}%2C${mapPreview.longitude}&zoom=16`} style={{width:'100%',height:420,border:0,display:'block'}} loading="lazy"/><p style={{margin:0,padding:'10px 18px',color:'#b7c0d1',fontSize:12}}>Coordinates: {mapPreview.latitude.toFixed(5)}, {mapPreview.longitude.toFixed(5)}</p></section></div>}
