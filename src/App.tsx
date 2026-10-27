@@ -442,6 +442,175 @@ export default function App() {
     }
   }
 
+  async function handleCreateTelegramLink() {
+    if (!supabase || !session) {
+      setMessage('Please sign in before linking Telegram.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('');
+    setTelegramLinkUrl('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-auth', {
+        body: { action: 'create_link_token' },
+      });
+
+      if (error) {
+        let details = error.message || 'The request failed.';
+        try {
+          const responseText = await error.context?.text?.();
+          if (responseText) {
+            const parsed = JSON.parse(responseText);
+            if (typeof parsed?.error === 'string') details = parsed.error;
+          }
+        } catch {
+          // Keep the original function error message.
+        }
+        setMessage(`Could not create a Telegram linking link: ${details}`);
+        return;
+      }
+
+      if (data?.ok !== true || typeof data?.bot_url !== 'string') {
+        setMessage(
+          typeof data?.error === 'string'
+            ? data.error
+            : 'The server did not return a valid Telegram linking link.',
+        );
+        return;
+      }
+
+      setTelegramLinkUrl(data.bot_url);
+      setMessage(
+        'Your Telegram linking link is ready. Open it in Telegram within 10 minutes. This link can be used only once.',
+      );
+    } catch (error) {
+      setMessage(`Unable to request a Telegram link: ${getErrorMessage(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleTestLocation() {
+    setLocationTest('Requesting current location…');
+
+    try {
+      const coords = await getLocation();
+
+      setLocationTest(
+        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, longitude: ${coords.longitude.toFixed(5)}. Not saved.`
+      );
+    } catch (error) {
+      setLocationTest(getErrorMessage(error));
+    }
+  }
+
+  async function handleCheckIn() {
+    if (!supabase || !session) return;
+
+    setBusy(true);
+    setMessage('');
+    setLocationTest('');
+
+    try {
+      let coords: Coordinates;
+
+      try {
+        coords = await getLocation();
+      } catch (error) {
+        setMessage(
+          `Check-in blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
+        );
+        return;
+      }
+
+      const { data: timezoneData, error: timezoneError } =
+        await supabase.functions.invoke('resolve-timezone', {
+          body: {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          },
+        });
+
+      if (timezoneError) {
+        setMessage(
+          `Could not determine your timezone: ${timezoneError.message}`
+        );
+        return;
+      }
+
+      const timezone = timezoneData?.timezone;
+
+      if (typeof timezone !== 'string' || !timezone.trim()) {
+        setMessage(
+          'The timezone service did not return a valid timezone. Check-in was not recorded.'
+        );
+        return;
+      }
+
+      const { error: checkInError } = await supabase.rpc(
+        'check_in_with_timezone',
+        {
+          p_latitude: coords.latitude,
+          p_longitude: coords.longitude,
+          p_timezone: timezone,
+        }
+      );
+
+      if (checkInError) {
+        setMessage(`Check-in failed: ${checkInError.message}`);
+        return;
+      }
+
+      setMessage(`Check-in recorded successfully. Timezone: ${timezone}.`);
+      await loadDashboard(session.user.id);
+    } catch (error) {
+      setMessage(`Unable to check in: ${getErrorMessage(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCheckOut(attendanceId: string) {
+    if (!supabase || !session) return;
+
+    setBusy(true);
+    setMessage('');
+    setLocationTest('');
+
+    try {
+      let coords: Coordinates;
+
+      try {
+        coords = await getLocation();
+      } catch (error) {
+        setMessage(
+          `Check-out blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
+        );
+        return;
+      }
+
+      const { error } = await supabase.rpc('check_out_attendance', {
+        p_attendance_id: attendanceId,
+        p_latitude: coords.latitude,
+        p_longitude: coords.longitude,
+      });
+
+      if (error) {
+        setMessage(`Check-out failed: ${error.message}`);
+        return;
+      }
+
+      setMessage('Check-out recorded successfully with GPS coordinates.');
+      await loadDashboard(session.user.id);
+    } catch (error) {
+      setMessage(`Unable to check out: ${getErrorMessage(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleLogout() {
     if (!supabase) return;
 
@@ -453,14 +622,15 @@ export default function App() {
 
       if (error) {
         setMessage(error.message);
-      } else {
-        setSession(null);
-        setAttendance([]);
-        setShifts([]);
-        setTelegramLinkUrl('');
-        setScreen('login');
-        setMessage('You have been signed out.');
+        return;
       }
+
+      setSession(null);
+      setPassword('');
+      setConfirmPassword('');
+      setPasswordFlow(null);
+      setScreen('login');
+      setMessage('You have signed out.');
     } catch {
       setMessage('Unable to sign out. Please try again.');
     } finally {
@@ -468,516 +638,511 @@ export default function App() {
     }
   }
 
-  async function handleCreateTelegramLink() {
-    if (!supabase || !session) {
-      setMessage('Please sign in before linking your Telegram account.');
-      return;
-    }
+  const pageStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    padding: 20,
+    boxSizing: 'border-box',
+    background: '#101522',
+    color: '#f4f6fb',
+    fontFamily: 'system-ui, sans-serif',
+  };
 
-    setBusy(true);
-    setMessage('');
-    setTelegramLinkUrl('');
+  const panelStyle: React.CSSProperties = {
+    width: '100%',
+    maxWidth: 760,
+    margin: '24px auto',
+    padding: 24,
+    boxSizing: 'border-box',
+    borderRadius: 16,
+    border: '1px solid #344054',
+    background: '#1a2232',
+  };
 
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        'telegram-auth',
-        {
-          body: { action: 'create_link_token' },
-        }
-      );
+  const inputStyle: React.CSSProperties = {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+    marginTop: 7,
+    padding: 12,
+    border: '1px solid #475467',
+    borderRadius: 8,
+    background: '#101522',
+    color: '#fff',
+    fontSize: 16,
+  };
 
-      if (error) {
-        setMessage(
-          `Could not create a Telegram linking link: ${
-            error.message || 'The request failed.'
-          }`
-        );
-        return;
+  const buttonStyle: React.CSSProperties = {
+    padding: '12px 16px',
+    border: 0,
+    borderRadius: 8,
+    background: '#315ee7',
+    color: '#fff',
+    fontSize: 15,
+    cursor: busy ? 'wait' : 'pointer',
+    opacity: busy ? 0.7 : 1,
+  };
+
+  // Only today's open session in its own saved timezone is the active session.
+  // Older open sessions remain in history and are not automatically checked out.
+  const openRecord = attendance
+    .filter((item) => {
+      if (item.check_out || !item.work_date || !item.work_timezone) {
+        return false;
       }
 
-      if (!data?.ok || !data?.bot_url) {
-        setMessage(
-          data?.message ||
-            'The Telegram linking link could not be created. Please try again.'
-        );
-        return;
+      try {
+        return getLocalDate(item.work_timezone, new Date(clockNow)) === item.work_date;
+      } catch {
+        return false;
       }
-
-      setTelegramLinkUrl(data.bot_url);
-      setMessage(
-        'Your temporary Telegram linking link is ready. Open it in Telegram within 10 minutes.'
-      );
-    } catch (error) {
-      setMessage(
-        `Could not create a Telegram linking link: ${getErrorMessage(error)}`
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleTestLocation() {
-    setLocationTest('');
-    setMessage('');
-
-    try {
-      const coordinates = await getLocation();
-
-      setLocationTest(
-        `Location permission works. Latitude: ${coordinates.latitude.toFixed(
-          5
-        )}, longitude: ${coordinates.longitude.toFixed(5)}.`
-      );
-    } catch (error) {
-      setLocationTest(getErrorMessage(error));
-    }
-  }
-
-  async function resolveTimezone(coordinates: Coordinates) {
-    if (!supabase) {
-      throw new Error('Supabase is not configured.');
-    }
-
-    const { data, error } = await supabase.functions.invoke(
-      'resolve-timezone',
-      {
-        body: {
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-        },
-      }
-    );
-
-    if (error) {
-      throw new Error(
-        `Could not determine your timezone: ${error.message}`
-      );
-    }
-
-    if (!data?.timezone || typeof data.timezone !== 'string') {
-      throw new Error(
-        data?.message || 'The timezone service returned no timezone.'
-      );
-    }
-
-    return data.timezone as string;
-  }
-
-  async function handleCheckIn() {
-    if (!supabase || !session) return;
-
-    setBusy(true);
-    setMessage('');
-
-    try {
-      const coordinates = await getLocation();
-      const timezone = await resolveTimezone(coordinates);
-
-      const { error } = await supabase.rpc('check_in_with_timezone', {
-        p_latitude: coordinates.latitude,
-        p_longitude: coordinates.longitude,
-        p_timezone: timezone,
-      });
-
-      if (error) {
-        setMessage(`Check-in failed: ${error.message}`);
-        return;
-      }
-
-      setMessage('Check-in recorded successfully.');
-      await loadDashboard(session.user.id);
-    } catch (error) {
-      setMessage(`Check-in failed: ${getErrorMessage(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleCheckOut(item: Attendance) {
-    if (!supabase || !session) return;
-
-    setBusy(true);
-    setMessage('');
-
-    try {
-      const coordinates = await getLocation();
-
-      const { error } = await supabase.rpc('check_out_attendance', {
-        p_attendance_id: item.id,
-        p_latitude: coordinates.latitude,
-        p_longitude: coordinates.longitude,
-      });
-
-      if (error) {
-        setMessage(`Check-out failed: ${error.message}`);
-        return;
-      }
-
-      setMessage('Check-out recorded successfully.');
-      await loadDashboard(session.user.id);
-    } catch (error) {
-      setMessage(`Check-out failed: ${getErrorMessage(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const openAttendance = attendance.filter((item) => !item.check_out);
-  const completedAttendance = attendance.filter((item) => item.check_out);
-
-  if (screen === 'loading') {
-    return (
-      <main className="app-shell">
-        <section className="panel">
-          <p>Loading your account…</p>
-        </section>
-      </main>
-    );
-  }
+    })
+    .sort((a, b) => b.check_in.localeCompare(a.check_in))[0];
 
   if (!supabase) {
     return (
-      <main className="app-shell">
-        <section className="panel">
-          <h1>MBP Attendance</h1>
-          <p>
-            Supabase is not configured. Check the GitHub repository secrets
-            and the frontend build configuration.
-          </p>
-        </section>
-      </main>
-    );
-  }
-
-  if (screen === 'set-password') {
-    return (
-      <main className="app-shell">
-        <section className="panel auth-panel">
-          <div className="brand-mark">MBP</div>
-          <h1>Create your password</h1>
-          <p>
-            Set a password for your approved work account to finish setting
-            up your attendance account.
-          </p>
-
-          <form onSubmit={handleSetPassword}>
-            <label htmlFor="new-password">New password</label>
-            <input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-
-            <label htmlFor="confirm-password">Confirm password</label>
-            <input
-              id="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-
-            <button type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save password'}
-            </button>
-          </form>
-
-          {message && <p className="notice">{message}</p>}
-        </section>
-      </main>
-    );
-  }
-
-  if (screen === 'login') {
-    return (
-      <main className="app-shell">
-        <section className="panel auth-panel">
-          <div className="brand-mark">MBP</div>
-          <h1>MBP Attendance</h1>
-          <p>Sign in with your approved work email and password.</p>
-
-          <form onSubmit={handleLogin}>
-            <label htmlFor="email">Work email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@company.com"
-              required
-            />
-
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-
-            <button type="submit" disabled={busy}>
-              {busy ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-
-          {message && <p className="notice">{message}</p>}
-
-          <p className="muted">
-            If you have not received an invitation, contact your administrator.
-          </p>
+      <main style={pageStyle}>
+        <section style={{ ...panelStyle, maxWidth: 430 }}>
+          <h1>Attendance CRM</h1>
+          <p>Supabase is not configured. Check the GitHub Actions secrets.</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <div className="brand-mark small">MBP</div>
-          <h1>Attendance</h1>
-          <p className="muted">{session?.user.email}</p>
-        </div>
-
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={handleLogout}
-          disabled={busy}
-        >
-          Sign out
-        </button>
+    <main style={pageStyle}>
+      <header style={{ maxWidth: 760, margin: '0 auto' }}>
+        <p style={{ color: '#82b4ff', fontWeight: 700 }}>ATTENDANCE CRM</p>
       </header>
 
-      {message && <p className="notice">{message}</p>}
+      {screen === 'loading' && (
+        <section style={panelStyle}>Checking your session…</section>
+      )}
 
-      <section className="panel">
-        <h2>Today's attendance</h2>
-        <p className="muted">
-          Check-in and check-out require location permission. Your location
-          is collected when you perform these actions.
-        </p>
-
-        <div className="button-row">
-          <button type="button" onClick={handleCheckIn} disabled={busy}>
-            {busy ? 'Please wait…' : 'Check in'}
-          </button>
-
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={handleTestLocation}
-            disabled={busy}
-          >
-            Test location permission
-          </button>
-        </div>
-
-        {locationTest && <p className="notice">{locationTest}</p>}
-      </section>
-
-      <section className="panel">
-        <h2>Telegram account</h2>
-        <p className="muted">
-          Link your Telegram account for future login-code features. Your
-          current password login remains unchanged.
-        </p>
-
-        <button
-          type="button"
-          onClick={handleCreateTelegramLink}
-          disabled={busy || !session}
-        >
-          {busy ? 'Please wait…' : 'Create Telegram linking link'}
-        </button>
-
-        {telegramLinkUrl && (
-          <p>
-            <a href={telegramLinkUrl} target="_blank" rel="noreferrer">
-              Open Telegram to link account
-            </a>
+      {screen === 'login' && (
+        <section style={{ ...panelStyle, maxWidth: 430 }}>
+          <h1>Welcome back</h1>
+          <p style={{ color: '#b7c0d1' }}>
+            Sign in with your approved account.
           </p>
-        )}
 
-        <p className="muted">
-          This link contains a temporary, one-time token. Do not share it
-          with anyone. If it expires, create a new one.
-        </p>
-      </section>
+          <form onSubmit={handleLogin}>
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              style={inputStyle}
+            />
 
-      <section className="panel">
-        <h2>Open attendance sessions</h2>
+            <label
+              htmlFor="login-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              style={inputStyle}
+            />
 
-        {loadingDashboard ? (
-          <p>Loading attendance…</p>
-        ) : openAttendance.length === 0 ? (
-          <p className="muted">There are no open sessions.</p>
-        ) : (
-          <div className="record-list">
-            {openAttendance.map((item) => {
-              const duration = getSessionDuration(item, clockNow);
+            <button
+              type="submit"
+              disabled={busy}
+              style={{ ...buttonStyle, width: '100%', marginTop: 20 }}
+            >
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </section>
+      )}
 
-              return (
-                <article className="record" key={item.id}>
-                  <div className="record-header">
-                    <strong>
-                      {item.work_date || 'Work date unavailable'}
-                    </strong>
-                    <span className="status-pill open">
-                      {duration.status}
-                    </span>
-                  </div>
+      {screen === 'set-password' && (
+        <section style={{ ...panelStyle, maxWidth: 430 }}>
+          <h1>Create your password</h1>
+          <p style={{ color: '#b7c0d1' }}>
+            Create a password for your invited account.
+          </p>
 
-                  <p>
-                    <strong>Check-in:</strong>{' '}
-                    {formatDate(item.check_in, item.work_timezone)}
-                  </p>
+          <form onSubmit={handleSetPassword}>
+            <label htmlFor="invited-email">Invited email</label>
+            <input
+              id="invited-email"
+              type="email"
+              value={email}
+              readOnly
+              style={inputStyle}
+            />
 
-                  <p>
-                    <strong>Timezone:</strong>{' '}
-                    {item.work_timezone || 'Not recorded'}
-                  </p>
+            <label
+              htmlFor="new-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
+              New password
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              style={inputStyle}
+            />
 
-                  <p>
-                    <strong>Elapsed time:</strong> {duration.elapsed}
-                  </p>
+            <label
+              htmlFor="confirm-password"
+              style={{ display: 'block', marginTop: 18 }}
+            >
+              Confirm password
+            </label>
+            <input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              style={inputStyle}
+            />
 
-                  <p>
-                    <strong>Worked time:</strong> {duration.worked}
-                  </p>
+            <button
+              type="submit"
+              disabled={busy}
+              style={{ ...buttonStyle, width: '100%', marginTop: 20 }}
+            >
+              {busy ? 'Saving password…' : 'Create password'}
+            </button>
+          </form>
+        </section>
+      )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleCheckOut(item)}
-                    disabled={busy}
-                  >
-                    {busy ? 'Please wait…' : 'Check out'}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {screen === 'signed-in' && session && (
+        <section style={panelStyle}>
+          <h1>Employee dashboard</h1>
+          <p
+            style={{
+              color: '#b7c0d1',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            Signed in as {session.user.email}
+          </p>
 
-      <section className="panel">
-        <h2>Completed attendance</h2>
-        <p className="muted">
-          Completed sessions deduct a fixed one-hour break, up to the total
-          elapsed session time. Open sessions do not receive a break deduction
-          until checkout.
-        </p>
+          <section
+            style={{
+              padding: 18,
+              margin: '20px 0',
+              borderRadius: 12,
+              border: '1px solid #344054',
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Telegram account</h2>
+            <p style={{ color: '#b7c0d1' }}>
+              Link your Telegram account to receive login codes there in a future update.
+              This step does not change your current password login.
+            </p>
+            <button
+              type="button"
+              disabled={busy || loadingDashboard}
+              onClick={() => void handleCreateTelegramLink()}
+              style={buttonStyle}
+            >
+              {busy ? 'Please wait…' : 'Create Telegram linking link'}
+            </button>
+            {telegramLinkUrl && (
+              <div style={{ marginTop: 14 }}>
+                <a
+                  href={telegramLinkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    background: '#229ED9',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  Open Telegram to link account
+                </a>
+                <p
+                  style={{
+                    color: '#b7c0d1',
+                    fontSize: 13,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  The link contains a temporary one-time token. Do not share it.
+                  If it expires, request a new one.
+                </p>
+              </div>
+            )}
+          </section>
 
-        {loadingDashboard ? (
-          <p>Loading attendance…</p>
-        ) : completedAttendance.length === 0 ? (
-          <p className="muted">No completed sessions yet.</p>
-        ) : (
-          <div className="record-list">
-            {completedAttendance.map((item) => {
-              const duration = getSessionDuration(item, clockNow);
+          <section
+            style={{
+              padding: 18,
+              margin: '20px 0',
+              borderRadius: 12,
+              border: '1px solid #344054',
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Attendance session</h2>
 
-              return (
-                <article className="record" key={item.id}>
-                  <div className="record-header">
-                    <strong>
-                      {item.work_date || 'Work date unavailable'}
-                    </strong>
-                    <span className="status-pill completed">
-                      {duration.status}
-                    </span>
-                  </div>
-
-                  <p>
-                    <strong>Check-in:</strong>{' '}
-                    {formatDate(item.check_in, item.work_timezone)}
-                  </p>
-
-                  <p>
-                    <strong>Check-out:</strong>{' '}
-                    {item.check_out
-                      ? formatDate(item.check_out, item.work_timezone)
-                      : 'Not recorded'}
-                  </p>
-
-                  <p>
-                    <strong>Timezone:</strong>{' '}
-                    {item.work_timezone || 'Not recorded'}
-                  </p>
-
-                  <p>
-                    <strong>Total elapsed:</strong> {duration.elapsed}
-                  </p>
-
-                  <p>
-                    <strong>Break deduction:</strong>{' '}
-                    {duration.breakDeduction}
-                  </p>
-
-                  <p>
-                    <strong>Net worked time:</strong> {duration.worked}
-                  </p>
-
-                  <div className="coordinates">
-                    <p>
-                      <strong>Check-in coordinates:</strong>{' '}
-                      {item.check_in_lat != null &&
-                      item.check_in_lng != null
-                        ? `${item.check_in_lat}, ${item.check_in_lng}`
-                        : 'Not recorded'}
-                    </p>
-
-                    <p>
-                      <strong>Check-out coordinates:</strong>{' '}
-                      {item.check_out_lat != null &&
-                      item.check_out_lng != null
-                        ? `${item.check_out_lat}, ${item.check_out_lng}`
-                        : 'Not recorded'}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Scheduled shifts</h2>
-
-        {shifts.length === 0 ? (
-          <p className="muted">No shifts have been assigned to your account.</p>
-        ) : (
-          <div className="record-list">
-            {shifts.map((shift) => (
-              <article className="record" key={shift.id}>
+            {openRecord ? (
+              <>
                 <p>
-                  <strong>Starts:</strong> {formatDate(shift.starts_at)}
+                  Check-in:{' '}
+                  {formatDate(openRecord.check_in, openRecord.work_timezone)}
+                </p>
+                <p style={{ color: '#b7c0d1' }}>
+                  Work date: {openRecord.work_date}
+                  {' · '}
+                  {openRecord.work_timezone}
                 </p>
                 <p>
-                  <strong>Ends:</strong> {formatDate(shift.ends_at)}
+                  Elapsed time:{' '}
+                  <strong>
+                    {getSessionDuration(openRecord, clockNow).elapsed}
+                  </strong>
+                </p>
+                <p style={{ color: '#b7c0d1' }}>
+                  Final worked time and break deduction will be calculated after
+                  checkout.
+                </p>
+                <p>
+                  Status: <strong>Not checked out</strong>
+                </p>
+
+                <button
+                  disabled={busy || loadingDashboard}
+                  onClick={() => void handleCheckOut(openRecord.id)}
+                  style={buttonStyle}
+                >
+                  {busy ? 'Please wait…' : 'Check out'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p>
+                  No open session was found for the current work date in its
+                  saved timezone. Older open sessions remain in attendance
+                  history and will not be closed automatically.
+                </p>
+
+                <button
+                  disabled={busy || loadingDashboard}
+                  onClick={() => void handleCheckIn()}
+                  style={buttonStyle}
+                >
+                  {busy ? 'Processing…' : 'Check in'}
+                </button>
+              </>
+            )}
+
+            <div style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => void handleTestLocation()}
+                disabled={busy}
+                style={{ ...buttonStyle, background: '#475467' }}
+              >
+                Test location
+              </button>
+
+              {locationTest && (
+                <p role="status" style={{ overflowWrap: 'anywhere' }}>
+                  {locationTest}
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section style={{ marginTop: 28 }}>
+            <h2>Scheduled shifts</h2>
+
+            {loadingDashboard && <p>Loading shifts…</p>}
+
+            {!loadingDashboard && shifts.length === 0 && (
+              <p>No shifts are scheduled for this account yet.</p>
+            )}
+
+            {shifts.map((shift) => (
+              <article
+                key={shift.id}
+                style={{
+                  padding: 14,
+                  marginBottom: 10,
+                  border: '1px solid #344054',
+                  borderRadius: 10,
+                }}
+              >
+                <p style={{ margin: '0 0 6px' }}>
+                  Start: {formatDate(shift.starts_at)}
+                </p>
+                <p style={{ margin: 0 }}>
+                  End: {formatDate(shift.ends_at)}
                 </p>
               </article>
             ))}
-          </div>
-        )}
-      </section>
+          </section>
 
-      <footer className="app-footer">
-        <p>
-          MBP Attendance · Location is requested when you check in, check
-          out, or test location permission.
+          <section style={{ marginTop: 28 }}>
+            <h2>Recent attendance</h2>
+
+            {loadingDashboard && <p>Loading attendance…</p>}
+
+            {!loadingDashboard && attendance.length === 0 && (
+              <p>No attendance records yet.</p>
+            )}
+
+            {attendance.map((item) => {
+              const duration = getSessionDuration(item, clockNow);
+
+              return (
+                <article
+                  key={item.id}
+                  style={{
+                    padding: 14,
+                    marginBottom: 10,
+                    border: '1px solid #344054',
+                    borderRadius: 10,
+                  }}
+                >
+                  <p style={{ margin: '0 0 6px' }}>
+                    Work date: {item.work_date ?? 'Not assigned'}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Check-in:{' '}
+                    {formatDate(item.check_in, item.work_timezone)}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Check-out:{' '}
+                    {item.check_out
+                      ? formatDate(item.check_out, item.work_timezone)
+                      : 'Not checked out'}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Elapsed time: {duration.elapsed}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Worked time: {duration.worked}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Break deduction: {duration.breakDeduction}
+                  </p>
+
+                  <p style={{ margin: '0 0 6px' }}>
+                    Status: {duration.status}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: '0 0 6px',
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Timezone: {item.work_timezone ?? 'Not recorded'}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: '0 0 6px',
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Check-in GPS:{' '}
+                    {item.check_in_lat != null && item.check_in_lng != null
+                      ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
+                      : 'Not recorded'}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: '#b7c0d1',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    Check-out GPS:{' '}
+                    {item.check_out_lat != null && item.check_out_lng != null
+                      ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
+                      : 'Not recorded'}
+                  </p>
+                </article>
+              );
+            })}
+          </section>
+
+          <div
+            style={{
+              marginTop: 28,
+              borderTop: '1px solid #344054',
+              paddingTop: 20,
+            }}
+          >
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void handleLogout()}
+              style={buttonStyle}
+            >
+              {busy ? 'Please wait…' : 'Sign out'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {message && (
+        <p
+          role="status"
+          style={{
+            maxWidth: 760,
+            margin: '12px auto',
+            padding: 12,
+            borderRadius: 8,
+            background: '#202b3e',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {message}
         </p>
-      </footer>
+      )}
+
+      <p
+        style={{
+          maxWidth: 760,
+          margin: '20px auto',
+          color: '#98a2b3',
+          fontSize: 13,
+        }}
+      >
+        Authorized accounts only. Check-in and check-out require browser
+        location permission. Test location does not save coordinates. Active
+        sessions show elapsed time; final worked time deducts one hour from
+        completed sessions.
+      </p>
     </main>
   );
 }
