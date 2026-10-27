@@ -36,7 +36,7 @@ export default function ManagementTools({ supabase, profile, profiles }: {
   const [memberProfileSelections, setMemberProfileSelections] = useState<Record<number, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState('all');
+  const [selectedGroup, setSelectedGroup] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
@@ -74,7 +74,7 @@ export default function ManagementTools({ supabase, profile, profiles }: {
       if (metricResult.error) setNotice((current) => current || 'Telegram metrics: ' + metricResult.error.message);
       else setMetrics((metricResult.data ?? []) as Metric[]);
       const allowedGroupIds = (groupResult.data ?? []).map((g: Group) => g.telegram_chat_id);
-      const chosen = selectedGroup === 'all' ? allowedGroupIds : [Number(selectedGroup)];
+      const chosen = selectedGroup ? [Number(selectedGroup)] : [];
       if (chosen.length) {
         const messageResult = await supabase.from('telegram_messages')
           .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id')
@@ -134,7 +134,7 @@ export default function ManagementTools({ supabase, profile, profiles }: {
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && p.role.toLowerCase() !== 'manager');
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
-  const selectedMetrics = metrics.filter(m => selectedGroup === 'all' || String(m.telegram_chat_id) === selectedGroup);
+  const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
   const answered = selectedMetrics.filter(m => m.response_seconds != null);
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
 
@@ -189,7 +189,7 @@ export default function ManagementTools({ supabase, profile, profiles }: {
       </ol>
       <p style={muted}>The bot cannot import older group history or read receipts. Avoid collecting private or unrelated conversations; tell group participants what is logged and obtain the required consent.</p>
     </div>
-    <label>Group<select style={{ ...input, maxWidth: 420 }} value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}><option value="all">All groups</option>{groups.map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title} ({g.telegram_chat_id})</option>)}</select></label>
+    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
@@ -197,11 +197,17 @@ export default function ManagementTools({ supabase, profile, profiles }: {
     </div>
     {notice && <p role="status" style={{ padding: 10, background: '#202b3e', borderRadius: 8, overflowWrap: 'anywhere' }}>{notice}</p>}
     {loading && <p style={muted}>Loading management data…</p>}
-    <h3>Recent messages</h3>
-    <div style={{ overflowX: 'auto', maxHeight: 420 }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead><tr>{['Time','Group','Sender','Message','Reply to'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
-      <tbody>{messages.map(m => <tr key={m.telegram_chat_id + ':' + m.telegram_message_id}><td style={{ ...cell, whiteSpace: 'nowrap' }}>{new Date(m.message_date).toLocaleString()}</td><td style={cell}>{groups.find(g => g.telegram_chat_id === m.telegram_chat_id)?.title || m.telegram_chat_id}</td><td style={cell}>{m.display_name || m.username || 'Unknown'}{m.username ? ' @' + m.username : ''}</td><td style={{ ...cell, minWidth: 240, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.message_text || '[non-text message]'}</td><td style={cell}>{m.reply_to_message_id ?? '—'}</td></tr>)}</tbody>
-    </table></div>
+    {!selectedGroup ? <div style={{ padding:34, border:'1px dashed #475467', borderRadius:14, textAlign:'center', color:'#b7c0d1', background:'#101828' }}><div style={{ fontSize:30, marginBottom:10 }}>💬</div><strong style={{ color:'#f8fafc' }}>Choose a group to open its chat</strong><p style={muted}>Messages stay hidden until you select a Telegram group above.</p></div> : <>
+      <h3>Chat · {groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Selected group'}</h3>
+      <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
+        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span></header>
+        <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>
+          {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}><div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div><div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || '[non-text message]'}</div><div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div></article>)}
+          {!messages.some(m=>String(m.telegram_chat_id)===selectedGroup) && <p style={{ ...muted, textAlign:'center', padding:20 }}>No captured messages for this group yet. New messages appear after the analytics bot receives them.</p>}
+        </div>
+        <footer style={{ padding:'10px 14px', borderTop:'1px solid #344054', color:'#8291a8', fontSize:11 }}>Read-only view of messages captured by the CRM analytics bot. Sending messages from this window is not supported.</footer>
+      </div>
+    </>}
     <h3>Response-time samples</h3>
     <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr>{['Group','Question message','Response time','Measured'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead><tbody>{selectedMetrics.slice(0,100).map(m => <tr key={m.telegram_chat_id + ':' + m.question_message_id}><td style={cell}>{groups.find(g => g.telegram_chat_id === m.telegram_chat_id)?.title || m.telegram_chat_id}</td><td style={cell}>{m.question_message_id}</td><td style={cell}>{prettyDuration(m.response_seconds)}</td><td style={cell}>{new Date(m.calculated_at).toLocaleString()}</td></tr>)}</tbody></table></div>
   </section>;
