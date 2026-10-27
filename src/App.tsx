@@ -231,7 +231,6 @@ export default function App() {
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
-  const [locationTest, setLocationTest] = useState('');
   const [telegramLinkUrl, setTelegramLinkUrl] = useState('');
   const [clockNow, setClockNow] = useState(Date.now());
 
@@ -626,26 +625,12 @@ export default function App() {
     }
   }
 
-  async function handleTestLocation() {
-    setLocationTest('Requesting current location…');
-
-    try {
-      const coords = await getLocation();
-
-      setLocationTest(
-        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, longitude: ${coords.longitude.toFixed(5)}. Not saved.`
-      );
-    } catch (error) {
-      setLocationTest(getErrorMessage(error));
-    }
-  }
 
   async function handleCheckIn() {
     if (!supabase || !session) return;
 
     setBusy(true);
     setMessage('');
-    setLocationTest('');
 
     try {
       let coords: Coordinates;
@@ -711,7 +696,6 @@ export default function App() {
 
     setBusy(true);
     setMessage('');
-    setLocationTest('');
 
     try {
       let coords: Coordinates;
@@ -1392,10 +1376,7 @@ export default function App() {
           fontSize: 13,
         }}
       >
-        Authorized accounts only. Check-in and check-out require browser
-        location permission. Test location does not save coordinates. Active
-        sessions show elapsed time; final worked time deducts one hour from
-        completed sessions.
+        Authorized accounts only. Employees are asked for browser location permission when they check in or out. Active sessions show elapsed time; completed sessions deduct the fixed one-hour break.
       </p>
     </main>
   );
