@@ -1024,6 +1024,27 @@ export default function App() {
             Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
           </p>
 
+          {isAdmin && (
+            <section style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054' }}>
+              <h2 style={{ marginTop: 0 }}>Team overview</h2>
+              <p style={{ color: '#b7c0d1' }}>Attendance visibility is controlled by Supabase access policies.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Active employees</div>
+                  <strong style={{ fontSize: 24 }}>{profiles.filter(person => person.active && String(person.role).toLowerCase() !== 'admin').length}</strong>
+                </article>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Open sessions</div>
+                  <strong style={{ fontSize: 24 }}>{attendance.filter(item => !item.check_out).length}</strong>
+                </article>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Loaded records</div>
+                  <strong style={{ fontSize: 24 }}>{attendance.length}</strong>
+                </article>
+              </div>
+            </section>
+          )}
+
           {!isAdmin && <section
             style={{
               padding: 18,
