@@ -1281,7 +1281,45 @@ export default function App() {
               <p>No attendance records match this date range.</p>
             )}
 
-            {reportAttendance.map((item) => {
+            {isAdmin && (
+              <div style={{ overflowX: 'auto', border: '1px solid #344054', borderRadius: 10, marginTop: 12 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#202b3e' }}>
+                      {['Employee', 'Work date', 'Check-in', 'Check-out', 'Status', 'Check-in GPS', 'Check-out GPS'].map(label => (
+                        <th key={label} style={{ padding: 12, borderBottom: '1px solid #344054', fontSize: 13 }}>{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportAttendance.map(item => {
+                      const person = profiles.find(p => p.id === item.employee_id);
+                      const date = item.work_date ?? item.check_in.slice(0, 10);
+                      return (
+                        <tr key={item.id}>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>{person?.full_name || person?.email || item.employee_id || 'Unknown employee'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{date}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{formatDate(item.check_in, item.work_timezone)}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out ? formatDate(item.check_out, item.work_timezone) : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>
+                            <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 20, background: item.check_out ? '#173c2b' : '#4a3513', color: item.check_out ? '#8ce2ae' : '#ffd18a', fontSize: 12, fontWeight: 700 }}>
+                              {item.check_out ? 'Checked out' : 'Present · open'}
+                            </span>
+                          </td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}` : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}` : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                    {!loadingDashboard && reportAttendance.length === 0 && (
+                      <tr><td colSpan={7} style={{ padding: 20, color: '#b7c0d1', textAlign: 'center' }}>No attendance records match this filter.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!isAdmin && reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
 
               return (
