@@ -216,6 +216,8 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [locationTest, setLocationTest] = useState('');
   const [telegramLinkUrl, setTelegramLinkUrl] = useState('');
@@ -777,6 +779,24 @@ export default function App() {
 
   // Only today's open session in its own saved timezone is the active session.
   // Older open sessions remain in history and are not automatically checked out.
+  const reportAttendance = attendance.filter((item) => {
+    const date = item.work_date ?? (item.work_timezone
+      ? getLocalDate(item.work_timezone, new Date(item.check_in))
+      : item.check_in.slice(0, 10));
+    if (reportStartDate && date < reportStartDate) return false;
+    if (reportEndDate && date > reportEndDate) return false;
+    return true;
+  });
+
+  const completedReportRecords = reportAttendance.filter((item) => item.check_out);
+  const reportWorkedMilliseconds = completedReportRecords.reduce((total, item) => {
+    const start = new Date(item.check_in).getTime();
+    const end = item.check_out ? new Date(item.check_out).getTime() : start;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
+    return total + Math.max(0, end - start - BREAK_MINUTES * 60000);
+  }, 0);
+  const reportOpenSessions = reportAttendance.filter((item) => !item.check_out).length;
+
   const openRecord = attendance
     .filter((item) => {
       if (item.check_out || !item.work_date || !item.work_timezone) {
@@ -985,8 +1005,8 @@ export default function App() {
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
             <p style={{ color: '#b7c0d1' }}>
-              Link your Telegram account to receive login codes there in a future update.
-              This step does not change your current password login.
+              Link Telegram to receive login codes there. Once linked, you can use
+              Telegram login from the sign-in screen as an alternative to your password.
             </p>
             <button
               type="button"
@@ -1138,15 +1158,82 @@ export default function App() {
           </section>
 
           <section style={{ marginTop: 28 }}>
-            <h2>Recent attendance</h2>
+            <h2>Attendance report</h2>
+            <p style={{ color: '#b7c0d1' }}>
+              Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.
+            </p>
 
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '16px 0' }}>
+              <label>
+                From date
+                <input
+                  aria-label="Report start date"
+                  type="date"
+                  value={reportStartDate}
+                  max={reportEndDate || undefined}
+                  onChange={(event) => setReportStartDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+              <label>
+                To date
+                <input
+                  aria-label="Report end date"
+                  type="date"
+                  min={reportStartDate || undefined}
+                  value={reportEndDate}
+                  onChange={(event) => setReportEndDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
+              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setReportStartDate(''); setReportEndDate(''); }}>
+                Clear dates
+              </button>
+              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => {
+                const today = new Date();
+                const end = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 6);
+                const start = new Date(startDate.getTime() - startDate.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                setReportStartDate(start);
+                setReportEndDate(end);
+              }}>
+                Last 7 days
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 12, marginBottom: 20 }}>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Records</p>
+                <strong style={{ fontSize: 24 }}>{reportAttendance.length}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Completed shifts</p>
+                <strong style={{ fontSize: 24 }}>{completedReportRecords.length}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Worked time*</p>
+                <strong style={{ fontSize: 24 }}>{formatDuration(reportWorkedMilliseconds)}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Open sessions</p>
+                <strong style={{ fontSize: 24 }}>{reportOpenSessions}</strong>
+              </article>
+            </div>
+            <p style={{ color: '#98a2b3', fontSize: 12 }}>
+              *Worked time totals completed shifts after the existing fixed one-hour break deduction. Open sessions are excluded from worked-time totals.
+            </p>
+
+            <h2 style={{ marginTop: 26 }}>Attendance records</h2>
             {loadingDashboard && <p>Loading attendance…</p>}
 
-            {!loadingDashboard && attendance.length === 0 && (
-              <p>No attendance records yet.</p>
+            {!loadingDashboard && reportAttendance.length === 0 && (
+              <p>No attendance records match this date range.</p>
             )}
 
-            {attendance.map((item) => {
+            {reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
 
               return (
