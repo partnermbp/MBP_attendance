@@ -1237,7 +1237,6 @@ export default function App() {
             </p>
           </section>}
 
-          </>}
           {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
           {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
 
@@ -1270,6 +1269,7 @@ export default function App() {
             ))}
           </section>}
 
+          </>}
           {activePage === 'attendance' && <>
           <section style={{ marginTop: 28 }}>
             <h2>{isAdmin ? 'Team attendance report' : 'Attendance report'}</h2>
@@ -1489,8 +1489,6 @@ export default function App() {
             </button>
           </div>
         </section>
-      )}
-
           </>}
           </section>
           </main>
