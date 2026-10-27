@@ -985,8 +985,8 @@ export default function App() {
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
             <p style={{ color: '#b7c0d1' }}>
-              Link your Telegram account to receive login codes there in a future update.
-              This step does not change your current password login.
+              Link your Telegram account so you can receive login codes in Telegram.
+              Once linked, you can use Telegram code login from the sign-in screen.
             </p>
             <button
               type="button"
