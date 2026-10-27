@@ -22,10 +22,11 @@ function prettyDuration(seconds: number | null) {
   return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
 }
 
-export default function ManagementTools({ supabase, profile, profiles }: {
+export default function ManagementTools({ supabase, profile, profiles, page = 'all' }: {
   supabase: SupabaseClient | null;
   profile: Person | null;
   profiles: Person[];
+  page?: 'all' | 'team' | 'telegram';
 }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [managerId, setManagerId] = useState('');
@@ -138,6 +139,7 @@ export default function ManagementTools({ supabase, profile, profiles }: {
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
 
   return <section style={panel}>
+    {page !== 'telegram' && <>
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
     {isAdmin && <>
@@ -174,6 +176,8 @@ export default function ManagementTools({ supabase, profile, profiles }: {
         <tbody>{teamAttendance.map(a => <tr key={a.id}><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{a.work_date || a.check_in?.slice(0,10)}</td><td style={cell}>{a.check_in ? new Date(a.check_in).toLocaleString() : '—'}</td><td style={cell}>{a.check_out ? new Date(a.check_out).toLocaleString() : 'Open session'}</td><td style={cell}>{a.check_in_lat != null && a.check_in_lng != null ? <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_in_lat},${a.check_in_lng}`}>📍 Check-in</a> : '—'}{a.check_out_lat != null && a.check_out_lng != null ? <> · <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_out_lat},${a.check_out_lng}`}>📍 Check-out</a></> : null}</td></tr>)}</tbody>
       </table></div>
     </>}
+    </>}
+    {page !== 'team' && <>
     <hr style={{ borderColor: '#344054', margin: '24px 0' }}/>
     <h2>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
@@ -209,5 +213,6 @@ export default function ManagementTools({ supabase, profile, profiles }: {
     </>}
     <h3>Response-time samples</h3>
     <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr>{['Group','Question message','Response time','Measured'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead><tbody>{selectedMetrics.slice(0,100).map(m => <tr key={m.telegram_chat_id + ':' + m.question_message_id}><td style={cell}>{groups.find(g => g.telegram_chat_id === m.telegram_chat_id)?.title || m.telegram_chat_id}</td><td style={cell}>{m.question_message_id}</td><td style={cell}>{prettyDuration(m.response_seconds)}</td><td style={cell}>{new Date(m.calculated_at).toLocaleString()}</td></tr>)}</tbody></table></div>
+    </>}
   </section>;
 }
