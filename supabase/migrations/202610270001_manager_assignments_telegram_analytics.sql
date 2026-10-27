@@ -193,3 +193,25 @@ create policy "Admins read telegram audit" on public.telegram_admin_audit
 
 -- No client-side INSERT/UPDATE/DELETE policies are granted for Telegram tables.
 -- The Edge Function uses SUPABASE_SERVICE_ROLE_KEY server-side only.
+
+-- Managers can see a group only after at least one group member is explicitly
+-- linked to a CRM profile assigned to that manager.
+drop policy if exists "Assigned managers read relevant telegram groups" on public.telegram_groups;
+create policy "Assigned managers read relevant telegram groups"
+  on public.telegram_groups for select to authenticated
+  using (
+    public.is_active_admin()
+    or exists (
+      select 1 from public.telegram_group_members gm
+      where gm.telegram_chat_id = telegram_groups.telegram_chat_id
+        and gm.profile_id is not null
+        and public.is_assigned_manager(gm.profile_id)
+    )
+  );
+
+-- Admins alone can link Telegram identities to CRM profiles.
+drop policy if exists "Admins manage telegram member links" on public.telegram_group_members;
+create policy "Admins manage telegram member links"
+  on public.telegram_group_members for update to authenticated
+  using (public.is_active_admin())
+  with check (public.is_active_admin());
