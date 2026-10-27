@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut } from 'lucide-react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -244,6 +244,7 @@ export default function App() {
   const [reportEndDate, setReportEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [telegramLinkUrl, setTelegramLinkUrl] = useState('');
+  const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null);
   const [clockNow, setClockNow] = useState(Date.now());
 
   useEffect(() => {
@@ -273,6 +274,13 @@ export default function App() {
 
       const currentProfile = profileResult.data as Profile | null;
       setProfile(currentProfile);
+      // The auth function is the source of truth for Telegram-account linkage.
+      try {
+        const { data: telegramStatus } = await supabase.functions.invoke('telegram-auth', { body: { action: 'link_status' } });
+        setTelegramLinked(telegramStatus?.ok === true && telegramStatus?.linked === true ? true : telegramStatus?.ok === true && telegramStatus?.linked === false ? false : null);
+      } catch {
+        setTelegramLinked(null);
+      }
       const isAdmin = currentProfile?.active === true &&
         String(currentProfile.role).toLowerCase() === 'admin';
 
@@ -1080,7 +1088,8 @@ export default function App() {
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
               {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&item.label}</button>)}
             </nav>
-            {navOpen&&<div style={{marginTop:30,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
+            <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,marginTop:18,border:'1px solid #7c3216',borderRadius:2,background:'#c4511b',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
+            {navOpen&&<div style={{marginTop:18,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
@@ -1126,17 +1135,21 @@ export default function App() {
             }}
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
-            <p style={{ color: '#d1cbc5' }}>
-              Telegram login status is shown here. If your account is linked, you can use Telegram login from the sign-in screen; otherwise, create a link below to connect it.
+            <p style={{ color: telegramLinked === true ? '#86efac' : '#d1cbc5' }}>
+              {telegramLinked === true
+                ? '✓ Telegram is linked to your account. You can use Telegram login from the sign-in screen.'
+                : telegramLinked === false
+                  ? 'Telegram is not linked to your account yet. Create a link below to connect it.'
+                  : 'Unable to verify Telegram link status right now. You can refresh the page or create a link if you have not linked Telegram yet.'}
             </p>
-            <button
+            {telegramLinked !== true && <button
               type="button"
               disabled={busy || loadingDashboard}
               onClick={() => void handleCreateTelegramLink()}
               style={buttonStyle}
             >
               {busy ? 'Please wait…' : 'Create Telegram linking link'}
-            </button>
+            </button>}
             {telegramLinkUrl && (
               <div style={{ marginTop: 14 }}>
                 <a
@@ -1385,8 +1398,8 @@ export default function App() {
                               {item.check_out ? 'Checked out' : 'Present · open'}
                             </span>
                           </td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-in location', latitude: item.check_in_lat!, longitude: item.check_in_lng! })} style={{ color: '#82b4ff', background: 'transparent', border: 0, cursor: 'pointer', textDecoration: 'underline' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-out location', latitude: item.check_out_lat!, longitude: item.check_out_lng! })} style={{ color: '#82b4ff', background: 'transparent', border: 0, cursor: 'pointer', textDecoration: 'underline' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-in location', latitude: item.check_in_lat!, longitude: item.check_in_lng! })} aria-label="Show pinned check-in location" title="Show pinned location" style={{ display:'inline-grid',placeItems:'center',width:34,height:34,color:'#ff8a45',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer' }}><MapPin size={18} /></button> : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-out location', latitude: item.check_out_lat!, longitude: item.check_out_lng! })} aria-label="Show pinned check-out location" title="Show pinned location" style={{ display:'inline-grid',placeItems:'center',width:34,height:34,color:'#ff8a45',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
                         </tr>
                       );
                     })}
@@ -1472,17 +1485,12 @@ export default function App() {
           </section>
 
           </>}
-          <div style={{marginTop:28,borderTop:'1px solid #34302c',paddingTop:20,display:'flex',justifyContent:'flex-end'}}>
-            <button type="button" disabled={busy} onClick={() => void handleLogout()} style={{...buttonStyle,minWidth:130,background:'#c4511b',color:'#fff',fontWeight:700}}>
-              {busy ? 'Please wait…' : 'Sign out'}
-            </button>
-          </div>
         </section>
           </main>
         </div>
       )}
 
-      {mapPreview && <div role="dialog" aria-modal="true" aria-label={mapPreview.title} onClick={() => setMapPreview(null)} style={{position:'fixed',inset:0,zIndex:100,display:'grid',placeItems:'center',padding:18,background:'#0009'}}><section onClick={e=>e.stopPropagation()} style={{width:'min(760px,100%)',background:'#151e30',color:'#f8fafc',border:'1px solid #475467',borderRadius:14,overflow:'hidden',boxShadow:'0 20px 70px #0008'}}><header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px'}}><strong>{mapPreview.title}</strong><button type="button" onClick={()=>setMapPreview(null)} aria-label="Close map" style={{background:'transparent',border:0,color:'#fff',cursor:'pointer'}}><X/></button></header><iframe title={mapPreview.title} src={`https://www.openstreetmap.org/export/embed.html?marker=${mapPreview.latitude}%2C${mapPreview.longitude}&zoom=16`} style={{width:'100%',height:420,border:0,display:'block'}} loading="lazy"/><p style={{margin:0,padding:'10px 18px',color:'#b7c0d1',fontSize:12}}>Coordinates: {mapPreview.latitude.toFixed(5)}, {mapPreview.longitude.toFixed(5)}</p></section></div>}
+      {mapPreview && <div role="dialog" aria-modal="true" aria-label={mapPreview.title} onClick={() => setMapPreview(null)} style={{position:'fixed',inset:0,zIndex:100,display:'grid',placeItems:'center',padding:18,background:'#0009'}}><section onClick={e=>e.stopPropagation()} style={{width:'min(760px,100%)',background:'#151e30',color:'#f8fafc',border:'1px solid #475467',borderRadius:14,overflow:'hidden',boxShadow:'0 20px 70px #0008'}}><header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px'}}><strong>{mapPreview.title}</strong><button type="button" onClick={()=>setMapPreview(null)} aria-label="Close map" style={{background:'transparent',border:0,color:'#fff',cursor:'pointer'}}><X/></button></header><iframe title={mapPreview.title} src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapPreview.longitude-0.008}%2C${mapPreview.latitude-0.005}%2C${mapPreview.longitude+0.008}%2C${mapPreview.latitude+0.005}&layer=mapnik&marker=${mapPreview.latitude}%2C${mapPreview.longitude}`} style={{width:'100%',height:420,border:0,display:'block'}} loading="lazy"/><p style={{margin:0,padding:'10px 18px',color:'#b7c0d1',fontSize:12}}>Coordinates: {mapPreview.latitude.toFixed(5)}, {mapPreview.longitude.toFixed(5)}</p></section></div>}
       {message && (
         <p
           role="status"
