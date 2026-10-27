@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase';
 
 type Attendance = {
   id: string;
+  employee_id?: string;
   check_in: string;
   check_out: string | null;
   check_in_lat: number | null;
@@ -224,6 +225,9 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -241,42 +245,71 @@ export default function App() {
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
-
     setLoadingDashboard(true);
 
     try {
-      const [attendanceResult, shiftsResult] = await Promise.all([
-        supabase
-          .from('attendance')
-          .select(
-            'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone'
-          )
-          .eq('employee_id', userId)
-          .order('check_in', { ascending: false })
-          .limit(100),
+      const profileResult = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, active')
+        .eq('id', userId)
+        .maybeSingle();
 
-        supabase
-          .from('shifts')
-          .select('id, starts_at, ends_at')
-          .eq('employee_id', userId)
-          .order('starts_at', { ascending: true })
-          .limit(100),
-      ]);
-
-      if (attendanceResult.error) {
-        setMessage(
-          `Could not load attendance: ${attendanceResult.error.message}`
-        );
-      } else {
-        setAttendance((attendanceResult.data ?? []) as Attendance[]);
+      if (profileResult.error) {
+        setProfile(null);
+        setMessage(`Could not load account role: ${profileResult.error.message}`);
+        return;
       }
 
-      if (shiftsResult.error) {
-        setMessage((current) =>
-          current || `Could not load shifts: ${shiftsResult.error.message}`
-        );
+      const currentProfile = profileResult.data as Profile | null;
+      setProfile(currentProfile);
+      const isAdmin = currentProfile?.active === true &&
+        String(currentProfile.role).toLowerCase() === 'admin';
+
+      if (isAdmin) {
+        const [peopleResult, attendanceResult] = await Promise.all([
+          supabase.from('profiles')
+            .select('id, email, full_name, role, active')
+            .order('full_name', { ascending: true })
+            .limit(500),
+          supabase.from('attendance')
+            .select('id, employee_id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .order('check_in', { ascending: false })
+            .limit(1000),
+        ]);
+
+        if (peopleResult.error) {
+          setProfiles([]);
+          setMessage(`Could not load employee list: ${peopleResult.error.message}`);
+        } else {
+          setProfiles((peopleResult.data ?? []) as Profile[]);
+        }
+
+        if (attendanceResult.error) {
+          setAttendance([]);
+          setMessage(current => current || `Could not load team attendance: ${attendanceResult.error.message}`);
+        } else {
+          setAttendance((attendanceResult.data ?? []) as Attendance[]);
+        }
+        setShifts([]);
       } else {
-        setShifts((shiftsResult.data ?? []) as Shift[]);
+        setProfiles([]);
+        const [attendanceResult, shiftsResult] = await Promise.all([
+          supabase.from('attendance')
+            .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .eq('employee_id', userId)
+            .order('check_in', { ascending: false })
+            .limit(100),
+          supabase.from('shifts')
+            .select('id, starts_at, ends_at')
+            .eq('employee_id', userId)
+            .order('starts_at', { ascending: true })
+            .limit(100),
+        ]);
+
+        if (attendanceResult.error) setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
+        else setAttendance((attendanceResult.data ?? []) as Attendance[]);
+        if (shiftsResult.error) setMessage(current => current || `Could not load shifts: ${shiftsResult.error.message}`);
+        else setShifts((shiftsResult.data ?? []) as Shift[]);
       }
     } catch {
       setMessage('Unable to load dashboard data. Please refresh.');
@@ -752,7 +785,7 @@ export default function App() {
 
   const panelStyle: React.CSSProperties = {
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 1440,
     margin: '24px auto',
     padding: 24,
     boxSizing: 'border-box',
@@ -787,7 +820,11 @@ export default function App() {
 
   // Only today's open session in its own saved timezone is the active session.
   // Older open sessions remain in history and are not automatically checked out.
-  const reportAttendance = attendance.filter((item) => {
+  const isAdmin = profile?.active === true && String(profile.role).toLowerCase() === 'admin';
+  const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
+    ? attendance.filter(item => item.employee_id === selectedEmployeeId)
+    : attendance;
+  const reportAttendance = selectedAttendance.filter((item) => {
     const date = item.work_date ?? (item.work_timezone
       ? getLocalDate(item.work_timezone, new Date(item.check_in))
       : item.check_in.slice(0, 10));
@@ -832,7 +869,7 @@ export default function App() {
 
   return (
     <main style={pageStyle}>
-      <header style={{ maxWidth: 760, margin: '0 auto' }}>
+      <header style={{ maxWidth: 1440, margin: '0 auto' }}>
         <p style={{ color: '#82b4ff', fontWeight: 700 }}>ATTENDANCE CRM</p>
       </header>
 
@@ -993,17 +1030,17 @@ export default function App() {
 
       {screen === 'signed-in' && session && (
         <section style={panelStyle}>
-          <h1>Employee dashboard</h1>
+          <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
             style={{
               color: '#b7c0d1',
               overflowWrap: 'anywhere',
             }}
           >
-            Signed in as {session.user.email}
+            Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
           </p>
 
-          <section
+          {!isAdmin && <section
             style={{
               padding: 18,
               margin: '20px 0',
@@ -1055,9 +1092,9 @@ export default function App() {
                 </p>
               </div>
             )}
-          </section>
+          </section>}
 
-          <section
+          {!isAdmin && <section
             style={{
               padding: 18,
               margin: '20px 0',
@@ -1118,25 +1155,12 @@ export default function App() {
               </>
             )}
 
-            <div style={{ marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => void handleTestLocation()}
-                disabled={busy}
-                style={{ ...buttonStyle, background: '#475467' }}
-              >
-                Test location
-              </button>
+            <p style={{ marginTop: 16, color: '#98a2b3', fontSize: 13 }}>
+              Your browser will request location permission when you check in or out. Location is captured for that attendance action.
+            </p>
+          </section>}
 
-              {locationTest && (
-                <p role="status" style={{ overflowWrap: 'anywhere' }}>
-                  {locationTest}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section style={{ marginTop: 28 }}>
+          {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
 
             {loadingDashboard && <p>Loading shifts…</p>}
@@ -1163,13 +1187,24 @@ export default function App() {
                 </p>
               </article>
             ))}
-          </section>
+          </section>}
 
           <section style={{ marginTop: 28 }}>
-            <h2>Attendance report</h2>
+            <h2>{isAdmin ? 'Team attendance report' : 'Attendance report'}</h2>
             <p style={{ color: '#b7c0d1' }}>
-              Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.
+              {isAdmin ? 'Filter the latest team attendance records by employee and date.' : 'Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.'}
             </p>
+            {isAdmin && (
+              <label style={{ display: 'block', maxWidth: 420, margin: '14px 0' }}>
+                Employee
+                <select value={selectedEmployeeId} onChange={event => setSelectedEmployeeId(event.target.value)} style={inputStyle}>
+                  <option value="all">All employees</option>
+                  {profiles.filter(person => String(person.role).toLowerCase() !== 'admin').map(person => (
+                    <option key={person.id} value={person.id}>{person.full_name || person.email || person.id}{person.active ? '' : ' (inactive)'}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '16px 0' }}>
               <label>
@@ -1296,31 +1331,19 @@ export default function App() {
                     Timezone: {item.work_timezone ?? 'Not recorded'}
                   </p>
 
-                  <p
-                    style={{
-                      margin: '0 0 6px',
-                      color: '#b7c0d1',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    Check-in GPS:{' '}
-                    {item.check_in_lat != null && item.check_in_lng != null
-                      ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
-                      : 'Not recorded'}
-                  </p>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: '#b7c0d1',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    Check-out GPS:{' '}
-                    {item.check_out_lat != null && item.check_out_lng != null
-                      ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
-                      : 'Not recorded'}
-                  </p>
+                  {isAdmin && (
+                    <>
+                      <p style={{ margin: '0 0 6px', color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Employee: {profiles.find(person => person.id === item.employee_id)?.full_name || profiles.find(person => person.id === item.employee_id)?.email || item.employee_id || session.user.email}
+                      </p>
+                      <p style={{ margin: '0 0 6px', color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Check-in GPS: {item.check_in_lat != null && item.check_in_lng != null ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}` : 'Not recorded'}
+                      </p>
+                      <p style={{ margin: 0, color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Check-out GPS: {item.check_out_lat != null && item.check_out_lng != null ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}` : 'Not recorded'}
+                      </p>
+                    </>
+                  )}
                 </article>
               );
             })}
