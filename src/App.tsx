@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle } from 'lucide-react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -230,6 +231,8 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -1070,6 +1073,9 @@ export default function App() {
 
       {screen === 'signed-in' && session && (
         <section style={panelStyle}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}><button type="button" aria-label="Toggle CRM navigation" onClick={() => setNavOpen(v => !v)} style={{ display:'grid', placeItems:'center', width:42, height:42, borderRadius:10, border:'1px solid #475467', background:'#202b3e', color:'#fff', cursor:'pointer' }}>{navOpen ? <X size={21}/> : <Menu size={21}/>}</button><span style={{ color:'#b7c0d1', fontSize:13 }}>CRM navigation</span></div>
+          {navOpen && <><button aria-label="Close navigation backdrop" onClick={() => setNavOpen(false)} style={{ position:'fixed', inset:0, zIndex:30, border:0, background:'#0008' }}/><aside style={{ position:'fixed', zIndex:31, inset:'0 auto 0 0', width:'min(290px,85vw)', padding:22, background:'#151e30', color:'#dce4f2', boxShadow:'8px 0 30px #0005' }}><div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}><strong style={{color:'#fff'}}>Mostbet Partner CRM</strong><button onClick={() => setNavOpen(false)} aria-label="Close menu" style={{background:'transparent',border:0,color:'#fff'}}><X/></button></div>{[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'crm-dashboard'},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance-records'},{label:'Team management',icon:<Users size={18}/>,id:'team-management'},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram-analytics'}].map(item=><button key={item.id} onClick={()=>{document.getElementById(item.id)?.scrollIntoView({behavior:'smooth',block:'start'});setNavOpen(false)}} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'13px 12px',marginBottom:6,textAlign:'left',border:0,borderRadius:9,background:'transparent',color:'#dce4f2',cursor:'pointer'}}>{item.icon}{item.label}</button>)}</aside></>}
+          <div id="crm-dashboard" />
           <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
             style={{
@@ -1335,7 +1341,7 @@ export default function App() {
               *Worked time totals completed shifts after the existing fixed one-hour break deduction. Open sessions are excluded from worked-time totals.
             </p>
 
-            <h2 style={{ marginTop: 26 }}>Attendance records</h2>
+            <h2 id="attendance-records" style={{ marginTop: 26 }}>Attendance records</h2>
             {loadingDashboard && <p>Loading attendance…</p>}
 
             {!loadingDashboard && reportAttendance.length === 0 && (
@@ -1367,8 +1373,8 @@ export default function App() {
                               {item.check_out ? 'Checked out' : 'Present · open'}
                             </span>
                           </td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <a href={`https://www.google.com/maps?q=${item.check_in_lat},${item.check_in_lng}`} target="_blank" rel="noreferrer" aria-label="Open check-in location in Google Maps" title="Open check-in location in Google Maps" style={{ color: '#82b4ff', textDecoration: 'underline' }}>📍 Open map</a> : '—'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <a href={`https://www.google.com/maps?q=${item.check_out_lat},${item.check_out_lng}`} target="_blank" rel="noreferrer" aria-label="Open check-out location in Google Maps" title="Open check-out location in Google Maps" style={{ color: '#82b4ff', textDecoration: 'underline' }}>📍 Open map</a> : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-in location', latitude: item.check_in_lat!, longitude: item.check_in_lng! })} style={{ color: '#82b4ff', background: 'transparent', border: 0, cursor: 'pointer', textDecoration: 'underline' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-out location', latitude: item.check_out_lat!, longitude: item.check_out_lng! })} style={{ color: '#82b4ff', background: 'transparent', border: 0, cursor: 'pointer', textDecoration: 'underline' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
                         </tr>
                       );
                     })}
@@ -1472,6 +1478,7 @@ export default function App() {
         </section>
       )}
 
+      {mapPreview && <div role="dialog" aria-modal="true" aria-label={mapPreview.title} onClick={() => setMapPreview(null)} style={{position:'fixed',inset:0,zIndex:100,display:'grid',placeItems:'center',padding:18,background:'#0009'}}><section onClick={e=>e.stopPropagation()} style={{width:'min(760px,100%)',background:'#151e30',color:'#f8fafc',border:'1px solid #475467',borderRadius:14,overflow:'hidden',boxShadow:'0 20px 70px #0008'}}><header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px'}}><strong>{mapPreview.title}</strong><button type="button" onClick={()=>setMapPreview(null)} aria-label="Close map" style={{background:'transparent',border:0,color:'#fff',cursor:'pointer'}}><X/></button></header><iframe title={mapPreview.title} src={`https://www.openstreetmap.org/export/embed.html?marker=${mapPreview.latitude}%2C${mapPreview.longitude}&zoom=16`} style={{width:'100%',height:420,border:0,display:'block'}} loading="lazy"/><p style={{margin:0,padding:'10px 18px',color:'#b7c0d1',fontSize:12}}>Coordinates: {mapPreview.latitude.toFixed(5)}, {mapPreview.longitude.toFixed(5)}</p></section></div>}
       {message && (
         <p
           role="status"
