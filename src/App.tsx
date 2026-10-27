@@ -1407,11 +1407,16 @@ export default function App() {
                       const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
                       const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
                       return <td key={date} style={{padding:6,borderBottom:'1px solid #38302a',textAlign:'center',minWidth:154}}>
-                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:5,padding:'5px 7px',minWidth:138,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:999,fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
-                          {!present ? <span>Absent</span> : <>
-                            <span>IN {timeOnly(record.check_in,record.work_timezone)}</span>{gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
-                            <span style={{opacity:.65}}>|</span>
-                            <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>{gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
+                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
+                          {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
+                            <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
+                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>
+                            </span>
+                            <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
+                              {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
+                              {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
+                            </span>
                           </>}
                         </div>
                       </td>;
