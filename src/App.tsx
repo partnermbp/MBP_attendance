@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase';
 
 type Attendance = {
   id: string;
+  employee_id?: string;
   check_in: string;
   check_out: string | null;
   check_in_lat: number | null;
@@ -20,6 +21,14 @@ type Shift = {
   id: string;
   starts_at: string;
   ends_at: string;
+};
+
+type Profile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string;
+  active: boolean;
 };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
@@ -216,8 +225,12 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
-  const [locationTest, setLocationTest] = useState('');
   const [telegramLinkUrl, setTelegramLinkUrl] = useState('');
   const [clockNow, setClockNow] = useState(Date.now());
 
@@ -231,42 +244,71 @@ export default function App() {
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
-
     setLoadingDashboard(true);
 
     try {
-      const [attendanceResult, shiftsResult] = await Promise.all([
-        supabase
-          .from('attendance')
-          .select(
-            'id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone'
-          )
-          .eq('employee_id', userId)
-          .order('check_in', { ascending: false })
-          .limit(100),
+      const profileResult = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, active')
+        .eq('id', userId)
+        .maybeSingle();
 
-        supabase
-          .from('shifts')
-          .select('id, starts_at, ends_at')
-          .eq('employee_id', userId)
-          .order('starts_at', { ascending: true })
-          .limit(100),
-      ]);
-
-      if (attendanceResult.error) {
-        setMessage(
-          `Could not load attendance: ${attendanceResult.error.message}`
-        );
-      } else {
-        setAttendance((attendanceResult.data ?? []) as Attendance[]);
+      if (profileResult.error) {
+        setProfile(null);
+        setMessage(`Could not load account role: ${profileResult.error.message}`);
+        return;
       }
 
-      if (shiftsResult.error) {
-        setMessage((current) =>
-          current || `Could not load shifts: ${shiftsResult.error.message}`
-        );
+      const currentProfile = profileResult.data as Profile | null;
+      setProfile(currentProfile);
+      const isAdmin = currentProfile?.active === true &&
+        String(currentProfile.role).toLowerCase() === 'admin';
+
+      if (isAdmin) {
+        const [peopleResult, attendanceResult] = await Promise.all([
+          supabase.from('profiles')
+            .select('id, email, full_name, role, active')
+            .order('full_name', { ascending: true })
+            .limit(500),
+          supabase.from('attendance')
+            .select('id, employee_id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .order('check_in', { ascending: false })
+            .limit(1000),
+        ]);
+
+        if (peopleResult.error) {
+          setProfiles([]);
+          setMessage(`Could not load employee list: ${peopleResult.error.message}`);
+        } else {
+          setProfiles((peopleResult.data ?? []) as Profile[]);
+        }
+
+        if (attendanceResult.error) {
+          setAttendance([]);
+          setMessage(current => current || `Could not load team attendance: ${attendanceResult.error.message}`);
+        } else {
+          setAttendance((attendanceResult.data ?? []) as Attendance[]);
+        }
+        setShifts([]);
       } else {
-        setShifts((shiftsResult.data ?? []) as Shift[]);
+        setProfiles([]);
+        const [attendanceResult, shiftsResult] = await Promise.all([
+          supabase.from('attendance')
+            .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .eq('employee_id', userId)
+            .order('check_in', { ascending: false })
+            .limit(100),
+          supabase.from('shifts')
+            .select('id, starts_at, ends_at')
+            .eq('employee_id', userId)
+            .order('starts_at', { ascending: true })
+            .limit(100),
+        ]);
+
+        if (attendanceResult.error) setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
+        else setAttendance((attendanceResult.data ?? []) as Attendance[]);
+        if (shiftsResult.error) setMessage(current => current || `Could not load shifts: ${shiftsResult.error.message}`);
+        else setShifts((shiftsResult.data ?? []) as Shift[]);
       }
     } catch {
       setMessage('Unable to load dashboard data. Please refresh.');
@@ -583,26 +625,12 @@ export default function App() {
     }
   }
 
-  async function handleTestLocation() {
-    setLocationTest('Requesting current location…');
-
-    try {
-      const coords = await getLocation();
-
-      setLocationTest(
-        `Location received successfully. Latitude: ${coords.latitude.toFixed(5)}, longitude: ${coords.longitude.toFixed(5)}. Not saved.`
-      );
-    } catch (error) {
-      setLocationTest(getErrorMessage(error));
-    }
-  }
 
   async function handleCheckIn() {
     if (!supabase || !session) return;
 
     setBusy(true);
     setMessage('');
-    setLocationTest('');
 
     try {
       let coords: Coordinates;
@@ -668,7 +696,6 @@ export default function App() {
 
     setBusy(true);
     setMessage('');
-    setLocationTest('');
 
     try {
       let coords: Coordinates;
@@ -742,7 +769,7 @@ export default function App() {
 
   const panelStyle: React.CSSProperties = {
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 1440,
     margin: '24px auto',
     padding: 24,
     boxSizing: 'border-box',
@@ -777,6 +804,28 @@ export default function App() {
 
   // Only today's open session in its own saved timezone is the active session.
   // Older open sessions remain in history and are not automatically checked out.
+  const isAdmin = profile?.active === true && String(profile.role).toLowerCase() === 'admin';
+  const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
+    ? attendance.filter(item => item.employee_id === selectedEmployeeId)
+    : attendance;
+  const reportAttendance = selectedAttendance.filter((item) => {
+    const date = item.work_date ?? (item.work_timezone
+      ? getLocalDate(item.work_timezone, new Date(item.check_in))
+      : item.check_in.slice(0, 10));
+    if (reportStartDate && date < reportStartDate) return false;
+    if (reportEndDate && date > reportEndDate) return false;
+    return true;
+  });
+
+  const completedReportRecords = reportAttendance.filter((item) => item.check_out);
+  const reportWorkedMilliseconds = completedReportRecords.reduce((total, item) => {
+    const start = new Date(item.check_in).getTime();
+    const end = item.check_out ? new Date(item.check_out).getTime() : start;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
+    return total + Math.max(0, end - start - BREAK_MINUTES * 60000);
+  }, 0);
+  const reportOpenSessions = reportAttendance.filter((item) => !item.check_out).length;
+
   const openRecord = attendance
     .filter((item) => {
       if (item.check_out || !item.work_date || !item.work_timezone) {
@@ -804,7 +853,7 @@ export default function App() {
 
   return (
     <main style={pageStyle}>
-      <header style={{ maxWidth: 760, margin: '0 auto' }}>
+      <header style={{ maxWidth: 1440, margin: '0 auto' }}>
         <p style={{ color: '#82b4ff', fontWeight: 700 }}>ATTENDANCE CRM</p>
       </header>
 
@@ -965,17 +1014,38 @@ export default function App() {
 
       {screen === 'signed-in' && session && (
         <section style={panelStyle}>
-          <h1>Employee dashboard</h1>
+          <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
             style={{
               color: '#b7c0d1',
               overflowWrap: 'anywhere',
             }}
           >
-            Signed in as {session.user.email}
+            Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
           </p>
 
-          <section
+          {isAdmin && (
+            <section style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054' }}>
+              <h2 style={{ marginTop: 0 }}>Team overview</h2>
+              <p style={{ color: '#b7c0d1' }}>Attendance visibility is controlled by Supabase access policies.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Active employees</div>
+                  <strong style={{ fontSize: 24 }}>{profiles.filter(person => person.active && String(person.role).toLowerCase() !== 'admin').length}</strong>
+                </article>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Open sessions</div>
+                  <strong style={{ fontSize: 24 }}>{attendance.filter(item => !item.check_out).length}</strong>
+                </article>
+                <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
+                  <div style={{ color: '#b7c0d1' }}>Loaded records</div>
+                  <strong style={{ fontSize: 24 }}>{attendance.length}</strong>
+                </article>
+              </div>
+            </section>
+          )}
+
+          {!isAdmin && <section
             style={{
               padding: 18,
               margin: '20px 0',
@@ -985,8 +1055,8 @@ export default function App() {
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
             <p style={{ color: '#b7c0d1' }}>
-              Link your Telegram account to receive login codes there in a future update.
-              This step does not change your current password login.
+              Link Telegram to receive login codes there. Once linked, you can use
+              Telegram login from the sign-in screen as an alternative to your password.
             </p>
             <button
               type="button"
@@ -1027,9 +1097,9 @@ export default function App() {
                 </p>
               </div>
             )}
-          </section>
+          </section>}
 
-          <section
+          {!isAdmin && <section
             style={{
               padding: 18,
               margin: '20px 0',
@@ -1090,25 +1160,12 @@ export default function App() {
               </>
             )}
 
-            <div style={{ marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => void handleTestLocation()}
-                disabled={busy}
-                style={{ ...buttonStyle, background: '#475467' }}
-              >
-                Test location
-              </button>
+            <p style={{ marginTop: 16, color: '#98a2b3', fontSize: 13 }}>
+              Your browser will request location permission when you check in or out. Location is captured for that attendance action.
+            </p>
+          </section>}
 
-              {locationTest && (
-                <p role="status" style={{ overflowWrap: 'anywhere' }}>
-                  {locationTest}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section style={{ marginTop: 28 }}>
+          {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
 
             {loadingDashboard && <p>Loading shifts…</p>}
@@ -1135,18 +1192,134 @@ export default function App() {
                 </p>
               </article>
             ))}
-          </section>
+          </section>}
 
           <section style={{ marginTop: 28 }}>
-            <h2>Recent attendance</h2>
-
-            {loadingDashboard && <p>Loading attendance…</p>}
-
-            {!loadingDashboard && attendance.length === 0 && (
-              <p>No attendance records yet.</p>
+            <h2>{isAdmin ? 'Team attendance report' : 'Attendance report'}</h2>
+            <p style={{ color: '#b7c0d1' }}>
+              {isAdmin ? 'Filter the latest team attendance records by employee and date.' : 'Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.'}
+            </p>
+            {isAdmin && (
+              <label style={{ display: 'block', maxWidth: 420, margin: '14px 0' }}>
+                Employee
+                <select value={selectedEmployeeId} onChange={event => setSelectedEmployeeId(event.target.value)} style={inputStyle}>
+                  <option value="all">All employees</option>
+                  {profiles.filter(person => String(person.role).toLowerCase() !== 'admin').map(person => (
+                    <option key={person.id} value={person.id}>{person.full_name || person.email || person.id}{person.active ? '' : ' (inactive)'}</option>
+                  ))}
+                </select>
+              </label>
             )}
 
-            {attendance.map((item) => {
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '16px 0' }}>
+              <label>
+                From date
+                <input
+                  aria-label="Report start date"
+                  type="date"
+                  value={reportStartDate}
+                  max={reportEndDate || undefined}
+                  onChange={(event) => setReportStartDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+              <label>
+                To date
+                <input
+                  aria-label="Report end date"
+                  type="date"
+                  min={reportStartDate || undefined}
+                  value={reportEndDate}
+                  onChange={(event) => setReportEndDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
+              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setReportStartDate(''); setReportEndDate(''); }}>
+                Clear dates
+              </button>
+              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => {
+                const today = new Date();
+                const end = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 6);
+                const start = new Date(startDate.getTime() - startDate.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                setReportStartDate(start);
+                setReportEndDate(end);
+              }}>
+                Last 7 days
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 12, marginBottom: 20 }}>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Records</p>
+                <strong style={{ fontSize: 24 }}>{reportAttendance.length}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Completed shifts</p>
+                <strong style={{ fontSize: 24 }}>{completedReportRecords.length}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Worked time*</p>
+                <strong style={{ fontSize: 24 }}>{formatDuration(reportWorkedMilliseconds)}</strong>
+              </article>
+              <article style={{ padding: 16, border: '1px solid #344054', borderRadius: 10 }}>
+                <p style={{ color: '#b7c0d1', margin: '0 0 8px' }}>Open sessions</p>
+                <strong style={{ fontSize: 24 }}>{reportOpenSessions}</strong>
+              </article>
+            </div>
+            <p style={{ color: '#98a2b3', fontSize: 12 }}>
+              *Worked time totals completed shifts after the existing fixed one-hour break deduction. Open sessions are excluded from worked-time totals.
+            </p>
+
+            <h2 style={{ marginTop: 26 }}>Attendance records</h2>
+            {loadingDashboard && <p>Loading attendance…</p>}
+
+            {!loadingDashboard && reportAttendance.length === 0 && (
+              <p>No attendance records match this date range.</p>
+            )}
+
+            {isAdmin && (
+              <div style={{ overflowX: 'auto', border: '1px solid #344054', borderRadius: 10, marginTop: 12 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#202b3e' }}>
+                      {['Employee', 'Work date', 'Check-in', 'Check-out', 'Status', 'Check-in GPS', 'Check-out GPS'].map(label => (
+                        <th key={label} style={{ padding: 12, borderBottom: '1px solid #344054', fontSize: 13 }}>{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportAttendance.map(item => {
+                      const person = profiles.find(p => p.id === item.employee_id);
+                      const date = item.work_date ?? item.check_in.slice(0, 10);
+                      return (
+                        <tr key={item.id}>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>{person?.full_name || person?.email || item.employee_id || 'Unknown employee'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{date}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{formatDate(item.check_in, item.work_timezone)}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out ? formatDate(item.check_out, item.work_timezone) : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>
+                            <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 20, background: item.check_out ? '#173c2b' : '#4a3513', color: item.check_out ? '#8ce2ae' : '#ffd18a', fontSize: 12, fontWeight: 700 }}>
+                              {item.check_out ? 'Checked out' : 'Present · open'}
+                            </span>
+                          </td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}` : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}` : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                    {!loadingDashboard && reportAttendance.length === 0 && (
+                      <tr><td colSpan={7} style={{ padding: 20, color: '#b7c0d1', textAlign: 'center' }}>No attendance records match this filter.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!isAdmin && reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
 
               return (
@@ -1201,31 +1374,19 @@ export default function App() {
                     Timezone: {item.work_timezone ?? 'Not recorded'}
                   </p>
 
-                  <p
-                    style={{
-                      margin: '0 0 6px',
-                      color: '#b7c0d1',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    Check-in GPS:{' '}
-                    {item.check_in_lat != null && item.check_in_lng != null
-                      ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}`
-                      : 'Not recorded'}
-                  </p>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: '#b7c0d1',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    Check-out GPS:{' '}
-                    {item.check_out_lat != null && item.check_out_lng != null
-                      ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}`
-                      : 'Not recorded'}
-                  </p>
+                  {isAdmin && (
+                    <>
+                      <p style={{ margin: '0 0 6px', color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Employee: {profiles.find(person => person.id === item.employee_id)?.full_name || profiles.find(person => person.id === item.employee_id)?.email || item.employee_id || session.user.email}
+                      </p>
+                      <p style={{ margin: '0 0 6px', color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Check-in GPS: {item.check_in_lat != null && item.check_in_lng != null ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}` : 'Not recorded'}
+                      </p>
+                      <p style={{ margin: 0, color: '#b7c0d1', overflowWrap: 'anywhere' }}>
+                        Check-out GPS: {item.check_out_lat != null && item.check_out_lng != null ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}` : 'Not recorded'}
+                      </p>
+                    </>
+                  )}
                 </article>
               );
             })}
@@ -1274,10 +1435,7 @@ export default function App() {
           fontSize: 13,
         }}
       >
-        Authorized accounts only. Check-in and check-out require browser
-        location permission. Test location does not save coordinates. Active
-        sessions show elapsed time; final worked time deducts one hour from
-        completed sessions.
+        Authorized accounts only. Employees are asked for browser location permission when they check in or out. Active sessions show elapsed time; completed sessions deduct the fixed one-hour break.
       </p>
     </main>
   );
