@@ -1488,9 +1488,8 @@ export default function App() {
               {busy ? 'Please wait…' : 'Sign out'}
             </button>
           </div>
-        </section>
           </>}
-          </section>
+        </section>
           </main>
         </div>
       )}
