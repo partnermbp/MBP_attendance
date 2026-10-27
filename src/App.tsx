@@ -1227,7 +1227,7 @@ export default function App() {
             </p>
           </section>}
 
-          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} />}
+          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && <div id="team-management"><div id="telegram-analytics"><ManagementTools supabase={supabase} profile={profile} profiles={profiles} /></div></div>}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
