@@ -73,7 +73,6 @@ export default function ManagementTools({ supabase, profile, profiles }: {
       else setGroups((groupResult.data ?? []) as Group[]);
       if (metricResult.error) setNotice((current) => current || 'Telegram metrics: ' + metricResult.error.message);
       else setMetrics((metricResult.data ?? []) as Metric[]);
-      const allowedGroupIds = (groupResult.data ?? []).map((g: Group) => g.telegram_chat_id);
       const chosen = selectedGroup ? [Number(selectedGroup)] : [];
       if (chosen.length) {
         const messageResult = await supabase.from('telegram_messages')
