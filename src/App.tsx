@@ -1373,44 +1373,55 @@ export default function App() {
               <p>No attendance records match this date range.</p>
             )}
 
-            {isAdmin && (
-              <div style={{ overflowX: 'auto', border: '1px solid #344054', borderRadius: 10, marginTop: 12 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980, textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ background: '#202b3e' }}>
-                      {['Employee', 'Work date', 'Check-in', 'Check-out', 'Status', 'Check-in GPS', 'Check-out GPS'].map(label => (
-                        <th key={label} style={{ padding: 12, borderBottom: '1px solid #344054', fontSize: 13 }}>{label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportAttendance.map(item => {
-                      const person = profiles.find(p => p.id === item.employee_id);
-                      const date = item.work_date ?? item.check_in.slice(0, 10);
-                      return (
-                        <tr key={item.id}>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>{person?.full_name || person?.email || item.employee_id || 'Unknown employee'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{date}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{formatDate(item.check_in, item.work_timezone)}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out ? formatDate(item.check_out, item.work_timezone) : '—'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054' }}>
-                            <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 20, background: item.check_out ? '#173c2b' : '#4a3513', color: item.check_out ? '#8ce2ae' : '#ffd18a', fontSize: 12, fontWeight: 700 }}>
-                              {item.check_out ? 'Checked out' : 'Present · open'}
-                            </span>
-                          </td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-in location', latitude: item.check_in_lat!, longitude: item.check_in_lng! })} aria-label="Show pinned check-in location" title="Show pinned location" style={{ display:'inline-grid',placeItems:'center',width:34,height:34,color:'#ff8a45',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer' }}><MapPin size={18} /></button> : '—'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <button type="button" onClick={() => setMapPreview({ title: 'Check-out location', latitude: item.check_out_lat!, longitude: item.check_out_lng! })} aria-label="Show pinned check-out location" title="Show pinned location" style={{ display:'inline-grid',placeItems:'center',width:34,height:34,color:'#ff8a45',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer' }}><MapPin size={14} style={{ verticalAlign: 'middle' }} /> View map</button> : '—'}</td>
-                        </tr>
-                      );
+            {isAdmin && (() => {
+              const today = getLocalDate(null);
+              const defaultStart = new Date(`${today}T12:00:00`);
+              defaultStart.setDate(defaultStart.getDate() - 6);
+              const startKey = reportStartDate || `${defaultStart.getFullYear()}-${String(defaultStart.getMonth()+1).padStart(2,'0')}-${String(defaultStart.getDate()).padStart(2,'0')}`;
+              const endKey = reportEndDate || today;
+              const dateKeys: string[] = [];
+              const cursor = new Date(`${startKey}T12:00:00`);
+              const finalDate = new Date(`${endKey}T12:00:00`);
+              while (cursor <= finalDate && dateKeys.length < 93) {
+                dateKeys.push(`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`);
+                cursor.setDate(cursor.getDate()+1);
+              }
+              const people = profiles.filter(person => String(person.role).toLowerCase() !== 'admin' && (selectedEmployeeId === 'all' || person.id === selectedEmployeeId));
+              const timeOnly = (value: string | null, timezone: string | null) => value ? new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',hour12:false,...(timezone ? {timeZone:timezone} : {})}).format(new Date(value)) : '—';
+              const gpsButton = (lat: number | null, lng: number | null, title: string) => lat != null && lng != null
+                ? <button type="button" aria-label={title} title={title} onClick={() => setMapPreview({title,latitude:lat,longitude:lng})} style={{display:'inline-grid',placeItems:'center',width:23,height:23,padding:0,color:'#ff9b62',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer',verticalAlign:'middle'}}><MapPin size={14}/></button>
+                : null;
+              return <div style={{overflowX:'auto',border:'1px solid #38302a',marginTop:12}}>
+                <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*154),textAlign:'left'}}>
+                  <thead><tr style={{background:'#211711'}}>
+                    <th style={{position:'sticky',left:0,zIndex:2,background:'#211711',padding:12,borderBottom:'1px solid #493023',minWidth:180}}>Employee</th>
+                    {dateKeys.map(date => <th key={date} style={{padding:10,borderBottom:'1px solid #493023',whiteSpace:'nowrap',textAlign:'center'}}>{new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</th>)}
+                  </tr></thead>
+                  <tbody>{people.map(person => <tr key={person.id}>
+                    <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'#151413',padding:12,borderBottom:'1px solid #38302a',fontWeight:600}}>{person.full_name || person.email || person.id}</th>
+                    {dateKeys.map(date => {
+                      const records = reportAttendance.filter(item => item.employee_id === person.id && (item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone,new Date(item.check_in)) : item.check_in.slice(0,10))) === date);
+                      const record = records[0];
+                      const completed = Boolean(record?.check_out);
+                      const present = Boolean(record);
+                      const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
+                      const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
+                      return <td key={date} style={{padding:6,borderBottom:'1px solid #38302a',textAlign:'center',minWidth:154}}>
+                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:5,padding:'5px 7px',minWidth:138,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:999,fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
+                          {!present ? <span>Absent</span> : <>
+                            <span>IN {timeOnly(record.check_in,record.work_timezone)}</span>{gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
+                            <span style={{opacity:.65}}>|</span>
+                            <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>{gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
+                          </>}
+                        </div>
+                      </td>;
                     })}
-                    {!loadingDashboard && reportAttendance.length === 0 && (
-                      <tr><td colSpan={7} style={{ padding: 20, color: '#b7c0d1', textAlign: 'center' }}>No attendance records match this filter.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
+                  </tr>)}
+                  {people.length===0 && <tr><td colSpan={dateKeys.length+1} style={{padding:18,color:'#b7aaa0'}}>No employees match this filter.</td></tr>}
+                </tbody></table>
+                <p style={{margin:'10px 12px',fontSize:12,color:'#b7aaa0'}}>Green = signed in and out · Orange = signed in, no sign-out · Red = no attendance record. Showing up to 93 dates; defaults to the last 7 days.</p>
+              </div>;
+            })()}
             {!isAdmin && reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
 
