@@ -1,8 +1,8 @@
 
 :root {
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #202a3b;
-  background: #f5f7fb;
+  font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
+  color: #f5f3f0;
+  background: #0b0b0c;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,42 +23,42 @@ button { font: inherit; }
   padding: 26px 16px;
   display: flex;
   flex-direction: column;
-  background: #151e30;
+  background: #151413;
   color: #dce4f2;
 }
 
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 34px; }
-.brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: #5369e9; color: white; }
+.brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 3px; background: #c4511b; color: white; }
 .brand strong { display: block; font-size: 16px; color: white; }
 .brand small { display: block; margin-top: 4px; color: #a7b3ca; font-size: 12px; }
 .nav-label, .eyebrow { font-size: 10px; font-weight: 750; letter-spacing: 1.4px; }
 .nav-label { padding: 0 12px 12px; color: #8492ad; }
 
 nav { display: grid; gap: 6px; }
-.nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 0; border-radius: 9px; text-align: left; background: transparent; color: #b8c3d8; cursor: pointer; }
-.nav-item.active { color: white; background: #293653; }
-.nav-item:hover { background: #26334d; color: white; }
+.nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 0; border-radius: 2px; text-align: left; background: transparent; color: #d2ccc6; cursor: pointer; }
+.nav-item.active { color: white; background: #713017; }
+.nav-item:hover { background: #302019; color: white; }
 
 .sidebar-footer { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 12px 6px; color: #a7b3ca; font-size: 11px; }
 
 .main-panel { margin-left: 245px; padding: 34px clamp(20px, 4vw, 54px); max-width: 1700px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
-.eyebrow { color: #818da4; }
+.eyebrow { color: #c4511b; }
 h1 { margin: 9px 0 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -1px; }
-.preview-badge { padding: 7px 10px; border-radius: 7px; background: #e8ebff; color: #4758c9; font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.preview-badge { padding: 7px 10px; border-radius: 2px; background: #3a2115; color: #ff9b62; font-size: 10px; font-weight: 800; letter-spacing: .8px; }
 
-.welcome { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 28px; border-radius: 16px; background: linear-gradient(120deg, #222f4b, #364d79); color: white; }
+.welcome { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 28px; border-radius: 3px; background: linear-gradient(120deg, #171311, #3c2115); color: white; }
 .welcome .eyebrow { color: #c4cffa; }
 .welcome h2 { margin: 10px 0; font-size: clamp(21px, 3vw, 28px); }
 .welcome p:last-child { max-width: 590px; margin-bottom: 0; color: #d4dced; font-size: 14px; line-height: 1.7; }
-.welcome-icon { display: grid; place-items: center; flex-shrink: 0; width: 78px; height: 78px; border: 1px solid #6d7fa3; border-radius: 22px; background: #ffffff12; }
+.welcome-icon { display: grid; place-items: center; flex-shrink: 0; width: 78px; height: 78px; border: 1px solid #6d7fa3; border-radius: 3px; background: #ffffff12; }
 
 .section-heading { margin: 32px 0 18px; }
 .section-heading h2 { margin: 0; font-size: 18px; }
-.section-heading p { margin: 7px 0 0; color: #7b879b; font-size: 13px; }
+.section-heading p { margin: 7px 0 0; color: #b3aaa2; font-size: 13px; }
 
 .setup-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.setup-card { min-width: 0; padding: 22px; border: 1px solid #e8ebf2; border-radius: 13px; background: white; }
+.setup-card { min-width: 0; padding: 22px; border: 1px solid #38302a; border-radius: 3px; background: #171615; }
 .card-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #eef1ff; color: #5263d8; }
 .setup-card h3 { margin: 18px 0 10px; font-size: 15px; }
 .status { display: inline-block; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 750; }
