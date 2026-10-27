@@ -774,9 +774,9 @@ export default function App() {
     minHeight: '100vh',
     padding: 20,
     boxSizing: 'border-box',
-    background: '#101522',
-    color: '#f4f6fb',
-    fontFamily: 'system-ui, sans-serif',
+    background: '#0b0b0c',
+    color: '#f7f7f5',
+    fontFamily: 'Arial, Helvetica, sans-serif',
   };
 
   function handleExportCsv() {
@@ -834,9 +834,9 @@ export default function App() {
     margin: '24px auto',
     padding: 24,
     boxSizing: 'border-box',
-    borderRadius: 16,
-    border: '1px solid #344054',
-    background: '#1a2232',
+    borderRadius: 3,
+    border: '1px solid #34302c',
+    background: '#151413',
   };
 
   const inputStyle: React.CSSProperties = {
@@ -846,8 +846,8 @@ export default function App() {
     marginTop: 7,
     padding: 12,
     border: '1px solid #475467',
-    borderRadius: 8,
-    background: '#101522',
+    borderRadius: 2,
+    background: '#0b0b0c',
     color: '#fff',
     fontSize: 16,
   };
@@ -855,8 +855,8 @@ export default function App() {
   const buttonStyle: React.CSSProperties = {
     padding: '12px 16px',
     border: 0,
-    borderRadius: 8,
-    background: '#315ee7',
+    borderRadius: 2,
+    background: '#c4511b',
     color: '#fff',
     fontSize: 15,
     cursor: busy ? 'wait' : 'pointer',
@@ -1075,10 +1075,10 @@ export default function App() {
 
       {screen === 'signed-in' && session && (
         <div style={{display:'grid',gridTemplateColumns:navOpen?'250px minmax(0,1fr)':'64px minmax(0,1fr)',gap:18,alignItems:'start',width:'100%',maxWidth:1600,margin:'0 auto'}}>
-          <aside style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151e30',border:'1px solid #344054',borderRadius:14,color:'#dce4f2'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#202b3e',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
+          <aside style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:14,color:'#dce4f2'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#201a16',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#344054':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&item.label}</button>)}
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&item.label}</button>)}
             </nav>
             {navOpen&&<div style={{marginTop:30,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
@@ -1121,14 +1121,13 @@ export default function App() {
             style={{
               padding: 18,
               margin: '20px 0',
-              borderRadius: 12,
-              border: '1px solid #344054',
+              borderRadius: 3,
+              border: '1px solid #34302c',
             }}
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
-            <p style={{ color: '#b7c0d1' }}>
-              Link Telegram to receive login codes there. Once linked, you can use
-              Telegram login from the sign-in screen as an alternative to your password.
+            <p style={{ color: '#d1cbc5' }}>
+              Telegram login status is shown here. If your account is linked, you can use Telegram login from the sign-in screen; otherwise, create a link below to connect it.
             </p>
             <button
               type="button"
@@ -1147,8 +1146,8 @@ export default function App() {
                   style={{
                     display: 'inline-block',
                     padding: '10px 14px',
-                    borderRadius: 8,
-                    background: '#229ED9',
+                    borderRadius: 2,
+                    background: '#c4511b',
                     color: '#fff',
                     textDecoration: 'none',
                     fontWeight: 600,
@@ -1472,23 +1471,12 @@ export default function App() {
             })}
           </section>
 
-          <div
-            style={{
-              marginTop: 28,
-              borderTop: '1px solid #344054',
-              paddingTop: 20,
-            }}
-          >
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleLogout()}
-              style={buttonStyle}
-            >
+          </>}
+          <div style={{marginTop:28,borderTop:'1px solid #34302c',paddingTop:20,display:'flex',justifyContent:'flex-end'}}>
+            <button type="button" disabled={busy} onClick={() => void handleLogout()} style={{...buttonStyle,minWidth:130,background:'#c4511b',color:'#fff',fontWeight:700}}>
               {busy ? 'Please wait…' : 'Sign out'}
             </button>
           </div>
-          </>}
         </section>
           </main>
         </div>
