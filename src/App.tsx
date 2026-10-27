@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
+import ManagementTools from './components/ManagementTools';
 
 type Attendance = {
   id: string;
@@ -95,6 +96,12 @@ function formatDuration(milliseconds: number) {
   const minutes = totalMinutes % 60;
 
   return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+}
+
+
+function csvCell(value: string | number | null | undefined) {
+  const text = value == null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function getSessionDuration(item: Attendance, now: number) {
@@ -767,6 +774,55 @@ export default function App() {
     fontFamily: 'system-ui, sans-serif',
   };
 
+  function handleExportCsv() {
+    const rows = [
+      ['Employee', 'Employee email', 'Work date', 'Check-in', 'Check-out', 'Status', 'Elapsed minutes', 'Worked minutes', 'Timezone', 'Check-in map', 'Check-out map'],
+      ...reportAttendance.map((item) => {
+        const person = profiles.find((p) => p.id === item.employee_id);
+        const start = new Date(item.check_in).getTime();
+        const end = item.check_out ? new Date(item.check_out).getTime() : NaN;
+        const elapsedMinutes = Number.isFinite(start) && Number.isFinite(end) && end >= start
+          ? Math.floor((end - start) / 60000)
+          : '';
+        const workedMinutes = elapsedMinutes === '' ? '' : Math.max(0, Number(elapsedMinutes) - BREAK_MINUTES);
+        const checkInMap = item.check_in_lat != null && item.check_in_lng != null
+          ? `https://www.google.com/maps?q=${item.check_in_lat},${item.check_in_lng}`
+          : '';
+        const checkOutMap = item.check_out_lat != null && item.check_out_lng != null
+          ? `https://www.google.com/maps?q=${item.check_out_lat},${item.check_out_lng}`
+          : '';
+        const workDate = item.work_date ?? (item.work_timezone
+          ? getLocalDate(item.work_timezone, new Date(item.check_in))
+          : item.check_in.slice(0, 10));
+        return [
+          person?.full_name || person?.email || item.employee_id || 'Unknown employee',
+          person?.email || '',
+          workDate,
+          formatDate(item.check_in, item.work_timezone),
+          item.check_out ? formatDate(item.check_out, item.work_timezone) : '',
+          item.check_out ? 'Checked out' : 'Open session',
+          elapsedMinutes,
+          workedMinutes,
+          item.work_timezone || '',
+          checkInMap,
+          checkOutMap,
+        ];
+      }),
+    ];
+    const csv = '\uFEFF' + rows.map((row) => row.map((value) => csvCell(value as string | number | null | undefined)).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const start = reportStartDate || 'all-dates';
+    const end = reportEndDate || 'all-dates';
+    link.href = url;
+    link.download = `attendance-report-${start}-to-${end}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const panelStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: 1440,
@@ -1165,6 +1221,8 @@ export default function App() {
             </p>
           </section>}
 
+          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} />}
+
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
 
@@ -1239,6 +1297,9 @@ export default function App() {
               <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setReportStartDate(''); setReportEndDate(''); }}>
                 Clear dates
               </button>
+              <button type="button" onClick={handleExportCsv} style={buttonStyle}>
+                Export CSV for Excel
+              </button>
               <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => {
                 const today = new Date();
                 const end = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -1306,8 +1367,8 @@ export default function App() {
                               {item.check_out ? 'Checked out' : 'Present · open'}
                             </span>
                           </td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? `${item.check_in_lat.toFixed(5)}, ${item.check_in_lng.toFixed(5)}` : '—'}</td>
-                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? `${item.check_out_lat.toFixed(5)}, ${item.check_out_lng.toFixed(5)}` : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_in_lat != null && item.check_in_lng != null ? <a href={`https://www.google.com/maps?q=${item.check_in_lat},${item.check_in_lng}`} target="_blank" rel="noreferrer" aria-label="Open check-in location in Google Maps" title="Open check-in location in Google Maps" style={{ color: '#82b4ff', textDecoration: 'underline' }}>📍 Open map</a> : '—'}</td>
+                          <td style={{ padding: 12, borderBottom: '1px solid #344054', whiteSpace: 'nowrap' }}>{item.check_out_lat != null && item.check_out_lng != null ? <a href={`https://www.google.com/maps?q=${item.check_out_lat},${item.check_out_lng}`} target="_blank" rel="noreferrer" aria-label="Open check-out location in Google Maps" title="Open check-out location in Google Maps" style={{ color: '#82b4ff', textDecoration: 'underline' }}>📍 Open map</a> : '—'}</td>
                         </tr>
                       );
                     })}
