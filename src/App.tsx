@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
+import ManagementTools from './components/ManagementTools';
 
 type Attendance = {
   id: string;
@@ -1219,6 +1220,8 @@ export default function App() {
               Your browser will request location permission when you check in or out. Location is captured for that attendance action.
             </p>
           </section>}
+
+          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} />}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
