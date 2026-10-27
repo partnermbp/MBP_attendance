@@ -22,6 +22,14 @@ type Shift = {
   ends_at: string;
 };
 
+type Profile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string;
+  active: boolean;
+};
+
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
