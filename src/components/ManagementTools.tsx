@@ -137,6 +137,17 @@ export default function ManagementTools({ supabase, profile, profiles }: {
     <hr style={{ borderColor: '#344054', margin: '24px 0' }}/>
     <h2>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
+    <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #b54708', borderRadius: 10, background: '#261b12' }}>
+      <strong>Connect your work group with the dedicated CRM analytics bot</strong>
+      <p style={muted}>This integration must use a separate Telegram bot created specifically for CRM group analytics. Do not use <code>@mbpauthbot</code>; it remains reserved for authentication.</p>
+      <ol style={{ paddingLeft: 22, lineHeight: 1.7 }}>
+        <li>Create a dedicated bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: '#fdba74' }}>@BotFather</a> and store its token as the Supabase Edge Function secret <code>TELEGRAM_BOT_TOKEN</code>. Do not put the token in this CRM or GitHub frontend files.</li>
+        <li>Set <code>TELEGRAM_WEBHOOK_SECRET</code> and deploy the <code>telegram-group-webhook</code> Supabase Edge Function. Configure the Telegram webhook with the same secret token.</li>
+        <li>Add the new analytics bot to each authorized work group. Enable group message access in BotFather (disable privacy mode if the bot must receive ordinary group messages); grant only the permissions needed.</li>
+        <li>Send a new test message and reply in the group. New messages should appear below after the database migration is applied and the webhook is configured.</li>
+      </ol>
+      <p style={muted}>The bot cannot import older group history or read receipts. Avoid collecting private or unrelated conversations; tell group participants what is logged and obtain the required consent.</p>
+    </div>
     <label>Group<select style={{ ...input, maxWidth: 420 }} value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}><option value="all">All groups</option>{groups.map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title} ({g.telegram_chat_id})</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
