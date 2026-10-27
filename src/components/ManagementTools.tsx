@@ -7,6 +7,7 @@ type Assignment = { manager_id: string; employee_id: string; created_at: string 
 type Message = { telegram_chat_id: number; telegram_message_id: number; display_name: string | null; username: string | null; message_text: string | null; message_date: string; reply_to_message_id: number | null };
 type Metric = { telegram_chat_id: number; question_message_id: number; question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null; calculated_at: string };
 type Group = { telegram_chat_id: number; title: string; enabled: boolean };
+type TelegramMember = { id: number; telegram_chat_id: number; telegram_user_id: number; username: string | null; display_name: string | null; profile_id: string | null };
 
 const panel: CSSProperties = { padding: 18, margin: '20px 0', border: '1px solid #344054', borderRadius: 12 };
 const input: CSSProperties = { display: 'block', width: '100%', marginTop: 6, padding: 10, color: '#f8fafc', background: '#101828', border: '1px solid #475467', borderRadius: 8, boxSizing: 'border-box' };
@@ -31,6 +32,8 @@ export default function ManagementTools({ supabase, profile, profiles }: {
   const [employeeId, setEmployeeId] = useState('');
   const [teamAttendance, setTeamAttendance] = useState<any[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [telegramMembers, setTelegramMembers] = useState<TelegramMember[]>([]);
+  const [memberProfileSelections, setMemberProfileSelections] = useState<Record<number, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('all');
@@ -49,6 +52,21 @@ export default function ManagementTools({ supabase, profile, profiles }: {
         supabase.from('telegram_groups').select('telegram_chat_id,title,enabled').order('title'),
         supabase.from('telegram_response_metrics').select('telegram_chat_id,question_message_id,question_user_id,first_reply_user_id,response_seconds,calculated_at').order('calculated_at', { ascending: false }).limit(500),
       ]);
+      if (isAdmin) {
+        const memberResult = await supabase.from('telegram_group_members')
+          .select('id,telegram_chat_id,telegram_user_id,username,display_name,profile_id')
+          .order('display_name').limit(1000);
+        if (memberResult.error) setNotice((current) => current || 'Telegram members: ' + memberResult.error.message);
+        else {
+          const rows = (memberResult.data ?? []) as TelegramMember[];
+          setTelegramMembers(rows);
+          setMemberProfileSelections((current) => {
+            const next = { ...current };
+            for (const row of rows) if (next[row.id] === undefined) next[row.id] = row.profile_id ?? '';
+            return next;
+          });
+        }
+      }
       if (assignmentResult.error) setNotice('Assignments: ' + assignmentResult.error.message);
       else setAssignments((assignmentResult.data ?? []) as Assignment[]);
       if (groupResult.error) setNotice((current) => current || 'Telegram groups: ' + groupResult.error.message);
@@ -92,6 +110,16 @@ export default function ManagementTools({ supabase, profile, profiles }: {
     setLoading(false);
   }
 
+  async function saveTelegramMemberLink(member: TelegramMember) {
+    if (!supabase || !isAdmin) return;
+    setLoading(true); setNotice('');
+    const selectedProfile = memberProfileSelections[member.id] || null;
+    const { error } = await supabase.from('telegram_group_members').update({ profile_id: selectedProfile }).eq('id', member.id);
+    setNotice(error ? 'Could not link Telegram member: ' + error.message : 'Telegram identity link saved.');
+    if (!error) await load();
+    setLoading(false);
+  }
+
   async function removeAssignment(a: Assignment) {
     if (!supabase) return;
     setLoading(true);
@@ -114,6 +142,19 @@ export default function ManagementTools({ supabase, profile, profiles }: {
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
     {isAdmin && <>
+      <h3>Link Telegram members to CRM employees</h3>
+      <p style={muted}>Verify the Telegram user ID against the employee before saving. These links control which Telegram analytics managers can see.</p>
+      <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead><tr>{['Telegram group','Telegram user','User ID','CRM employee','Action'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
+        <tbody>{telegramMembers.map(member => <tr key={member.id}>
+          <td style={cell}>{groups.find(g => g.telegram_chat_id === member.telegram_chat_id)?.title || member.telegram_chat_id}</td>
+          <td style={cell}>{member.display_name || 'Unknown'}{member.username ? ' @' + member.username : ''}</td>
+          <td style={cell}>{member.telegram_user_id}</td>
+          <td style={{ ...cell, minWidth: 220 }}><select style={input} value={memberProfileSelections[member.id] ?? ''} onChange={e => setMemberProfileSelections(current => ({ ...current, [member.id]: e.target.value }))}><option value="">Not linked</option>{profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin').map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></td>
+          <td style={cell}><button type="button" style={button} disabled={loading || (memberProfileSelections[member.id] ?? '') === (member.profile_id ?? '')} onClick={() => void saveTelegramMemberLink(member)}>Save link</button></td>
+        </tr>)}</tbody>
+      </table></div>
+      {!telegramMembers.length && <p style={muted}>No Telegram members found yet. Send messages in the test group and refresh the page.</p>}
       <h3>Assign employees to managers</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <label>Manager<select style={input} value={managerId} onChange={e => setManagerId(e.target.value)}><option value="">Choose manager</option>{managers.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
