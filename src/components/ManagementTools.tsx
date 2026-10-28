@@ -96,7 +96,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         else setMessages((messageResult.data ?? []) as Message[]);
       } else setMessages([]);
       if (isManager) {
-        const mine = ((assignmentResult.data ?? []) as Assignment[]).filter(a => a.manager_id === profile?.id).map(a => a.employee_id);
+        const mine = [...new Set(((treeResult.data ?? []) as TeamNode[]).map(person => person.id))];
         if (mine.length) {
           const attendanceResult = await supabase.from('attendance')
             .select('id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng')
@@ -203,6 +203,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
+  const renderTeamNode = (person: TeamNode, depth = 0): JSX.Element => {
+    const children = teamTree.filter(child => child.manager_id === person.id);
+    const expanded = Boolean(expandedManagers[person.id]);
+    return <div key={person.id} style={{border:'1px solid #344054',borderRadius:8,padding:8,marginLeft:Math.min(depth,5)*12}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <button type="button" style={{...button,background:'#344054',textAlign:'left'}} onClick={()=>setExpandedManagers(current=>({...current,[person.id]:!current[person.id]}))}>{children.length ? (expanded?'−':'+') : '•'} {person.full_name||person.email||person.id}</button>
+        <span style={{...muted,margin:0}}>{person.role}</span>
+      </div>
+      {expanded && children.length>0 && <div style={{display:'grid',gap:6,marginTop:8}}>{children.map(child=>renderTeamNode(child,depth+1))}</div>}
+    </div>;
+  };
   const answered = selectedMetrics.filter(m => m.response_seconds != null);
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
 
@@ -263,10 +274,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </div>}
       <h3>Reporting hierarchy</h3>
       <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
-      <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.depth===1).map(person=><div key={person.id} style={{border:'1px solid #344054',borderRadius:8,padding:10,marginLeft:0}}>
-        <button type="button" style={{...button,background:'#344054',textAlign:'left'}} onClick={()=>setExpandedManagers(current=>({...current,[person.id]:!current[person.id]}))}>{expandedManagers[person.id]?'−':'+'} {person.full_name||person.email||person.id} · {person.role}</button>
-        {expandedManagers[person.id] && <div style={{marginTop:8,display:'grid',gap:6}}>{teamTree.filter(child=>child.manager_id===person.id).map(child=><div key={child.id} style={{padding:'8px 10px',marginLeft:Math.min(child.depth,4)*14,borderLeft:'2px solid #f97316',background:'#172033',borderRadius:6}}>{child.full_name||child.email||child.id} · {child.role}</div>)}</div>}
-      </div>)}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
+      <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.manager_id===profile?.id).map(person=>renderTeamNode(person))}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
       <h3>Assigned employees</h3>
       {myAssignments.length ? <ul>{myAssignments.map(a => <li key={a.employee_id}>{personName(a.employee_id)}</li>)}</ul> : <p>No employees have been assigned to you yet.</p>}
       <h3>Team attendance</h3>
