@@ -42,6 +42,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [notice, setNotice] = useState('');
   const [activeMedia, setActiveMedia] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [mediaLoading, setMediaLoading] = useState('');
+  const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
   const isManager = profile?.active === true && profile.role.toLowerCase() === 'manager';
 
@@ -111,30 +112,48 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     if (!supabase) return;
     const key = message.telegram_chat_id + ':' + message.telegram_message_id;
     setMediaLoading(key);
+    setMediaErrors(current => ({ ...current, [key]: '' }));
     setNotice('');
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (sessionError || !token) throw new Error('Please sign in again to view this attachment.');
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-media-proxy`, {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseUrl || !publishableKey) throw new Error('Supabase URL/key are missing from the deployed frontend environment. Check GitHub Pages build variables.');
+      const response = await fetch(`${supabaseUrl.replace(/\\/$/, '')}/functions/v1/telegram-media-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          apikey: publishableKey,
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ chat_id: message.telegram_chat_id, message_id: message.telegram_message_id }),
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Attachment request failed (${response.status}).`);
+        const contentType = response.headers.get('Content-Type') || '';
+        const body = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+        const detail = body.error || (response.status === 404
+          ? 'Media proxy endpoint not found. Deploy the telegram-media-proxy Edge Function in the Supabase project used by this CRM.'
+          : response.status === 401 ? 'Your session expired. Sign out and sign back in.'
+          : response.status === 403 ? 'Your CRM role or Telegram group access does not permit this attachment.'
+          : `Attachment request failed (${response.status}). Check Supabase Edge Function logs.`);
+        throw new Error(detail);
       }
       const blob = await response.blob();
+      if (!blob.size) throw new Error('The media service returned an empty file. Check the Telegram file metadata and Edge Function logs.');
       const mime = blob.type || response.headers.get('Content-Type') || 'application/octet-stream';
+      if (mime.includes('application/json') || mime.includes('text/plain')) {
+        const text = await blob.text();
+        try { const body = JSON.parse(text); throw new Error(body.error || 'The media service returned an error instead of a file.'); }
+        catch (error) { if (error instanceof Error && error.message !== 'Unexpected end of JSON input') throw error; throw new Error('The media service returned an error instead of a file.'); }
+      }
       const url = URL.createObjectURL(blob);
       setActiveMedia({ url, mime, name });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not open attachment.');
+      const messageText = error instanceof Error ? error.message : 'Could not open attachment.';
+      setMediaErrors(current => ({ ...current, [key]: messageText }));
+      setNotice(messageText);
     } finally { setMediaLoading(''); }
   }
 
@@ -244,7 +263,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
         <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span></header>
         <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>
-          {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => { const raw=m.raw_update || {}; const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>; const photo=Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length-1] : null; const doc=msg.document || msg.video || msg.animation || msg.audio || msg.voice || null; const media=photo || doc; const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null); return <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}><div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>{media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Open'}</button></div>}<div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div><div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div></article> })}
+          {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => { const raw=m.raw_update || {}; const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>; const photo=Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length-1] : null; const doc=msg.document || msg.video || msg.animation || msg.audio || msg.voice || null; const media=photo || doc; const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null); return <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}><div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>{media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}<div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div><div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div></article> })}
           {!messages.some(m=>String(m.telegram_chat_id)===selectedGroup) && <p style={{ ...muted, textAlign:'center', padding:20 }}>No captured messages for this group yet. New messages appear after the analytics bot receives them.</p>}
         </div>
         {activeMedia && <div role="dialog" aria-modal="true" aria-label="Telegram attachment preview" style={{position:'fixed',inset:0,zIndex:1000,background:'#020617eF',display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={() => setActiveMedia(null)}><div style={{width:'min(900px,100%)',maxHeight:'90vh',overflow:'auto',background:'#101828',border:'1px solid #475467',borderRadius:14,padding:16}} onClick={e => e.stopPropagation()}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:12}}><strong style={{overflowWrap:'anywhere'}}>{activeMedia.name}</strong><button type="button" style={button} onClick={() => setActiveMedia(null)}>Close</button></div>{activeMedia.mime.startsWith('image/') ? <img src={activeMedia.url} alt={activeMedia.name} style={{display:'block',maxWidth:'100%',maxHeight:'70vh',margin:'0 auto',objectFit:'contain'}}/> : activeMedia.mime.startsWith('video/') ? <video src={activeMedia.url} controls playsInline style={{display:'block',width:'100%',maxHeight:'70vh'}}/> : activeMedia.mime.startsWith('audio/') ? <audio src={activeMedia.url} controls style={{width:'100%'}}/> : <p style={muted}>This file type is not previewable in the browser. Use the button below to open or save it.</p>}<div style={{marginTop:14}}><a href={activeMedia.url} download={activeMedia.name} target="_blank" rel="noreferrer" style={{...button,display:'inline-block',textDecoration:'none'}}>Download / open file</a></div><p style={muted}>This temporary preview stays in memory and is cleared when closed or when you change groups.</p></div></div>}
