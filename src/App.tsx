@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert } from 'lucide-react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -36,7 +36,7 @@ type Profile = {
 };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'attendance' | 'team' | 'telegram';
+type CrmPage = 'dashboard' | 'attendance' | 'team' | 'telegram' | 'security';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
 type Coordinates = {
@@ -219,6 +219,75 @@ function isApprovedEmail(email: string) {
 
   const domain = normalized.slice(separator + 1);
   return APPROVED_EMAIL_DOMAINS.includes(domain);
+}
+
+
+type SecurityActivity = {
+  id: number;
+  event_type: string;
+  inviter_name: string | null;
+  invitee_admin_panel_name: string | null;
+  invitee_email: string | null;
+  telegram_user_id: number | null;
+  telegram_username: string | null;
+  details: string;
+  created_at: string;
+};
+
+function SecurityActivityPanel() {
+  const [events, setEvents] = useState<SecurityActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!supabase) {
+        setError('Security log is unavailable because the database is not configured.');
+        setLoading(false);
+        return;
+      }
+      const { data, error: queryError } = await supabase
+        .from('suspicious_activities')
+        .select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (cancelled) return;
+      if (queryError) setError('Could not load Suspicious Activities: ' + queryError.message);
+      else setEvents((data ?? []) as SecurityActivity[]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const cellStyle: React.CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top', overflowWrap: 'anywhere' };
+  return <section style={{ marginTop: 20 }}>
+    <h1>Security</h1>
+    <h2>Suspicious Activities</h2>
+    <p style={{ color: '#b7c0d1' }}>Attempts to reuse a Telegram identity already registered to another CRM account. This audit log is visible to Admin only.</p>
+    {loading && <p>Loading security events…</p>}
+    {error && <p role="alert" style={{ color: '#fda29b' }}>{error}</p>}
+    {!loading && !error && events.length === 0 && <p style={{ color: '#b7c0d1' }}>No suspicious activities recorded.</p>}
+    {!loading && !error && events.length > 0 && <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+        <thead><tr>
+          <th style={cellStyle}>Time</th><th style={cellStyle}>Activity</th><th style={cellStyle}>Inviter manager</th>
+          <th style={cellStyle}>Invitee Admin Panel Name</th><th style={cellStyle}>Invitee email</th>
+          <th style={cellStyle}>Telegram ID</th><th style={cellStyle}>Telegram username</th><th style={cellStyle}>Details</th>
+        </tr></thead>
+        <tbody>{events.map(event => <tr key={event.id}>
+          <td style={cellStyle}>{new Date(event.created_at).toLocaleString()}</td>
+          <td style={cellStyle}>{event.event_type.replaceAll('_', ' ')}</td>
+          <td style={cellStyle}>{event.inviter_name || 'Unavailable'}</td>
+          <td style={cellStyle}>{event.invitee_admin_panel_name || 'Unavailable'}</td>
+          <td style={cellStyle}>{event.invitee_email || 'Unavailable'}</td>
+          <td style={cellStyle}>{event.telegram_user_id ?? 'Unavailable'}</td>
+          <td style={cellStyle}>{event.telegram_username ? '@' + event.telegram_username : 'Not provided'}</td>
+          <td style={cellStyle}>{event.details}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
+  </section>;
 }
 
 export default function App() {
@@ -1295,14 +1364,14 @@ export default function App() {
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:4,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#201a16',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);setMapPreview(null);setNavOpen(false);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);setMapPreview(null);setNavOpen(false);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
             </nav>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,marginTop:18,border:'1px solid #7c3216',borderRadius:2,background:'#c4511b',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:18,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management',telegram:'Telegram chats & analytics'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management',telegram:'Telegram chats & analytics',security:'Security'}[activePage]}</strong></div>
           {activePage === 'dashboard' && <>
           <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
@@ -1461,6 +1530,7 @@ export default function App() {
           </>}
           {(isAdmin || canManageTeam) && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
           {(isAdmin || canManageTeam) && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
+          {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
