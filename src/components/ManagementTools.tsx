@@ -200,7 +200,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   if (!isAdmin && !isManager) return null;
   const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase()));
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
-  const inviteRoles = normalizedRole === 'team leader' ? ['senior','middle','junior','telemarketing'] : normalizedRole === 'senior' ? ['middle','junior','telemarketing'] : ['junior','telemarketing'];
+  const inviteRoles = isAdmin ? ['telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -258,21 +258,22 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <tbody>{assignments.map(a => <tr key={a.manager_id + ':' + a.employee_id}><td style={cell}>{personName(a.manager_id)}</td><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{new Date(a.created_at).toLocaleDateString()}</td><td style={cell}><button type="button" style={{ ...button, background: '#b42318' }} disabled={loading} onClick={() => void removeAssignment(a)}>Remove</button></td></tr>)}</tbody>
       </table></div>
     </>}
-    {isManager && <>
-      <h3>Invite an employee</h3>
-      <p style={muted}>Generate a single-use link that expires in 7 days. The invited person must sign in to an existing approved CRM account to redeem it.</p>
+    {(isManager || isAdmin) && <>
+      <h3>{isAdmin ? 'Admin invitation — Telemarketing only' : 'Invite an employee'}</h3>
+      <p style={muted}>{isAdmin ? 'Telemarketing is a separate track. Only Admin can issue these invitations; they do not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 7 days. New employees register with their approved work email and complete identity verification. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
-        <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
-        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended employee.');}setLoading(false);}}>Generate invitation link</button></div>
+        <label>Role<select style={input} value={isAdmin ? 'telemarketing' : inviteRole} disabled={isAdmin} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
+        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:isAdmin?'telemarketing':inviteRole});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}setLoading(false);}}>Generate invitation link</button></div>
       </div>
       {inviteUrl && <div style={{marginTop:12,padding:12,border:'1px solid #475467',borderRadius:8,overflowWrap:'anywhere'}}>
         <input aria-label="Invitation link" readOnly value={inviteUrl} style={input}/>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
           <button type="button" style={button} onClick={()=>{void navigator.clipboard.writeText(inviteUrl);setNotice('Invitation link copied.');}}>Copy link</button>
-          <a href={'https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('You are invited to MBP Attendance CRM. Sign in to redeem this link.')} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via Telegram</a>
+          <a href={'https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('You are invited to MBP Attendance CRM. Open this link to register and verify your identity.')} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via Telegram</a>
           <a href={'https://wa.me/?text='+encodeURIComponent('You are invited to MBP Attendance CRM: '+inviteUrl)} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via WhatsApp</a>
         </div>
       </div>}
+      {!isAdmin && <>
       <h3>Reporting hierarchy</h3>
       <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
       <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.manager_id===profile?.id).map(person=>renderTeamNode(person))}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
@@ -283,6 +284,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <thead><tr>{['Employee','Work date','Check-in','Check-out','GPS'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
         <tbody>{teamAttendance.map(a => <tr key={a.id}><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{a.work_date || a.check_in?.slice(0,10)}</td><td style={cell}>{a.check_in ? new Date(a.check_in).toLocaleString() : '—'}</td><td style={cell}>{a.check_out ? new Date(a.check_out).toLocaleString() : 'Open session'}</td><td style={cell}>{a.check_in_lat != null && a.check_in_lng != null ? <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_in_lat},${a.check_in_lng}`}>📍 Check-in</a> : '—'}{a.check_out_lat != null && a.check_out_lng != null ? <> · <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_out_lat},${a.check_out_lng}`}>📍 Check-out</a></> : null}</td></tr>)}</tbody>
       </table></div>
+      </>}
     </>}
     </>}
     {page !== 'team' && <>
