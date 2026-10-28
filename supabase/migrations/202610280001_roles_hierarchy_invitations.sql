@@ -4,7 +4,7 @@ create extension if not exists pgcrypto with schema extensions;
 
 -- The existing active employee account was explicitly designated as Senior.
 -- Retire the legacy employee role from current profile data before role logic is switched.
-update public.profiles set role = 'senior'::public.app_role where role::text = 'employee';
+update public.profiles set role = 'senior'::public.app_role where role::text in ('employee', 'manager');
 
 create or replace function public.is_hierarchy_manager(target_profile uuid default auth.uid())
 returns boolean
@@ -14,7 +14,7 @@ as $$
   select exists (
     select 1 from public.profiles p
     where p.id = target_profile and p.active = true
-      and lower(replace(p.role::text, '_', ' ')) in ('middle','senior','team leader','manager')
+      and lower(replace(p.role::text, '_', ' ')) in ('middle','senior','team leader')
   );
 $$;
 
@@ -67,12 +67,20 @@ set search_path = public
 as $$
 declare raw_token text := encode(extensions.gen_random_bytes(32), 'hex');
 declare normalized_role text := lower(trim(replace(invited_role, '_', ' ')));
+declare inviter_role text;
 begin
+  select lower(replace(role::text, '_', ' ')) into inviter_role
+    from public.profiles where id = auth.uid() and active = true;
   if not public.is_hierarchy_manager(auth.uid()) then
-    raise exception 'Only Middle, Senior, Team Leader, or Manager accounts can invite employees' using errcode = '42501';
+    raise exception 'Only Middle, Senior, or Team Leader accounts can invite employees' using errcode = '42501';
   end if;
   if normalized_role not in ('junior','middle','senior','team leader','telemarketing') then
     raise exception 'Unsupported invitation role';
+  end if;
+  if (inviter_role = 'senior' and normalized_role not in ('middle','junior','telemarketing'))
+     or (inviter_role = 'middle' and normalized_role not in ('junior','telemarketing'))
+     or (inviter_role = 'team leader' and normalized_role not in ('junior','telemarketing')) then
+    raise exception 'You cannot invite someone into a role equal to or above your own';
   end if;
   insert into public.manager_invitations(token_hash, invited_by, invited_role)
   values (encode(extensions.digest(raw_token, 'sha256'), 'hex'), auth.uid(),
