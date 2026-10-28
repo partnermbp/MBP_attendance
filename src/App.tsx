@@ -242,6 +242,8 @@ export default function App() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
+  const [draftStartDate, setDraftStartDate] = useState('');
+  const [draftEndDate, setDraftEndDate] = useState('');
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [telegramLinkUrl, setTelegramLinkUrl] = useState('');
   const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null);
@@ -922,6 +924,7 @@ export default function App() {
 
   return (
     <main style={pageStyle}>
+      <style>{`@media (max-width: 760px) { .crm-layout { display:block !important; } .crm-sidebar { position:relative !important; top:auto !important; min-height:0 !important; width:auto !important; margin-bottom:12px; padding:8px !important; } .crm-sidebar nav { flex-direction:row !important; flex-wrap:wrap; gap:4px !important; } .crm-sidebar nav button { width:auto !important; flex:1 1 auto; min-width:44px; justify-content:center !important; padding:9px !important; gap:6px !important; font-size:0; } .crm-sidebar nav button svg { flex-shrink:0; } .crm-menu-label { display:none !important; } .crm-sidebar > button[title="Sign out"] { width:auto !important; min-height:40px !important; padding:8px !important; } .crm-sidebar > div:first-child { margin-bottom:8px !important; } .crm-layout > :not(.crm-sidebar) { min-width:0; } .crm-layout table { max-width:100%; } } @media (max-width: 480px) { main { padding:10px !important; } .crm-layout { gap:8px !important; } .crm-layout section { padding:12px !important; } .crm-layout input[type=date] { font-size:16px; min-height:44px; } }`}</style>
       <header style={{ maxWidth: 1440, margin: '0 auto' }}>
         <p style={{ color: '#82b4ff', fontWeight: 700 }}>ATTENDANCE CRM</p>
       </header>
@@ -1082,11 +1085,11 @@ export default function App() {
       )}
 
       {screen === 'signed-in' && session && (
-        <div style={{display:'grid',gridTemplateColumns:navOpen?'250px minmax(0,1fr)':'64px minmax(0,1fr)',gap:18,alignItems:'start',width:'100%',maxWidth:1600,margin:'0 auto'}}>
-          <aside style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:14,color:'#dce4f2'}}>
+        <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'250px minmax(0,1fr)':'64px minmax(0,1fr)',gap:18,alignItems:'start',width:'100%',maxWidth:1600,margin:'0 auto'}}>
+          <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:4,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#201a16',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&item.label}</button>)}
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
             </nav>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,marginTop:18,border:'1px solid #7c3216',borderRadius:2,background:'#c4511b',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:18,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
@@ -1306,10 +1309,11 @@ export default function App() {
                 <input
                   aria-label="Report start date"
                   type="date"
-                  value={reportStartDate}
-                  max={reportEndDate || undefined}
-                  onChange={(event) => setReportStartDate(event.target.value)}
-                  style={inputStyle}
+                  value={draftStartDate}
+                  max={draftEndDate || undefined}
+                  onChange={(event) => setDraftStartDate(event.target.value)}
+                  onClick={(event) => { const input = event.currentTarget as HTMLInputElement & { showPicker?: () => void }; try { input.showPicker?.(); } catch { /* Native picker may require a direct gesture. */ } }}
+                  style={{ ...inputStyle, colorScheme: 'dark', minWidth: 0 }}
                 />
               </label>
               <label>
@@ -1318,14 +1322,18 @@ export default function App() {
                   aria-label="Report end date"
                   type="date"
                   min={reportStartDate || undefined}
-                  value={reportEndDate}
-                  onChange={(event) => setReportEndDate(event.target.value)}
-                  style={inputStyle}
+                  value={draftEndDate}
+                  onChange={(event) => setDraftEndDate(event.target.value)}
+                  onClick={(event) => { const input = event.currentTarget as HTMLInputElement & { showPicker?: () => void }; try { input.showPicker?.(); } catch { /* Native picker may require a direct gesture. */ } }}
+                  style={{ ...inputStyle, colorScheme: 'dark', minWidth: 0 }}
                 />
               </label>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
-              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setReportStartDate(''); setReportEndDate(''); }}>
+              <button type="button" style={buttonStyle} onClick={() => { if (draftStartDate && draftEndDate && draftStartDate > draftEndDate) { setMessage('The start date must be on or before the end date.'); return; } setReportStartDate(draftStartDate); setReportEndDate(draftEndDate); setMessage('Attendance dates applied.'); }}>
+                Apply dates
+              </button>
+              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setDraftStartDate(''); setDraftEndDate(''); setReportStartDate(''); setReportEndDate(''); setMessage('Date filters cleared.'); }}>
                 Clear dates
               </button>
               <button type="button" onClick={handleExportCsv} style={buttonStyle}>
@@ -1337,6 +1345,8 @@ export default function App() {
                 const startDate = new Date(today);
                 startDate.setDate(startDate.getDate() - 6);
                 const start = new Date(startDate.getTime() - startDate.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                setDraftStartDate(start);
+                setDraftEndDate(end);
                 setReportStartDate(start);
                 setReportEndDate(end);
               }}>
