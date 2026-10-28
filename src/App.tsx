@@ -444,8 +444,7 @@ export default function App() {
       });
       if (error) setMessage('Registration failed: ' + error.message);
       else if (data.session && data.user) {
-        setMessage('Account created. Redeeming manager invitation…');
-        await loadDashboard(data.user.id);
+        setMessage('Account created. Finishing sign-in and redeeming your invitation…');
       } else {
         setMessage('Registration started. Confirm your email using the link sent to you, then return to this invitation link and sign in to redeem it.');
       }
