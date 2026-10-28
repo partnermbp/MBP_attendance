@@ -41,15 +41,19 @@ async function cityCountry(lat: number, lng: number): Promise<string> {
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("lat", String(roundedLat));
   url.searchParams.set("lon", String(roundedLng));
-  url.searchParams.set("zoom", "10");
+  url.searchParams.set("zoom", "11");
   url.searchParams.set("addressdetails", "1");
   const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse city-country labels)" } });
   if (!response.ok) return "Location unavailable";
   const data = await response.json();
   const address = data?.address || {};
-  const city = address.city || address.town || address.village || address.municipality || address.county || address.state;
-  const countryCode = address.country_code ? String(address.country_code).toUpperCase() : "";
-  return [city, countryCode].filter(Boolean).join(", ") || "Location unavailable";
+  const city = address.city || address.town || address.village || address.municipality || "";
+  const district = address.city_district || address.district || address.county || address.suburb || address.borough || "";
+  const country = address.country || "";
+  const localityParts = [city, district && district.toLowerCase() !== city.toLowerCase() ? district : ""].filter(Boolean);
+  const locality = localityParts.join(", ");
+  // Keep a useful coarse label even when the reverse geocoder only identifies the country.
+  return [locality, country].filter(Boolean).join(", ") || "Location unavailable";
 }
 
 Deno.serve(async (req: Request) => {
