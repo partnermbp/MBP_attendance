@@ -1,5 +1,6 @@
 -- MBP Attendance: role management, multi-level hierarchy and manager-linked invitations.
 -- Apply in the Supabase SQL Editor before enabling the related UI.
+create extension if not exists pgcrypto with schema extensions;
 
 create or replace function public.is_hierarchy_manager(target_profile uuid default auth.uid())
 returns boolean
@@ -60,7 +61,7 @@ returns text
 language plpgsql security definer
 set search_path = public
 as $$
-declare raw_token text := encode(gen_random_bytes(32), 'hex');
+declare raw_token text := encode(extensions.gen_random_bytes(32), 'hex');
 declare normalized_role text := lower(trim(replace(invited_role, '_', ' ')));
 begin
   if not public.is_hierarchy_manager(auth.uid()) then
@@ -70,7 +71,7 @@ begin
     raise exception 'Unsupported invitation role';
   end if;
   insert into public.manager_invitations(token_hash, invited_by, invited_role)
-  values (encode(digest(raw_token, 'sha256'), 'hex'), auth.uid(),
+  values (encode(extensions.digest(raw_token, 'sha256'), 'hex'), auth.uid(),
     case normalized_role when 'team leader' then 'team_leader' else normalized_role end);
   return raw_token;
 end;
@@ -87,7 +88,7 @@ begin
     raise exception 'Sign in or complete registration before redeeming an invitation' using errcode = '42501';
   end if;
   select * into inv from public.manager_invitations
-    where token_hash = encode(digest(invitation_token, 'sha256'), 'hex')
+    where token_hash = encode(extensions.digest(invitation_token, 'sha256'), 'hex')
       and redeemed_at is null and expires_at > now()
     for update;
   if not found then
