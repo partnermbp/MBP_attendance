@@ -51,7 +51,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
-  const isManager = profile?.active === true && ['middle', 'senior', 'team leader', 'manager'].includes(normalizedRole);
+  const isManager = profile?.active === true && ['middle', 'senior', 'team leader'].includes(normalizedRole);
 
   async function load() {
     if (!supabase || (!isAdmin && !isManager)) return;
@@ -198,8 +198,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const managers = profiles.filter(p => p.active && ['middle','senior','team leader','team_leader','manager'].includes(p.role.toLowerCase()));
-  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager'].includes(p.role.toLowerCase()));
+  const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase()));
+  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
+  const inviteRoles = normalizedRole === 'team leader' ? ['senior','middle','junior','telemarketing'] : normalizedRole === 'senior' ? ['middle','junior','telemarketing'] : ['junior','telemarketing'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -261,7 +262,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>Invite an employee</h3>
       <p style={muted}>Generate a single-use link that expires in 7 days. The invited person must sign in to an existing approved CRM account to redeem it.</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
-        <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{['junior','middle','senior','team_leader','telemarketing'].map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
+        <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
         <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended employee.');}setLoading(false);}}>Generate invitation link</button></div>
       </div>
       {inviteUrl && <div style={{marginTop:12,padding:12,border:'1px solid #475467',borderRadius:8,overflowWrap:'anywhere'}}>
