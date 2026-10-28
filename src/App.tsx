@@ -290,6 +290,7 @@ export default function App() {
       if (savedTicket) {
         setRegistrationTicket(savedTicket);
         setInviteTelegramVerified(true);
+        setInvitePasswordStep(true);
       }
       if (!details.valid) setMessage('This invitation has expired or has already been used.');
     })();
