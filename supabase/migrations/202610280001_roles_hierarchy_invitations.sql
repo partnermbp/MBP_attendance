@@ -2,6 +2,13 @@
 -- Apply in the Supabase SQL Editor before enabling the related UI.
 create extension if not exists pgcrypto with schema extensions;
 
+create or replace function public.is_active_admin()
+returns boolean language sql stable security definer
+set search_path = public
+as $
+  select exists (select 1 from public.profiles p where p.id = auth.uid() and p.active = true and lower(p.role::text) = 'admin');
+$;
+
 -- The existing active employee account was explicitly designated as Senior.
 -- Retire the legacy employee role from current profile data before role logic is switched.
 update public.profiles set role = 'senior'::public.app_role where role::text in ('employee', 'manager');
@@ -79,7 +86,7 @@ begin
   end if;
   if (inviter_role = 'senior' and normalized_role not in ('middle','junior','telemarketing'))
      or (inviter_role = 'middle' and normalized_role not in ('junior','telemarketing'))
-     or (inviter_role = 'team leader' and normalized_role not in ('junior','telemarketing')) then
+     or (inviter_role = 'team leader' and normalized_role not in ('senior','middle','junior','telemarketing')) then
     raise exception 'You cannot invite someone into a role equal to or above your own';
   end if;
   insert into public.manager_invitations(token_hash, invited_by, invited_role)
