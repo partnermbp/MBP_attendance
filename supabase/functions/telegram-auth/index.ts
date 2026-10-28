@@ -86,7 +86,7 @@ async function createLinkToken(req: Request) {
 }
 async function getLinkStatus(req: Request) {
   const authorization = req.headers.get("authorization") ?? "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) return jsonResponse({ ok: false, error: "Sign in first." }, 401);
   const { data: authData, error: authError } = await supabase.auth.getUser(match[1]);
   if (authError || !authData.user) return jsonResponse({ ok: false, error: "Your session is invalid or expired." }, 401);
