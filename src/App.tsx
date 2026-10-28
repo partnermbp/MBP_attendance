@@ -281,6 +281,12 @@ export default function App() {
       setInviteDetails(details);
       setEmail(details.corporate_email);
       const savedTicket = sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
+      const savedChallenge = sessionStorage.getItem('mbp_invite_challenge_' + inviteToken) || '';
+      const savedBotUrl = sessionStorage.getItem('mbp_invite_bot_url_' + inviteToken) || '';
+      if (savedChallenge) {
+        setInviteChallenge(savedChallenge);
+        setInviteBotUrl(savedBotUrl);
+      }
       if (savedTicket) {
         setRegistrationTicket(savedTicket);
         setInviteTelegramVerified(true);
@@ -323,6 +329,8 @@ export default function App() {
           } else {
             setInviteRedeemed(true);
             sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
+            sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
+            sessionStorage.removeItem('mbp_invite_bot_url_' + inviteToken);
             await supabase.auth.updateUser({ data: { registration_ticket: null } });
             setMessage('Invitation accepted. Your verified Telegram identity and manager relationship are now active.');
             const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
@@ -481,6 +489,8 @@ export default function App() {
       const challenge = new URL(data.bot_url).searchParams.get('start') || '';
       setInviteChallenge(challenge);
       setInviteBotUrl(data.bot_url);
+      sessionStorage.setItem('mbp_invite_challenge_' + inviteToken, challenge);
+      sessionStorage.setItem('mbp_invite_bot_url_' + inviteToken, data.bot_url);
       setInviteTelegramVerified(false);
       setInviteOtp('');
       setMessage('Open @mbpauthbot, press Start, then enter the six-digit code sent in that Telegram chat.');
