@@ -225,7 +225,6 @@ export default function App() {
     useState<PasswordFlow>(readPasswordFlow);
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
   const [inviteRedeemed, setInviteRedeemed] = useState(false);
-  const [registering, setRegistering] = useState(false);
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
@@ -444,7 +443,7 @@ export default function App() {
         options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken } },
       });
       if (error) setMessage('Registration failed: ' + error.message);
-      else if (data.session) {
+      else if (data.session && data.user) {
         setMessage('Account created. Redeeming manager invitation…');
         await loadDashboard(data.user.id);
       } else {
