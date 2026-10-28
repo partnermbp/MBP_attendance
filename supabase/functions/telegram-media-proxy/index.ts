@@ -2,7 +2,7 @@
 // The bot token stays on the server. Media is streamed and never persisted.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const TELEGRAM_BOT_TOKEN = Deno.env.get("MBP_ANALYTICS_TELEGRAM_BOT_TOKEN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TELEGRAM_BOT_TOKEN) {
-    return json({ error: "Media preview service is not configured. Deploy telegram-media-proxy and set the analytics bot token in Supabase Edge Function secrets.", code: "MEDIA_PROXY_NOT_CONFIGURED" }, 503);
+    return json({ error: "Media preview service is not configured. Deploy telegram-media-proxy and set MBP_ANALYTICS_TELEGRAM_BOT_TOKEN in Supabase Edge Function secrets.", code: "MEDIA_PROXY_NOT_CONFIGURED" }, 503);
   }
 
   const auth = req.headers.get("Authorization") || "";
