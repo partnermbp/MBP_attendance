@@ -25,6 +25,8 @@ type Shift = {
   ends_at: string;
 };
 
+type InvitationDetails = { admin_panel_name: string; corporate_email: string; invited_role: string; expires_at: string; valid: boolean };
+
 type Profile = {
   id: string;
   email: string | null;
@@ -225,6 +227,12 @@ export default function App() {
     useState<PasswordFlow>(readPasswordFlow);
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
   const [inviteRedeemed, setInviteRedeemed] = useState(false);
+  const [inviteDetails, setInviteDetails] = useState<InvitationDetails | null>(null);
+  const [inviteChallenge, setInviteChallenge] = useState('');
+  const [inviteBotUrl, setInviteBotUrl] = useState('');
+  const [inviteOtp, setInviteOtp] = useState('');
+  const [inviteTelegramVerified, setInviteTelegramVerified] = useState(false);
+  const [registrationTicket, setRegistrationTicket] = useState('');
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
@@ -258,6 +266,24 @@ export default function App() {
 
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !inviteToken) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.rpc('get_manager_invitation_details', { invitation_token: inviteToken });
+      if (cancelled) return;
+      if (error || !data?.length) {
+        setMessage('This invitation link is invalid or unavailable.');
+        return;
+      }
+      const details = data[0] as InvitationDetails;
+      setInviteDetails(details);
+      setEmail(details.corporate_email);
+      if (!details.valid) setMessage('This invitation has expired or has already been used.');
+    })();
+    return () => { cancelled = true; };
+  }, [inviteToken]);
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -421,10 +447,72 @@ export default function App() {
     };
   }, [loadDashboard, passwordFlow]);
 
+  async function handleStartInviteTelegram() {
+    if (!supabase || !inviteToken || !inviteDetails?.valid) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-auth', {
+        body: { action: 'create_invite_telegram_challenge', invitation_token: inviteToken },
+      });
+      if (error || !data?.ok || !data?.bot_url) {
+        setMessage(data?.error || error?.message || 'Unable to start Telegram verification.');
+        return;
+      }
+      const challenge = new URL(data.bot_url).searchParams.get('start') || '';
+      setInviteChallenge(challenge);
+      setInviteBotUrl(data.bot_url);
+      setInviteTelegramVerified(false);
+      setInviteOtp('');
+      setMessage('Open @mbpauthbot, press Start, then enter the six-digit code sent in that Telegram chat.');
+    } catch (error) {
+      setMessage('Unable to start Telegram verification: ' + getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyInviteTelegram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !inviteToken || !inviteChallenge) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-auth', {
+        body: { action: 'verify_invite_telegram_otp', invitation_token: inviteToken, challenge: inviteChallenge, otp: inviteOtp },
+      });
+      if (error || !data?.ok || !data?.registration_ticket) {
+        setMessage(data?.error || error?.message || 'Telegram verification failed.');
+        return;
+      }
+      setRegistrationTicket(data.registration_ticket);
+      sessionStorage.setItem('mbp_registration_ticket_' + inviteToken, data.registration_ticket);
+      setInviteTelegramVerified(true);
+      setMessage('Telegram verified successfully. You can now register with the invited corporate email.');
+    } catch (error) {
+      setMessage('Telegram verification failed: ' + getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !inviteToken) return;
     const normalizedEmail = email.trim().toLowerCase();
+    const ticket = registrationTicket || sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
+    if (!inviteDetails?.valid) {
+      setMessage('This invitation is invalid, expired, or already used.');
+      return;
+    }
+    if (!inviteTelegramVerified || !ticket) {
+      setMessage('Verify your Telegram account with @mbpauthbot before registering.');
+      return;
+    }
+    if (normalizedEmail !== inviteDetails.corporate_email.trim().toLowerCase()) {
+      setMessage('Use the exact corporate email assigned by your inviter: ' + inviteDetails.corporate_email);
+      return;
+    }
     if (!isApprovedEmail(normalizedEmail)) {
       setMessage('This email address is not on the approved account list.');
       return;
@@ -440,7 +528,7 @@ export default function App() {
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
-        options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken } },
+        options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken, registration_ticket: ticket } },
       });
       if (error) setMessage('Registration failed: ' + error.message);
       else if (data.session && data.user) {
@@ -1072,15 +1160,33 @@ export default function App() {
             </form>
           </details>
           {inviteToken && <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid #344054'}}>
-            <h2 style={{fontSize:18}}>New employee? Create an account</h2>
-            <p style={{color:'#b7c0d1',fontSize:13}}>This invitation is single-use and expires after 7 days. Use your approved work email.</p>
-            <form onSubmit={handleRegister}>
-              <label htmlFor="register-email">Work email</label>
-              <input id="register-email" type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
-              <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Password (at least 8 characters)</label>
-              <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
-              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Register and accept invitation'}</button>
-            </form>
+            <h2 style={{fontSize:18}}>Invitation registration</h2>
+            {inviteDetails ? <>
+              <div style={{padding:12,margin:'12px 0',border:'1px solid #475467',borderRadius:8,background:'#151413'}}>
+                <p style={{margin:'4px 0'}}> <strong>Admin Panel Name:</strong> {inviteDetails.admin_panel_name}</p>
+                <p style={{margin:'4px 0',overflowWrap:'anywhere'}}><strong>Corporate Email:</strong> {inviteDetails.corporate_email}</p>
+                <p style={{margin:'4px 0'}}><strong>Assigned role:</strong> {inviteDetails.invited_role.replaceAll('_',' ')}</p>
+              </div>
+              {!inviteDetails.valid ? <p style={{color:'#fda29b'}}>This invitation is expired or has already been used.</p> : <>
+                <p style={{color:'#b7c0d1',fontSize:13}}>Verify the Telegram account belonging to this employee before creating the CRM account.</p>
+                {!inviteTelegramVerified ? <>
+                  <button type="button" onClick={handleStartInviteTelegram} disabled={busy} style={{...buttonStyle,width:'100%',marginTop:8}}>Authenticate with @mbpauthbot</button>
+                  {inviteBotUrl && <p><a href={inviteBotUrl} target="_blank" rel="noreferrer" style={{color:'#fdba74'}}>Open @mbpauthbot and press Start</a></p>}
+                  {inviteChallenge && <form onSubmit={handleVerifyInviteTelegram} style={{marginTop:14}}>
+                    <label htmlFor="invite-telegram-otp">Six-digit code from Telegram</label>
+                    <input id="invite-telegram-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={inviteOtp} onChange={event=>setInviteOtp(event.target.value.replace(/\D/g,'').slice(0,6))} style={inputStyle}/>
+                    <button type="submit" disabled={busy || inviteOtp.length!==6} style={{...buttonStyle,width:'100%',marginTop:10}}>Verify Telegram</button>
+                  </form>}
+                </> : <p style={{color:'#86efac'}}>Telegram identity verified. Registration is now unlocked.</p>}
+                <form onSubmit={handleRegister} style={{marginTop:16}}>
+                  <label htmlFor="register-email">Corporate email</label>
+                  <input id="register-email" type="email" autoComplete="email" required readOnly value={inviteDetails.corporate_email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
+                  <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Password (at least 8 characters)</label>
+                  <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
+                  <button type="submit" disabled={busy || !inviteTelegramVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Register and accept invitation'}</button>
+                </form>
+              </>}
+            </> : <p style={{color:'#b7c0d1'}}>Loading invitation details…</p>}
           </div>}
         </section>
       )}
