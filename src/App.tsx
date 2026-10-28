@@ -1726,7 +1726,8 @@ export default function App() {
               const gpsButton = (lat: number | null, lng: number | null, title: string) => lat != null && lng != null
                 ? <button type="button" aria-label={title} title={title} onClick={() => setMapPreview({title,latitude:lat,longitude:lng})} style={{display:'inline-grid',placeItems:'center',width:23,height:23,padding:0,color:'#ff9b62',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer',verticalAlign:'middle'}}><MapPin size={14}/></button>
                 : null;
-              return <div style={{overflowX:'auto',border:'1px solid #38302a',marginTop:12}}>
+              return <>
+                <div style={{overflowX:'auto',border:'1px solid #38302a',marginTop:12}}>
                 <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*154),textAlign:'left'}}>
                   <thead><tr style={{background:'#211711'}}>
                     <th style={{position:'sticky',left:0,zIndex:2,background:'#211711',padding:12,borderBottom:'1px solid #493023',minWidth:180}}>Employee</th>
@@ -1759,8 +1760,14 @@ export default function App() {
                   </tr>)}
                   {people.length===0 && <tr><td colSpan={dateKeys.length+1} style={{padding:18,color:'#b7aaa0'}}>No employees match this filter.</td></tr>}
                 </tbody></table>
-                <p style={{margin:'10px 12px',fontSize:12,color:'#b7aaa0'}}>Green = signed in and out · Orange = signed in, no sign-out · Red = no attendance record. Showing up to 93 dates; defaults to the last 7 days.</p>
-              </div>;
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',margin:'10px 12px',fontSize:12,color:'#b7aaa0'}}>
+                  <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#22c55e'}}/>Completed shift</span>
+                  <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f79009'}}/>Incomplete shift</span>
+                  <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f04438'}}/>Absent</span>
+                  <span>Showing up to 93 dates; defaults to the last 7 days.</span>
+                </div>
+              </>;
             })()}
             {!isAdmin && reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
