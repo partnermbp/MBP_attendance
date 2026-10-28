@@ -317,7 +317,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         const timeOnly = (value: string | null, timezone: string | null) => value
           ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...(timezone ? { timeZone: timezone } : {}) }).format(new Date(value))
           : '—';
-        return <div style={{ overflowX: 'auto', border: '1px solid #38302a', marginTop: 12 }}>
+        return <div style={{ border: '1px solid #38302a', marginTop: 12 }}>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: Math.max(620, 180 + dateKeys.length * 154), textAlign: 'left' }}>
             <thead><tr style={{ background: '#211711' }}>
               <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#211711', padding: 12, borderBottom: '1px solid #493023', minWidth: 180 }}>Employee</th>
@@ -343,7 +344,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
                 const borderColor = !present ? '#b42318' : completed ? '#286947' : '#8a5318';
                 return <td key={date} style={{ padding: 6, borderBottom: '1px solid #38302a', textAlign: 'center', minWidth: 154 }}>
                   <div title={!present ? 'Absent' : completed ? 'Signed in and out' : 'Signed in; not signed out'} style={{ display: 'inline-flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 8, padding: '7px 9px', width: 142, minHeight: 54, boxSizing: 'border-box', background: bg, color: fg, border: '1px solid ' + borderColor, borderRadius: 4, fontSize: 12, fontWeight: 700, textAlign: 'left' }}>
-                    {!present ? <span aria-label="Absent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}><span aria-hidden="true" style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#f04438', border: '2px solid #fda29b', boxShadow: '0 0 0 3px #7a271a' }} /></span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
+                    {!present ? <span aria-label="Absent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', color: '#fda29b' }}>Absent</span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
                       <span>IN&nbsp; {timeOnly(record.check_in, record.work_timezone)}{record.check_in_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_in_city}</span>}</span>
                       <span>OUT {timeOnly(record.check_out, record.work_timezone)}{record.check_out && record.check_out_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_out_city}</span>}</span>
                     </span>}
@@ -354,6 +355,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             {teamTree.length === 0 && <tr><td colSpan={dateKeys.length + 1} style={{ padding: 18, color: '#b7aaa0' }}>No employees have been assigned to your team yet.</td></tr>}
             </tbody>
           </table>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', margin: '10px 12px', fontSize: 12, color: '#b7aaa0' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} />Completed shift</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#f79009' }} />Incomplete shift</span>

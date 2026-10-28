@@ -43,17 +43,37 @@ async function cityCountry(lat: number, lng: number): Promise<string> {
   url.searchParams.set("lon", String(roundedLng));
   url.searchParams.set("zoom", "11");
   url.searchParams.set("addressdetails", "1");
-  const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse city-country labels)" } });
-  if (!response.ok) return "Location unavailable";
-  const data = await response.json();
-  const address = data?.address || {};
-  const city = address.city || address.town || address.village || address.municipality || "";
-  const district = address.city_district || address.district || address.county || address.suburb || address.borough || "";
-  const country = address.country || "";
-  const localityParts = [city, district && district.toLowerCase() !== city.toLowerCase() ? district : ""].filter(Boolean);
-  const locality = localityParts.join(", ");
-  // Keep a useful coarse label even when the reverse geocoder only identifies the country.
-  return [locality, country].filter(Boolean).join(", ") || "Location unavailable";
+
+  // Retry transient rate-limit/network/server errors once. A single failed lookup
+  // should not permanently turn an otherwise valid GPS point into "Location unavailable".
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse city-country labels)" } });
+      if (!response.ok) {
+        if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          continue;
+        }
+        return "Location unavailable";
+      }
+      const data = await response.json();
+      const address = data?.address || {};
+      const city = address.city || address.town || address.village || address.municipality || "";
+      const district = address.city_district || address.district || address.county || address.suburb || address.borough || "";
+      const country = address.country || "";
+      const localityParts = [city, district && district.toLowerCase() !== city.toLowerCase() ? district : ""].filter(Boolean);
+      const locality = localityParts.join(", ");
+      // If a district is available without a city, still show the district and country.
+      return [locality, country].filter(Boolean).join(", ") || "Location unavailable";
+    } catch {
+      if (attempt === 0) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        continue;
+      }
+      return "Location unavailable";
+    }
+  }
+  return "Location unavailable";
 }
 
 Deno.serve(async (req: Request) => {
