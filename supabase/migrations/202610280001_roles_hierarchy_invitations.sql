@@ -136,3 +136,50 @@ $$;
 grant execute on function public.set_employee_role(uuid, text) to authenticated;
 grant execute on function public.create_manager_invitation(text) to authenticated;
 grant execute on function public.redeem_manager_invitation(text) to authenticated;
+
+
+-- Return the caller's recursively assigned team without exposing unrelated profiles.
+create or replace function public.get_my_team_hierarchy()
+returns table(id uuid, email text, full_name text, role text, active boolean, manager_id uuid, depth integer)
+language sql stable security definer
+set search_path = public
+as $$
+  with recursive team as (
+    select a.employee_id as id, a.manager_id, 1 as depth, array[auth.uid(), a.employee_id]::uuid[] as path
+    from public.manager_employee_assignments a
+    where a.manager_id = auth.uid()
+    union all
+    select a.employee_id, a.manager_id, t.depth + 1, t.path || a.employee_id
+    from public.manager_employee_assignments a
+    join team t on a.manager_id = t.id
+    where t.depth < 12 and not a.employee_id = any(t.path)
+  )
+  select p.id, p.email, p.full_name, p.role, p.active, team.manager_id, team.depth
+  from team join public.profiles p on p.id = team.id
+  where exists (select 1 from public.profiles me where me.id = auth.uid() and me.active = true
+    and (lower(me.role) = 'admin' or public.is_hierarchy_manager(me.id)))
+  order by team.depth, p.full_name;
+$$;
+
+-- Managers may see attendance for any descendant in their assigned reporting tree.
+create or replace function public.is_assigned_manager(target_employee uuid)
+returns boolean language sql stable security definer
+set search_path = public
+as $$
+  with recursive team(id, path, depth) as (
+    select a.employee_id, array[auth.uid(), a.employee_id]::uuid[], 1
+    from public.manager_employee_assignments a where a.manager_id = auth.uid()
+    union all
+    select a.employee_id, t.path || a.employee_id, t.depth + 1
+    from public.manager_employee_assignments a
+    join team t on a.manager_id = t.id
+    where t.depth < 12 and not a.employee_id = any(t.path)
+  )
+  select exists (
+    select 1 from team t join public.profiles me on me.id = auth.uid()
+    where t.id = target_employee and me.active = true
+      and (lower(me.role) = 'admin' or public.is_hierarchy_manager(me.id))
+  );
+$$;
+
+grant execute on function public.get_my_team_hierarchy() to authenticated;
