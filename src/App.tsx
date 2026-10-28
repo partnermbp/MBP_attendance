@@ -276,11 +276,16 @@ export default function App() {
         return;
       }
 
-      const currentProfile = profileResult.data as Profile | null;
+      let currentProfile = profileResult.data as Profile | null;
       if (inviteToken && !inviteRedeemed && currentProfile?.active) {
         const { error: inviteError } = await supabase.rpc('redeem_manager_invitation', { invitation_token: inviteToken });
         if (inviteError) setMessage('Invitation could not be redeemed: ' + inviteError.message);
-        else { setInviteRedeemed(true); setMessage('Invitation accepted. Your manager relationship is now active.'); }
+        else {
+          setInviteRedeemed(true);
+          setMessage('Invitation accepted. Your manager relationship is now active.');
+          const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
+          if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
+        }
         window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
       }
       setProfile(currentProfile);
@@ -324,7 +329,7 @@ export default function App() {
         setProfiles([]);
         const [attendanceResult, shiftsResult] = await Promise.all([
           supabase.from('attendance')
-            .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .select('id, check_in, check_out, work_date, work_timezone')
             .eq('employee_id', userId)
             .order('check_in', { ascending: false })
             .limit(100),
