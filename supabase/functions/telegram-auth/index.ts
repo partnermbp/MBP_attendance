@@ -185,7 +185,10 @@ async function handleTelegramUpdate(update: any) {
     const { data: verification, error } = await supabase.from("manager_invitation_telegram_verifications")
       .select("id, invitation_id, otp_sent_at, ticket_used_at")
       .eq("challenge_hash", challengeHash).maybeSingle();
-    if (error || !verification || verification.ticket_used_at) {
+    if (error || !verification) {
+      // A normal account-link token has the same shape; allow it to reach the legacy handler below.
+    } else {
+    if (verification.ticket_used_at) {
       await sendTelegramMessage(chatId, "This invitation verification link is invalid or expired. Return to the invitation page and start verification again.");
       return jsonResponse({ ok: true });
     }
@@ -210,6 +213,7 @@ async function handleTelegramUpdate(update: any) {
     }
     await sendTelegramMessage(chatId, "Your MBP Attendance registration verification code is:\n\n" + otp + "\n\nEnter this six-digit code on the invitation page. It expires in 10 minutes and can only be used for this invitation. Never share it with anyone.");
     return jsonResponse({ ok: true });
+    }
   }
 
   if (text === "/start" || text === "/start@mbpauthbot") {
