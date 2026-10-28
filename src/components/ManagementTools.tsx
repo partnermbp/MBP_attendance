@@ -42,8 +42,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [notice, setNotice] = useState('');
   const [activeMedia, setActiveMedia] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [mediaLoading, setMediaLoading] = useState('');
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
-  const isManager = profile?.active === true && profile.role.toLowerCase() === 'manager';
+  const isManager = profile?.active === true && ['manager', 'middle', 'senior', 'team leader', 'team_leader', 'telemarketing'].includes(profile.role.toLowerCase());
 
   async function load() {
     if (!supabase || (!isAdmin && !isManager)) return;
@@ -138,6 +140,38 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     } finally { setMediaLoading(''); }
   }
 
+  async function createTeamInvite() {
+    if (!supabase || !profile || !isManager) return;
+    setInviteLoading(true); setNotice('');
+    try {
+      const { data, error } = await supabase.from('manager_invites')
+        .insert({ manager_id: profile.id, created_by: profile.id })
+        .select('token').single();
+      if (error) throw error;
+      const url = new URL(window.location.origin + window.location.pathname);
+      url.searchParams.set('invite', data.token);
+      setInviteUrl(url.toString());
+      setNotice('Invite link created. It expires in 30 days.');
+    } catch (error) {
+      setNotice('Could not create invite link. Apply the hierarchy migration and verify your role permissions first.');
+    } finally { setInviteLoading(false); }
+  }
+
+  async function copyInvite() {
+    if (!inviteUrl) return;
+    try { await navigator.clipboard.writeText(inviteUrl); setNotice('Invite link copied.'); }
+    catch { setNotice('Copy was blocked by the browser. Select and copy the link below.'); }
+  }
+
+  async function saveRole(person: Person, role: string) {
+    if (!supabase || !isAdmin) return;
+    setLoading(true); setNotice('');
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', person.id);
+    if (error) setNotice('Could not update role: ' + error.message);
+    else { setNotice('Role updated for ' + (person.full_name || person.email || 'employee') + '.'); await load(); }
+    setLoading(false);
+  }
+
   async function addAssignment() {
     if (!supabase || !managerId || !employeeId) return;
     setLoading(true); setNotice('');
@@ -169,8 +203,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const managers = profiles.filter(p => p.active && p.role.toLowerCase() === 'manager');
-  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && p.role.toLowerCase() !== 'manager');
+  const managers = profiles.filter(p => p.active && ['manager', 'middle', 'senior', 'team leader', 'team_leader', 'telemarketing'].includes(p.role.toLowerCase()));
+  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin');
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -182,6 +216,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
     {isAdmin && <>
+      <h3>Employee roles</h3>
+      <p style={muted}>Assign each registered employee a role. Hierarchy-based attendance and invitations use these roles.</p>
+      <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr>{['Employee','Email','Role','Status'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead>
+        <tbody>{profiles.map(person=><tr key={person.id}><td style={cell}>{person.full_name || '—'}</td><td style={cell}>{person.email || '—'}</td><td style={cell}><select aria-label={'Role for '+(person.full_name || person.email || 'employee')} style={{...input,minWidth:150,marginTop:0}} value={person.role} disabled={loading || person.role.toLowerCase()==='admin'} onChange={e=>void saveRole(person,e.target.value)}>{['Junior','Middle','Senior','Team Leader','Telemarketing','admin'].map(role=><option key={role} value={role}>{role}</option>)}</select></td><td style={cell}>{person.active?'Active':'Inactive'}</td></tr>)}</tbody>
+      </table></div>
       <h3>Link Telegram members to CRM employees</h3>
       <p style={muted}>Verify the Telegram user ID against the employee before saving. These links control which Telegram analytics managers can see.</p>
       <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -207,6 +247,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </table></div>
     </>}
     {isManager && <>
+      <h3>Invite your team</h3>
+      <p style={muted}>Create a unique invite link tied to your account, then share it through Telegram or WhatsApp. New users must still complete the CRM's normal approved registration process.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+        <button type="button" style={button} disabled={inviteLoading} onClick={()=>void createTeamInvite()}>{inviteLoading?'Creating link…':'Create invite link'}</button>
+        {inviteUrl && <><button type="button" style={{...button,background:'#167c4a'}} onClick={()=>void copyInvite()}>Copy link</button><button type="button" style={{...button,background:'#229ED9'}} onClick={()=>window.open('https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('Join our team on the CRM'),'_blank','noopener,noreferrer')}>Telegram</button><button type="button" style={{...button,background:'#25D366',color:'#052e16'}} onClick={()=>window.open('https://wa.me/?text='+encodeURIComponent('Join our team on the CRM: '+inviteUrl),'_blank','noopener,noreferrer')}>WhatsApp</button></>}
+      </div>
+      {inviteUrl && <input aria-label="Invitation link" readOnly value={inviteUrl} style={input}/>}
       <h3>Assigned employees</h3>
       {myAssignments.length ? <ul>{myAssignments.map(a => <li key={a.employee_id}>{personName(a.employee_id)}</li>)}</ul> : <p>No employees have been assigned to you yet.</p>}
       <h3>Team attendance</h3>
