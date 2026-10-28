@@ -629,7 +629,7 @@ export default function App() {
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
-        options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken, registration_ticket: ticket } },
+        options: { emailRedirectTo: redirectTo, data: { full_name: inviteDetails.admin_panel_name, admin_panel_name: inviteDetails.admin_panel_name, invitation_token: inviteToken, registration_ticket: ticket } },
       });
       if (error) setMessage('Registration failed: ' + error.message);
       else if (data.session && data.user) {
