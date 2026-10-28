@@ -166,7 +166,7 @@ async function verifyInviteTelegramOtp(req: Request) {
   const { data: invite, error: inviteError } = await supabase.from("manager_invitations").select("id, invited_by, admin_panel_name, corporate_email, redeemed_at, expires_at").eq("token_hash", tokenHash).maybeSingle();
   if (inviteError || !invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Invitation is invalid, expired, or already used." }, 400);
   const { data: verification, error } = await supabase.from("manager_invitation_telegram_verifications")
-    .select("id, otp_hash, otp_expires_at, attempts, telegram_user_id, verified_at")
+    .select("id, otp_hash, otp_expires_at, attempts, telegram_user_id, telegram_username, verified_at")
     .eq("invitation_id", invite.id).eq("challenge_hash", challengeHash).maybeSingle();
   if (error || !verification) return jsonResponse({ error: "Start @mbpauthbot from this invitation first." }, 400);
   if (!verification.otp_hash || !verification.otp_expires_at || new Date(verification.otp_expires_at).getTime() <= Date.now()) return jsonResponse({ error: "The code has expired. Request a new Telegram verification." }, 400);
@@ -180,7 +180,7 @@ async function verifyInviteTelegramOtp(req: Request) {
     .from("profiles").select("id").eq("telegram_user_id", verification.telegram_user_id).maybeSingle();
   if (existingTelegramError) return jsonResponse({ error: "Unable to check this Telegram account. Please try again." }, 500);
   if (existingTelegramProfile) {
-    await logSuspiciousTelegramReuse(invite, verification.telegram_user_id, null);
+    await logSuspiciousTelegramReuse(invite, verification.telegram_user_id, verification.telegram_username ?? null);
     return jsonResponse({ error: "This Telegram ID is already registered to an Attendance CRM account. Please use a different Telegram account." }, 409);
   }
   const ticket = randomToken();
