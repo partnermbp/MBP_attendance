@@ -202,7 +202,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   if (!isAdmin && !isManager) return null;
   const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase()));
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
-  const inviteRoles = isAdmin ? ['telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
+  const inviteRoles = isAdmin ? ['team_leader','senior','middle','junior','telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -261,13 +261,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </table></div>
     </>}
     {(isManager || isAdmin) && <>
-      <h3>{isAdmin ? 'Admin invitation — Telemarketing only' : 'Invite an employee'}</h3>
-      <p style={muted}>{isAdmin ? 'Telemarketing is a separate track. Only Admin can issue these invitations; they do not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 7 days. New employees register with their approved work email and complete identity verification. Existing accounts cannot use invitations to change roles.'}</p>
+      <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
+      <p style={muted}>{isAdmin ? 'Admin can invite any role, including Telemarketing. Telemarketing is a separate track and does not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 24 hours. If registration has not happened, creating a replacement invitation for the same person invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
         <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from your Admin Panel"/></label>
         <label>Corporate Email<input style={input} type="email" value={inviteCorporateEmail} onChange={e=>setInviteCorporateEmail(e.target.value.trimStart())} maxLength={254} required placeholder="employee@company.com"/></label>
-        <label>Role<select style={input} value={isAdmin ? 'telemarketing' : inviteRole} disabled={isAdmin} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
-        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading || !inviteAdminPanelName.trim() || !inviteCorporateEmail.trim()} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:isAdmin?'telemarketing':inviteRole,invitee_admin_panel_name:inviteAdminPanelName.trim(),invitee_corporate_email:inviteCorporateEmail.trim().toLowerCase()});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}setLoading(false);}}>Generate invitation link</button></div>
+        <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
+        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading || !inviteAdminPanelName.trim() || !inviteCorporateEmail.trim()} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole,invitee_admin_panel_name:inviteAdminPanelName.trim(),invitee_corporate_email:inviteCorporateEmail.trim().toLowerCase()});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}setLoading(false);}}>Generate invitation link</button></div>
       </div>
       {inviteUrl && <div style={{marginTop:12,padding:12,border:'1px solid #475467',borderRadius:8,overflowWrap:'anywhere'}}>
         <input aria-label="Invitation link" readOnly value={inviteUrl} style={input}/>
