@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import ManagementTools from './components/ManagementTools';
@@ -260,7 +260,7 @@ function SecurityActivityPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  const cellStyle: React.CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top', overflowWrap: 'anywhere' };
+  const cellStyle: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top', overflowWrap: 'anywhere' };
   return <section style={{ marginTop: 20 }}>
     <h1>Security</h1>
     <h2>Suspicious Activities</h2>
