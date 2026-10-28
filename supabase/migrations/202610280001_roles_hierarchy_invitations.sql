@@ -10,7 +10,7 @@ as $$
   select exists (
     select 1 from public.profiles p
     where p.id = target_profile and p.active = true
-      and lower(replace(p.role, '_', ' ')) in ('middle','senior','team leader','manager')
+      and lower(replace(p.role::text, '_', ' ')) in ('middle','senior','team leader','manager')
   );
 $$;
 
@@ -28,8 +28,8 @@ begin
     raise exception 'Unsupported employee role';
   end if;
   update public.profiles
-    set role = case normalized_role when 'team leader' then 'team_leader' else normalized_role end
-    where id = target_profile and active = true and lower(role) <> 'admin';
+    set role = (case normalized_role when 'team leader' then 'team_leader' else normalized_role end)::public.app_role
+    where id = target_profile and active = true and lower(role::text) <> 'admin';
   if not found then
     raise exception 'Employee not found, inactive, or protected admin account';
   end if;
@@ -96,7 +96,7 @@ begin
   end if;
   if inv.invited_by = auth.uid() then raise exception 'You cannot redeem your own invitation'; end if;
   update public.profiles
-    set role = inv.invited_role
+    set role = inv.invited_role::public.app_role
     where id = auth.uid() and lower(role) <> 'admin';
   if not found then raise exception 'Profile not found or protected'; end if;
   insert into public.manager_employee_assignments(manager_id, employee_id, created_by)
@@ -115,7 +115,7 @@ create policy "Admins manage assignments"
   with check (
     public.is_active_admin()
     and exists (select 1 from public.profiles m where m.id = manager_id and public.is_hierarchy_manager(m.id))
-    and exists (select 1 from public.profiles e where e.id = employee_id and lower(e.role) <> 'admin' and e.active = true)
+    and exists (select 1 from public.profiles e where e.id = employee_id and lower(e.role::text) <> 'admin' and e.active = true)
   );
 
 drop policy if exists "Managers read own assignments" on public.manager_employee_assignments;
@@ -158,7 +158,7 @@ as $$
   select p.id, p.email, p.full_name, p.role, p.active, team.manager_id, team.depth
   from team join public.profiles p on p.id = team.id
   where exists (select 1 from public.profiles me where me.id = auth.uid() and me.active = true
-    and (lower(me.role) = 'admin' or public.is_hierarchy_manager(me.id)))
+    and (lower(me.role::text) = 'admin' or public.is_hierarchy_manager(me.id)))
   order by team.depth, p.full_name;
 $$;
 
