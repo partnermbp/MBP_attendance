@@ -317,7 +317,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         const timeOnly = (value: string | null, timezone: string | null) => value
           ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...(timezone ? { timeZone: timezone } : {}) }).format(new Date(value))
           : '—';
-        return <div style={{ overflowX: 'auto', border: '1px solid #38302a', marginTop: 12 }}>
+        return <div style={{ border: '1px solid #38302a', marginTop: 12 }}>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: Math.max(620, 180 + dateKeys.length * 154), textAlign: 'left' }}>
             <thead><tr style={{ background: '#211711' }}>
               <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#211711', padding: 12, borderBottom: '1px solid #493023', minWidth: 180 }}>Employee</th>
@@ -354,6 +355,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             {teamTree.length === 0 && <tr><td colSpan={dateKeys.length + 1} style={{ padding: 18, color: '#b7aaa0' }}>No employees have been assigned to your team yet.</td></tr>}
             </tbody>
           </table>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', margin: '10px 12px', fontSize: 12, color: '#b7aaa0' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} />Completed shift</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#f79009' }} />Incomplete shift</span>
