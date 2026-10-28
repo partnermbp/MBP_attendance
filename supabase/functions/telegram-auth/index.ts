@@ -169,7 +169,6 @@ async function verifyInviteTelegramOtp(req: Request) {
     .select("id, otp_hash, otp_expires_at, attempts, telegram_user_id, verified_at")
     .eq("invitation_id", invite.id).eq("challenge_hash", challengeHash).maybeSingle();
   if (error || !verification) return jsonResponse({ error: "Start @mbpauthbot from this invitation first." }, 400);
-  if (verification.verified_at && verification.telegram_user_id) return jsonResponse({ error: "This Telegram verification has already been completed. Continue registration." }, 409);
   if (!verification.otp_hash || !verification.otp_expires_at || new Date(verification.otp_expires_at).getTime() <= Date.now()) return jsonResponse({ error: "The code has expired. Request a new Telegram verification." }, 400);
   if (verification.attempts >= 5) return jsonResponse({ error: "Too many incorrect attempts. Request a new verification." }, 429);
   if (await sha256Hex(otp) !== verification.otp_hash) {
