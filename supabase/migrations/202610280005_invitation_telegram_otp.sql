@@ -12,6 +12,8 @@ alter table public.profiles
 
 create unique index if not exists profiles_telegram_user_id_unique
   on public.profiles(telegram_user_id) where telegram_user_id is not null;
+create unique index if not exists profiles_admin_panel_name_unique
+  on public.profiles(lower(admin_panel_name)) where admin_panel_name is not null;
 
 create table if not exists public.manager_invitation_telegram_verifications (
   id bigint generated always as identity primary key,
@@ -94,6 +96,7 @@ begin
   return raw_token;
 end;
 $$;
+revoke all on function public.create_manager_invitation(text,text,text) from public, anon;
 grant execute on function public.create_manager_invitation(text,text,text) to authenticated;
 
 create or replace function public.get_manager_invitation_details(invitation_token text)
@@ -106,6 +109,7 @@ as $$
   where i.token_hash = encode(extensions.digest(invitation_token, 'sha256'), 'hex')
   limit 1;
 $$;
+revoke all on function public.get_manager_invitation_details(text) from public;
 grant execute on function public.get_manager_invitation_details(text) to anon, authenticated;
 
 -- Remove the old ticket-less RPC: leaving it callable would bypass Telegram verification.
@@ -170,4 +174,5 @@ begin
   update public.manager_invitations set redeemed_by = auth.uid(), redeemed_at = now() where id = inv.id;
 end;
 $$;
+revoke all on function public.redeem_manager_invitation(text,text) from public, anon;
 grant execute on function public.redeem_manager_invitation(text,text) to authenticated;
