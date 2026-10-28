@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string; created_at: string };
+type TeamNode = { id: string; email: string | null; full_name: string | null; role: string; active: boolean; manager_id: string; depth: number };
 type Message = { telegram_chat_id: number; telegram_message_id: number; display_name: string | null; username: string | null; message_text: string | null; message_date: string; reply_to_message_id: number | null; raw_update?: Record<string, any> | null; message_kind?: string | null };
 type Metric = { telegram_chat_id: number; question_message_id: number; question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null; calculated_at: string };
 type Group = { telegram_chat_id: number; title: string; enabled: boolean };
@@ -32,6 +33,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [managerId, setManagerId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [teamAttendance, setTeamAttendance] = useState<any[]>([]);
+  const [teamTree, setTeamTree] = useState<TeamNode[]>([]);
+  const [roleSelections, setRoleSelections] = useState<Record<string, string>>({});
+  const [inviteRole, setInviteRole] = useState('junior');
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [expandedManagers, setExpandedManagers] = useState<Record<string, boolean>>({});
   const [groups, setGroups] = useState<Group[]>([]);
   const [telegramMembers, setTelegramMembers] = useState<TelegramMember[]>([]);
   const [memberProfileSelections, setMemberProfileSelections] = useState<Record<number, string>>({});
@@ -44,14 +50,16 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [mediaLoading, setMediaLoading] = useState('');
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
-  const isManager = profile?.active === true && profile.role.toLowerCase() === 'manager';
+  const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
+  const isManager = profile?.active === true && ['middle', 'senior', 'team leader', 'manager'].includes(normalizedRole);
 
   async function load() {
     if (!supabase || (!isAdmin && !isManager)) return;
     setLoading(true);
     setNotice('');
     try {
-      const [assignmentResult, groupResult, metricResult] = await Promise.all([
+      const [assignmentResult, groupResult, metricResult, treeResult] = await Promise.all([
+        supabase.rpc('get_my_team_hierarchy'),
         supabase.from('manager_employee_assignments').select('manager_id,employee_id,created_at'),
         supabase.from('telegram_groups').select('telegram_chat_id,title,enabled').order('title'),
         supabase.from('telegram_response_metrics').select('telegram_chat_id,question_message_id,question_user_id,first_reply_user_id,response_seconds,calculated_at').order('calculated_at', { ascending: false }).limit(500),
@@ -73,6 +81,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       }
       if (assignmentResult.error) setNotice('Assignments: ' + assignmentResult.error.message);
       else setAssignments((assignmentResult.data ?? []) as Assignment[]);
+      if (treeResult.error) setNotice((current) => current || 'Team hierarchy: ' + treeResult.error.message);
+      else setTeamTree((treeResult.data ?? []) as TeamNode[]);
       if (groupResult.error) setNotice((current) => current || 'Telegram groups: ' + groupResult.error.message);
       else setGroups((groupResult.data ?? []) as Group[]);
       if (metricResult.error) setNotice((current) => current || 'Telegram metrics: ' + metricResult.error.message);
@@ -188,8 +198,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const managers = profiles.filter(p => p.active && p.role.toLowerCase() === 'manager');
-  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && p.role.toLowerCase() !== 'manager');
+  const managers = profiles.filter(p => p.active && ['middle','senior','team leader','team_leader','manager'].includes(p.role.toLowerCase()));
+  const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager'].includes(p.role.toLowerCase()));
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -201,6 +211,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
     {isAdmin && <>
+      <h3>Employee role management</h3>
+      <p style={muted}>Admin accounts are protected and cannot be changed through this role selector.</p>
+      <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr><th style={cell}>Employee</th><th style={cell}>Current role</th><th style={cell}>New role</th><th style={cell}>Action</th></tr></thead>
+        <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase()!=='admin').map(p=><tr key={p.id}>
+          <td style={cell}>{p.full_name || p.email || p.id}</td><td style={cell}>{p.role}</td>
+          <td style={cell}><select style={input} value={roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_')} onChange={e=>setRoleSelections(current=>({...current,[p.id]:e.target.value}))}>
+            {['junior','middle','senior','team_leader','telemarketing'].map(role=><option key={role} value={role}>{role==='team_leader'?'Team Leader':role[0].toUpperCase()+role.slice(1)}</option>)}
+          </select></td>
+          <td style={cell}><button type="button" style={button} disabled={loading || (roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_'))===p.role.toLowerCase().replaceAll(' ','_')} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {error}=await supabase.rpc('set_employee_role',{target_profile:p.id,new_role:roleSelections[p.id]});setNotice(error?'Could not update role: '+error.message:'Role updated.');if(!error)await load();setLoading(false);}}>Save role</button></td>
+        </tr>)}</tbody></table></div>
       <h3>Link Telegram members to CRM employees</h3>
       <p style={muted}>Verify the Telegram user ID against the employee before saving. These links control which Telegram analytics managers can see.</p>
       <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -226,6 +247,26 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </table></div>
     </>}
     {isManager && <>
+      <h3>Invite an employee</h3>
+      <p style={muted}>Generate a single-use link that expires in 7 days. The invited person must sign in to an existing approved CRM account to redeem it.</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+        <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{['junior','middle','senior','team_leader','telemarketing'].map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
+        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended employee.');}setLoading(false);}}>Generate invitation link</button></div>
+      </div>
+      {inviteUrl && <div style={{marginTop:12,padding:12,border:'1px solid #475467',borderRadius:8,overflowWrap:'anywhere'}}>
+        <input aria-label="Invitation link" readOnly value={inviteUrl} style={input}/>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+          <button type="button" style={button} onClick={()=>{void navigator.clipboard.writeText(inviteUrl);setNotice('Invitation link copied.');}}>Copy link</button>
+          <a href={'https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('You are invited to MBP Attendance CRM. Sign in to redeem this link.')} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via Telegram</a>
+          <a href={'https://wa.me/?text='+encodeURIComponent('You are invited to MBP Attendance CRM: '+inviteUrl)} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via WhatsApp</a>
+        </div>
+      </div>}
+      <h3>Reporting hierarchy</h3>
+      <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
+      <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.depth===1).map(person=><div key={person.id} style={{border:'1px solid #344054',borderRadius:8,padding:10,marginLeft:0}}>
+        <button type="button" style={{...button,background:'#344054',textAlign:'left'}} onClick={()=>setExpandedManagers(current=>({...current,[person.id]:!current[person.id]}))}>{expandedManagers[person.id]?'−':'+'} {person.full_name||person.email||person.id} · {person.role}</button>
+        {expandedManagers[person.id] && <div style={{marginTop:8,display:'grid',gap:6}}>{teamTree.filter(child=>child.manager_id===person.id).map(child=><div key={child.id} style={{padding:'8px 10px',marginLeft:Math.min(child.depth,4)*14,borderLeft:'2px solid #f97316',background:'#172033',borderRadius:6}}>{child.full_name||child.email||child.id} · {child.role}</div>)}</div>}
+      </div>)}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
       <h3>Assigned employees</h3>
       {myAssignments.length ? <ul>{myAssignments.map(a => <li key={a.employee_id}>{personName(a.employee_id)}</li>)}</ul> : <p>No employees have been assigned to you yet.</p>}
       <h3>Team attendance</h3>
