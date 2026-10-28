@@ -35,12 +35,23 @@ begin
     raise exception 'This corporate email domain is not approved for the CRM.';
   end if;
 
-  -- Never create a new invitation for an identity that already has a registered account.
-  if exists (select 1 from auth.users u where lower(u.email) = normalized_email)
+  -- A confirmed account must never be replaced by an invitation. An unconfirmed
+  -- auth.users row can be left behind when someone started signup but did not
+  -- finish; allow re-inviting that identity so the employee can resume.
+  if exists (
+       select 1 from auth.users u
+       where lower(u.email) = normalized_email
+         and u.email_confirmed_at is not null
+     )
      or exists (
-       select 1 from public.profiles p
+       select 1
+       from public.profiles p
+       left join auth.users u on u.id = p.id
        where lower(coalesce(p.admin_panel_name, '')) = lower(normalized_name)
-          or lower(coalesce(p.full_name, '')) = lower(normalized_name)
+          or (
+            lower(coalesce(p.full_name, '')) = lower(normalized_name)
+            and u.email_confirmed_at is not null
+          )
      ) then
     raise exception 'A registered CRM account already exists with this email or Admin Panel Name. No invitation was created. Ask Admin to review the existing account.';
   end if;
