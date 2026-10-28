@@ -2,6 +2,10 @@
 -- Apply in the Supabase SQL Editor before enabling the related UI.
 create extension if not exists pgcrypto with schema extensions;
 
+-- The existing active employee account was explicitly designated as Senior.
+-- Retire the legacy employee role from current profile data before role logic is switched.
+update public.profiles set role = 'senior'::public.app_role where role::text = 'employee';
+
 create or replace function public.is_hierarchy_manager(target_profile uuid default auth.uid())
 returns boolean
 language sql stable security definer
@@ -97,7 +101,7 @@ begin
   if inv.invited_by = auth.uid() then raise exception 'You cannot redeem your own invitation'; end if;
   update public.profiles
     set role = inv.invited_role::public.app_role
-    where id = auth.uid() and lower(role) <> 'admin';
+    where id = auth.uid() and lower(role::text) <> 'admin';
   if not found then raise exception 'Profile not found or protected'; end if;
   insert into public.manager_employee_assignments(manager_id, employee_id, created_by)
   values (inv.invited_by, auth.uid(), inv.invited_by)
@@ -179,7 +183,7 @@ as $$
   select exists (
     select 1 from team t join public.profiles me on me.id = auth.uid()
     where t.id = target_employee and me.active = true
-      and (lower(me.role) = 'admin' or public.is_hierarchy_manager(me.id))
+      and (lower(me.role::text) = 'admin' or public.is_hierarchy_manager(me.id))
   );
 $$;
 
