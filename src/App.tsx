@@ -46,6 +46,7 @@ type Coordinates = {
 
 const BREAK_MINUTES = 60;
 const APPROVED_EMAIL_DOMAINS = [
+  'mostbet.partners',
   'infradim.com',
   'starson.cloud',
   'double.global',
