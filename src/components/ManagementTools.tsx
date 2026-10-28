@@ -16,6 +16,23 @@ const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8,
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
 const cell: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top' };
 
+function friendlyInvitationError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const message = raw.toLowerCase();
+  if (message.includes('enter a valid corporate email')) return 'The invitation service rejected this email address. This can happen when the database invitation validator is outdated. Ask the CRM Admin to apply the latest invitation SQL migration in Supabase, then retry.';
+  if (message.includes('already exists') || message.includes('registered crm account')) return 'An account may already exist with this email or Admin Panel Name. Check the employee list or ask an Admin to review the existing account.';
+  if (message.includes('not on the approved accounts list') || message.includes('domain is not approved')) return 'This email domain is not approved for the CRM. Check the corporate email address or ask an Admin to confirm the approved domain.';
+  if (message.includes('valid admin panel name')) return 'Enter a valid Admin Panel Name (2–120 characters).';
+  if (message.includes('only admin can invite telemarketing')) return 'Only an Admin can invite Telemarketing staff.';
+  if (message.includes('middle can invite junior only')) return 'Your role can invite Junior employees only.';
+  if (message.includes('senior can invite middle or junior only')) return 'Your role can invite Middle or Junior employees only.';
+  if (message.includes('team leader can invite senior, middle, or junior only')) return 'Your role can invite Senior, Middle, or Junior employees only.';
+  if (message.includes('active crm profile is required') || message.includes('permission denied') || message.includes('row-level security')) return 'Your account does not currently have permission to create this invitation. Ask an Admin to check your role and account status.';
+  if (message.includes('create_manager_invitation') && (message.includes('schema cache') || message.includes('could not find the function') || message.includes('function public.create_manager_invitation'))) return 'The invitation service has not been updated in the database yet. Ask the CRM Admin to apply the latest invitation SQL migration in Supabase.';
+  if (message.includes('failed to fetch') || message.includes('network')) return 'The CRM could not reach the invitation service. Check your connection and try again.';
+  return 'We couldn’t generate the invitation link. Please try again; if it still fails, contact the CRM Admin to check the invitation service.';
+}
+
 function prettyDuration(seconds: number | null) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
   if (seconds < 60) return seconds + ' sec';
@@ -268,7 +285,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from your Admin Panel"/></label>
         <label>Corporate Email<input style={input} type="email" value={inviteCorporateEmail} onChange={e=>setInviteCorporateEmail(e.target.value.trimStart())} maxLength={254} required placeholder="employee@company.com"/></label>
         <label>Role<select style={input} value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
-        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={inviteLoading || !inviteAdminPanelName.trim() || !inviteCorporateEmail.trim()} onClick={async()=>{if(!supabase){setNotice('Database connection is not configured. Please contact the CRM administrator.');return;}setInviteLoading(true);setInviteUrl('');setNotice('Generating invitation link…');try{const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole,invitee_admin_panel_name:inviteAdminPanelName.trim(),invitee_corporate_email:inviteCorporateEmail.trim().toLowerCase()});if(error)throw new Error(error.message);if(typeof data!=='string'||!data.trim())throw new Error('The database did not return an invitation token. Confirm the latest invitation SQL migration has been applied in Supabase.');const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}catch(error){setNotice('Could not create invitation: '+(error instanceof Error?error.message:'Unexpected error. Please try again.'));}finally{setInviteLoading(false);}}}>{inviteLoading?'Generating…':'Generate invitation link'}</button></div>
+        <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={inviteLoading || !inviteAdminPanelName.trim() || !inviteCorporateEmail.trim()} onClick={async()=>{if(!supabase){setNotice('Database connection is not configured. Please contact the CRM administrator.');return;}setInviteLoading(true);setInviteUrl('');setNotice('Generating invitation link…');try{const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:inviteRole,invitee_admin_panel_name:inviteAdminPanelName.trim(),invitee_corporate_email:inviteCorporateEmail.trim().toLowerCase()});if(error)throw new Error(error.message);if(typeof data!=='string'||!data.trim())throw new Error('The database did not return an invitation token. Confirm the latest invitation SQL migration has been applied in Supabase.');const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}catch(error){setNotice(friendlyInvitationError(error));}finally{setInviteLoading(false);}}}>{inviteLoading?'Generating…':'Generate invitation link'}</button></div>
       </div>
       {notice && <p role="status" style={{padding:10,marginTop:10,background:'#202b3e',borderRadius:8,overflowWrap:'anywhere'}}>{notice}</p>}
       {inviteUrl && <div style={{marginTop:12,padding:12,border:'1px solid #475467',borderRadius:8,overflowWrap:'anywhere'}}>
