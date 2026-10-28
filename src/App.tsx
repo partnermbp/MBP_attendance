@@ -280,6 +280,11 @@ export default function App() {
       const details = data[0] as InvitationDetails;
       setInviteDetails(details);
       setEmail(details.corporate_email);
+      const savedTicket = sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
+      if (savedTicket) {
+        setRegistrationTicket(savedTicket);
+        setInviteTelegramVerified(true);
+      }
       if (!details.valid) setMessage('This invitation has expired or has already been used.');
     })();
     return () => { cancelled = true; };
@@ -304,15 +309,29 @@ export default function App() {
 
       let currentProfile = profileResult.data as Profile | null;
       if (inviteToken && !inviteRedeemed && currentProfile?.active) {
-        const { error: inviteError } = await supabase.rpc('redeem_manager_invitation', { invitation_token: inviteToken });
-        if (inviteError) setMessage('Invitation could not be redeemed: ' + inviteError.message);
-        else {
-          setInviteRedeemed(true);
-          setMessage('Invitation accepted. Your manager relationship is now active.');
-          const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
-          if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
+        const { data: authResult } = await supabase.auth.getUser();
+        const ticket = typeof authResult.user?.user_metadata?.registration_ticket === 'string'
+          ? authResult.user.user_metadata.registration_ticket
+          : sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
+        if (ticket) {
+          const { error: inviteError } = await supabase.rpc('redeem_manager_invitation', {
+            invitation_token: inviteToken,
+            registration_ticket: ticket,
+          });
+          if (inviteError) {
+            setMessage('Invitation could not be redeemed: ' + inviteError.message);
+          } else {
+            setInviteRedeemed(true);
+            sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
+            await supabase.auth.updateUser({ data: { registration_ticket: null } });
+            setMessage('Invitation accepted. Your verified Telegram identity and manager relationship are now active.');
+            const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
+            if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } else {
+          setMessage('Before this invitation can be accepted, complete Telegram verification on the invitation page and register using the invited corporate email.');
         }
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
       }
       setProfile(currentProfile);
       // The auth function is the source of truth for Telegram-account linkage.
