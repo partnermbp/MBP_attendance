@@ -116,11 +116,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (sessionError || !token) throw new Error('Please sign in again to view this attachment.');
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/telegram-media-proxy`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-media-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: supabase.supabaseKey,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ chat_id: message.telegram_chat_id, message_id: message.telegram_message_id }),
