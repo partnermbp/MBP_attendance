@@ -46,7 +46,6 @@ type Coordinates = {
 
 const BREAK_MINUTES = 60;
 const APPROVED_EMAIL_DOMAINS = [
-  'mostbet.partners',
   'infradim.com',
   'starson.cloud',
   'double.global',
@@ -229,9 +228,9 @@ export default function App() {
   const [inviteRedeemed, setInviteRedeemed] = useState(false);
   const [inviteDetails, setInviteDetails] = useState<InvitationDetails | null>(null);
   const [inviteChallenge, setInviteChallenge] = useState('');
-  const [inviteBotUrl, setInviteBotUrl] = useState('');
   const [inviteOtp, setInviteOtp] = useState('');
   const [inviteTelegramVerified, setInviteTelegramVerified] = useState(false);
+  const [invitePasswordStep, setInvitePasswordStep] = useState(false);
   const [registrationTicket, setRegistrationTicket] = useState('');
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
@@ -282,14 +281,13 @@ export default function App() {
       setEmail(details.corporate_email);
       const savedTicket = sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
       const savedChallenge = sessionStorage.getItem('mbp_invite_challenge_' + inviteToken) || '';
-      const savedBotUrl = sessionStorage.getItem('mbp_invite_bot_url_' + inviteToken) || '';
       if (savedChallenge) {
         setInviteChallenge(savedChallenge);
-        setInviteBotUrl(savedBotUrl);
       }
       if (savedTicket) {
         setRegistrationTicket(savedTicket);
         setInviteTelegramVerified(true);
+        setInvitePasswordStep(true);
       }
       if (!details.valid) setMessage('This invitation has expired or has already been used.');
     })();
@@ -330,7 +328,6 @@ export default function App() {
             setInviteRedeemed(true);
             sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
             sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
-            sessionStorage.removeItem('mbp_invite_bot_url_' + inviteToken);
             await supabase.auth.updateUser({ data: { registration_ticket: null } });
             setMessage('Invitation accepted. Your verified Telegram identity and manager relationship are now active.');
             const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
@@ -488,12 +485,11 @@ export default function App() {
       }
       const challenge = new URL(data.bot_url).searchParams.get('start') || '';
       setInviteChallenge(challenge);
-      setInviteBotUrl(data.bot_url);
       sessionStorage.setItem('mbp_invite_challenge_' + inviteToken, challenge);
-      sessionStorage.setItem('mbp_invite_bot_url_' + inviteToken, data.bot_url);
       setInviteTelegramVerified(false);
       setInviteOtp('');
-      setMessage('Open @mbpauthbot, press Start, then enter the six-digit code sent in that Telegram chat.');
+      setMessage('Telegram opened. Press Start in the bot; your verification code will appear in that chat.');
+      window.location.assign(data.bot_url);
     } catch (error) {
       setMessage('Unable to start Telegram verification: ' + getErrorMessage(error));
     } finally {
@@ -517,7 +513,9 @@ export default function App() {
       setRegistrationTicket(data.registration_ticket);
       sessionStorage.setItem('mbp_registration_ticket_' + inviteToken, data.registration_ticket);
       setInviteTelegramVerified(true);
-      setMessage('Telegram verified successfully. You can now register with the invited corporate email.');
+      setInvitePasswordStep(true);
+      setInviteOtp('');
+      setMessage('Telegram verified. Create and confirm your password to finish registration.');
     } catch (error) {
       setMessage('Telegram verification failed: ' + getErrorMessage(error));
     } finally {
@@ -548,6 +546,10 @@ export default function App() {
     }
     if (password.length < 8) {
       setMessage('Use a password with at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage('The passwords do not match. Please confirm your password.');
       return;
     }
     setBusy(true);
@@ -1104,6 +1106,7 @@ export default function App() {
 
       {screen === 'login' && (
         <section style={{ ...panelStyle, maxWidth: 430 }}>
+          {!inviteToken && <>
           <h1>Welcome back</h1>
           <p style={{ color: '#b7c0d1' }}>
             Sign in with your approved account.
@@ -1188,8 +1191,9 @@ export default function App() {
               </button>
             </form>
           </details>
-          {inviteToken && <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid #344054'}}>
-            <h2 style={{fontSize:18}}>Invitation registration</h2>
+          </>}
+          {inviteToken && <div style={{marginTop:4}}>
+            <h1 style={{fontSize:26,marginBottom:8}}>Complete your invitation</h1>
             {inviteDetails ? <>
               <div style={{padding:12,margin:'12px 0',border:'1px solid #475467',borderRadius:8,background:'#151413'}}>
                 <p style={{margin:'4px 0'}}> <strong>Admin Panel Name:</strong> {inviteDetails.admin_panel_name}</p>
@@ -1197,23 +1201,27 @@ export default function App() {
                 <p style={{margin:'4px 0'}}><strong>Assigned role:</strong> {inviteDetails.invited_role.replaceAll('_',' ')}</p>
               </div>
               {!inviteDetails.valid ? <p style={{color:'#fda29b'}}>This invitation is expired or has already been used.</p> : <>
-                <p style={{color:'#b7c0d1',fontSize:13}}>Verify the Telegram account belonging to this employee before creating the CRM account.</p>
-                {!inviteTelegramVerified ? <>
-                  <button type="button" onClick={handleStartInviteTelegram} disabled={busy} style={{...buttonStyle,width:'100%',marginTop:8}}>Authenticate with @mbpauthbot</button>
-                  {inviteBotUrl && <p><a href={inviteBotUrl} target="_blank" rel="noreferrer" style={{color:'#fdba74'}}>Open @mbpauthbot and press Start</a></p>}
-                  {inviteChallenge && <form onSubmit={handleVerifyInviteTelegram} style={{marginTop:14}}>
+                {!invitePasswordStep ? <>
+                  <p style={{color:'#b7c0d1',fontSize:13}}>Verify the Telegram account belonging to this employee before creating the CRM account.</p>
+                  {!inviteTelegramVerified ? <button type="button" onClick={handleStartInviteTelegram} disabled={busy} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',marginTop:8,padding:'13px 18px',border:0,borderRadius:999,background:'#229ED9',color:'#fff',fontWeight:700,fontSize:16,cursor:busy?'wait':'pointer',boxShadow:'0 4px 12px rgba(34,158,217,.25)'}}><MessageCircle size={20}/>{busy?'Opening Telegram…':'Authenticate with Telegram'}<span aria-hidden="true">↗</span></button> : null}
+                  {inviteChallenge && !inviteTelegramVerified && <form onSubmit={handleVerifyInviteTelegram} style={{marginTop:14}}>
                     <label htmlFor="invite-telegram-otp">Six-digit code from Telegram</label>
                     <input id="invite-telegram-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={inviteOtp} onChange={event=>setInviteOtp(event.target.value.replace(/\D/g,'').slice(0,6))} style={inputStyle}/>
                     <button type="submit" disabled={busy || inviteOtp.length!==6} style={{...buttonStyle,width:'100%',marginTop:10}}>Verify Telegram</button>
                   </form>}
-                </> : <p style={{color:'#86efac'}}>Telegram identity verified. Registration is now unlocked.</p>}
-                <form onSubmit={handleRegister} style={{marginTop:16}}>
-                  <label htmlFor="register-email">Corporate email</label>
-                  <input id="register-email" type="email" autoComplete="email" required readOnly value={inviteDetails.corporate_email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
-                  <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Password (at least 8 characters)</label>
-                  <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
-                  <button type="submit" disabled={busy || !inviteTelegramVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Register and accept invitation'}</button>
-                </form>
+                </> : <>
+                  <p style={{color:'#86efac'}}>Telegram identity verified.</p>
+                  <form onSubmit={handleRegister} style={{marginTop:16}}>
+                    <label htmlFor="register-email">Corporate email</label>
+                    <input id="register-email" type="email" autoComplete="email" required readOnly value={inviteDetails.corporate_email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
+                    <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Create password (at least 8 characters)</label>
+                    <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
+                    <label htmlFor="register-confirm-password" style={{display:'block',marginTop:12}}>Confirm password</label>
+                    <input id="register-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} style={inputStyle}/>
+                    <button type="submit" disabled={busy || !inviteTelegramVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Complete registration'}</button>
+                  </form>
+                </>}
+                <p style={{textAlign:'center',marginTop:24,color:'#b7c0d1',fontSize:13}}>Already registered? <a href={window.location.pathname} style={{color:'#82b4ff'}}>Sign in</a></p>
               </>}
             </> : <p style={{color:'#b7c0d1'}}>Loading invitation details…</p>}
           </div>}

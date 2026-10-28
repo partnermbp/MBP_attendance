@@ -264,7 +264,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>{isAdmin ? 'Admin invitation — Telemarketing only' : 'Invite an employee'}</h3>
       <p style={muted}>{isAdmin ? 'Telemarketing is a separate track. Only Admin can issue these invitations; they do not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 7 days. New employees register with their approved work email and complete identity verification. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
-        <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from MBP Dashboard"/></label>
+        <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from your Admin Panel"/></label>
         <label>Corporate Email<input style={input} type="email" value={inviteCorporateEmail} onChange={e=>setInviteCorporateEmail(e.target.value.trimStart())} maxLength={254} required placeholder="employee@company.com"/></label>
         <label>Role<select style={input} value={isAdmin ? 'telemarketing' : inviteRole} disabled={isAdmin} onChange={e=>setInviteRole(e.target.value)}>{inviteRoles.map(r=><option key={r} value={r}>{r==='team_leader'?'Team Leader':r[0].toUpperCase()+r.slice(1)}</option>)}</select></label>
         <div style={{display:'flex',alignItems:'end'}}><button type="button" style={button} disabled={loading || !inviteAdminPanelName.trim() || !inviteCorporateEmail.trim()} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {data,error}=await supabase.rpc('create_manager_invitation',{invited_role:isAdmin?'telemarketing':inviteRole,invitee_admin_panel_name:inviteAdminPanelName.trim(),invitee_corporate_email:inviteCorporateEmail.trim().toLowerCase()});if(error){setNotice('Could not create invitation: '+error.message);}else{const url=new URL(window.location.href);url.searchParams.set('invite',data);url.hash='';setInviteUrl(url.toString());setNotice('Invitation created. Share it only with the intended new employee.');}setLoading(false);}}>Generate invitation link</button></div>
@@ -273,8 +273,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <input aria-label="Invitation link" readOnly value={inviteUrl} style={input}/>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
           <button type="button" style={button} onClick={()=>{void navigator.clipboard.writeText(inviteUrl);setNotice('Invitation link copied.');}}>Copy link</button>
-          <a href={'https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('You are invited to MBP Attendance CRM. Open this link to register and verify your identity.')} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via Telegram</a>
-          <a href={'https://wa.me/?text='+encodeURIComponent('You are invited to MBP Attendance CRM: '+inviteUrl)} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via WhatsApp</a>
+          <a href={'https://t.me/share/url?url='+encodeURIComponent(inviteUrl)+'&text='+encodeURIComponent('You are invited to the Attendance CRM. Open this link to register and verify your identity.')} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via Telegram</a>
+          <a href={'https://wa.me/?text='+encodeURIComponent('You are invited to the Attendance CRM: '+inviteUrl)} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via WhatsApp</a>
         </div>
       </div>}
       {!isAdmin && <>

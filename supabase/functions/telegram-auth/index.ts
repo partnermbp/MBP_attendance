@@ -118,7 +118,7 @@ async function requestLoginCode(req: Request) {
   try {
     const { data, error } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
     if (error || !data?.properties?.email_otp) return jsonResponse({ error: "Unable to generate a login code. Please try again later." }, 500);
-    await sendTelegramMessage(profile.telegramUserId, "Your Mostbet Attendance login code is:\n\n" + data.properties.email_otp + "\n\nEnter this code on the attendance website to sign in. It can only be used once. Never share it with anyone.");
+    await sendTelegramMessage(profile.telegramUserId, "Your Attendance CRM login code is:\n\n" + data.properties.email_otp + "\n\nEnter this code on the attendance website to sign in. It can only be used once. Never share it with anyone.");
     return genericResponse();
   } catch {
     return jsonResponse({ error: "Unable to deliver a login code. Please wait before requesting another." }, 502);
@@ -225,13 +225,13 @@ async function handleTelegramUpdate(update: any) {
       await sendTelegramMessage(chatId, "We couldn't start verification. Return to the invitation page and try again.");
       return jsonResponse({ ok: true });
     }
-    await sendTelegramMessage(chatId, "Your MBP Attendance registration verification code is:\n\n" + otp + "\n\nEnter this six-digit code on the invitation page. It expires in 10 minutes and can only be used for this invitation. Never share it with anyone.");
+    await sendTelegramMessage(chatId, "Your Attendance CRM registration verification code is:\n\n" + otp + "\n\nEnter this six-digit code on the invitation page. It expires in 10 minutes and can only be used for this invitation. Never share it with anyone.");
     return jsonResponse({ ok: true });
     }
   }
 
   if (text === "/start" || text === "/start@mbpauthbot") {
-    await sendTelegramMessage(chatId, "Welcome to Mostbet Attendance.\n\nOpen the invitation link provided by your manager and click “Authenticate with @mbpauthbot” to verify Telegram before registering.\n\nNever share login codes or passwords with anyone.");
+    await sendTelegramMessage(chatId, "Welcome to the Attendance CRM.\n\nOpen the invitation link provided by your manager and click “Authenticate with Telegram” to verify Telegram before registering.\n\nNever share login codes or passwords with anyone.");
     return jsonResponse({ ok: true });
   }
   const linkMatch = text.match(/^\/start(?:@mbpauthbot)?\s+([A-Za-z0-9_-]{20,64})$/);
@@ -242,10 +242,10 @@ async function handleTelegramUpdate(update: any) {
       await sendTelegramMessage(chatId, "We couldn't complete account linking. Please request a new link from the attendance website or contact your administrator.");
       return jsonResponse({ ok: true });
     }
-    await sendTelegramMessage(chatId, data === true ? "Your Telegram account has been linked successfully to Mostbet Attendance.\n\nNever share any login code you receive." : "This linking link is invalid, expired, or already used. Request a new link from the attendance website.");
+    await sendTelegramMessage(chatId, data === true ? "Your Telegram account has been linked successfully to the Attendance CRM.\n\nNever share any login code you receive." : "This linking link is invalid, expired, or already used. Request a new link from the attendance website.");
     return jsonResponse({ ok: true });
   }
-  if (text === "/help" || text === "/help@mbpauthbot") await sendTelegramMessage(chatId, "To link Telegram, sign in and request a linking link. For a new account, open the manager's invitation and click Authenticate with @mbpauthbot.");
+  if (text === "/help" || text === "/help@mbpauthbot") await sendTelegramMessage(chatId, "To link Telegram, sign in and request a linking link. For a new account, open the manager's invitation and click Authenticate with Telegram.");
   return jsonResponse({ ok: true });
 }
 
