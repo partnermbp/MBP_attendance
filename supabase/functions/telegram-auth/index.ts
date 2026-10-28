@@ -84,6 +84,21 @@ async function createLinkToken(req: Request) {
   if (insertError) return jsonResponse({ error: "Unable to create a linking token." }, 500);
   return jsonResponse({ ok: true, expires_at: expiresAt, bot_url: `https://t.me/mbpauthbot?start=${token}`, message: "Open the Telegram link within 10 minutes." });
 }
+async function getLinkStatus(req: Request) {
+  const authorization = req.headers.get("authorization") ?? "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!match) return jsonResponse({ ok: false, error: "Sign in first." }, 401);
+  const { data: authData, error: authError } = await supabase.auth.getUser(match[1]);
+  if (authError || !authData.user) return jsonResponse({ ok: false, error: "Your session is invalid or expired." }, 401);
+  const { data: profile, error } = await supabase.from("profiles")
+    .select("active, telegram_user_id, telegram_verified_at")
+    .eq("id", authData.user.id).maybeSingle();
+  if (error) return jsonResponse({ ok: false, error: "Unable to check your Telegram status." }, 500);
+  if (!profile || profile.active !== true) return jsonResponse({ ok: false, error: "Your account is not active." }, 403);
+  const linked = profile.telegram_user_id != null && profile.telegram_verified_at != null;
+  return jsonResponse({ ok: true, linked });
+}
+
 async function requestLoginCode(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body." }, 400); }
@@ -244,6 +259,7 @@ Deno.serve(async (req: Request) => {
     try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body." }, 400); }
     if (body?.action === "request_login_code") return await requestLoginCode(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
     if (body?.action === "create_link_token") return await createLinkToken(req);
+    if (body?.action === "link_status") return await getLinkStatus(req);
     if (body?.action === "create_invite_telegram_challenge") return await createInviteTelegramChallenge(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
     if (body?.action === "verify_invite_telegram_otp") return await verifyInviteTelegramOtp(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
     if (req.headers.get("x-telegram-bot-api-secret-token") !== WEBHOOK_SECRET) return jsonResponse({ error: "Unauthorized." }, 401);
