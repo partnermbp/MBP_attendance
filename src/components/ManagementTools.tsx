@@ -121,7 +121,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       if (!supabaseUrl || !publishableKey) throw new Error('Supabase URL/key are missing from the deployed frontend environment. Check GitHub Pages build variables.');
-      const response = await fetch(`${supabaseUrl.replace(/\\/$/, '')}/functions/v1/telegram-media-proxy`, {
+      const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/telegram-media-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
