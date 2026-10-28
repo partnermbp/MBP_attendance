@@ -2,7 +2,7 @@
 // The bot token stays on the server. Media is streamed and never persisted.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const TELEGRAM_BOT_TOKEN = Deno.env.get("MBP_ANALYTICS_TELEGRAM_BOT_TOKEN");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TELEGRAM_BOT_TOKEN) {
-    return json({ error: "Media proxy is not configured on the server" }, 503);
+    return json({ error: "Media preview service is not configured. Deploy telegram-media-proxy and set MBP_ANALYTICS_TELEGRAM_BOT_TOKEN in Supabase Edge Function secrets.", code: "MEDIA_PROXY_NOT_CONFIGURED" }, 503);
   }
 
   const auth = req.headers.get("Authorization") || "";
@@ -87,12 +87,12 @@ Deno.serve(async (req: Request) => {
   try {
     const people = await rest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,active&limit=1`, accessToken);
     const profile = people?.[0];
-    if (!profile?.active || !["admin", "manager"].includes(String(profile.role || "").toLowerCase())) {
+    if (!profile?.active || !["admin", "manager", "middle", "senior", "team leader", "team_leader", "telemarketing"].includes(String(profile.role || "").toLowerCase())) {
       return json({ error: "Not authorized" }, 403);
     }
 
     const groups = await rest(`telegram_groups?telegram_chat_id=eq.${chatId}&enabled=eq.true&select=telegram_chat_id&limit=1`, accessToken);
-    if (!groups?.length) return json({ error: "Group not found or disabled" }, 404);
+    if (!groups?.length) return json({ error: "This Telegram group is not registered or is disabled. Check telegram_groups in Supabase.", code: "GROUP_NOT_FOUND" }, 404);
 
     if (String(profile.role).toLowerCase() !== "admin") {
       // A manager may access a group's attachments only when a linked CRM
@@ -111,21 +111,25 @@ Deno.serve(async (req: Request) => {
       `telegram_messages?telegram_chat_id=eq.${chatId}&telegram_message_id=eq.${messageId}&select=raw_update&limit=1`,
       accessToken,
     );
-    if (!rows?.length) return json({ error: "Message not found" }, 404);
+    if (!rows?.length) return json({ error: "Message was not found in Supabase. New messages can be previewed after the analytics webhook records them.", code: "MESSAGE_NOT_FOUND" }, 404);
     const message = getMessage(rows[0].raw_update);
     if (!message || Number(message.chat?.id) !== chatId || Number(message.message_id) !== messageId) {
-      return json({ error: "Attachment metadata not found" }, 404);
+      return json({ error: "The saved Telegram row does not contain the original message update. This older message cannot be previewed.", code: "RAW_UPDATE_MISSING" }, 404);
     }
     const media = getMedia(message);
-    if (!media?.item?.file_id) return json({ error: "This message has no supported attachment" }, 404);
+    if (!media?.item?.file_id) return json({ error: "No supported Telegram file_id was found in this message.", code: "FILE_ID_MISSING" }, 404);
 
     const infoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(media.item.file_id)}`);
     const info = await infoResponse.json();
     if (!infoResponse.ok || !info?.ok || !info?.result?.file_path) {
-      return json({ error: "Telegram could not provide this attachment" }, 502);
+      console.error("Telegram getFile failed:", info?.description || infoResponse.status);
+      return json({ error: "Telegram could not retrieve this file. Check the analytics bot token, bot access to the group, and the file_id in raw_update.", code: "TELEGRAM_GETFILE_FAILED" }, 502);
     }
     const telegramResponse = await fetch(`https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${info.result.file_path}`);
-    if (!telegramResponse.ok || !telegramResponse.body) return json({ error: "Attachment download failed" }, 502);
+    if (!telegramResponse.ok || !telegramResponse.body) {
+      console.error("Telegram file download failed:", telegramResponse.status);
+      return json({ error: "Telegram returned the file path but the download failed. Check the bot token and Telegram file availability.", code: "TELEGRAM_DOWNLOAD_FAILED" }, 502);
+    }
 
     const mime = String(media.mime || "application/octet-stream").split(";")[0].slice(0, 120);
     const disposition = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "audio/mpeg", "audio/ogg", "audio/mp4"].includes(mime)
@@ -144,6 +148,6 @@ Deno.serve(async (req: Request) => {
     });
   } catch (error) {
     console.error("Telegram media proxy failed:", error);
-    return json({ error: "Could not retrieve this attachment" }, 500);
+    return json({ error: "The media proxy encountered a server/database error. Check the Supabase Edge Function logs for telegram-media-proxy.", code: "MEDIA_PROXY_INTERNAL_ERROR" }, 500);
   }
 });
