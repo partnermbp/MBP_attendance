@@ -59,10 +59,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setNotice('');
     try {
       const [assignmentResult, groupResult, metricResult, treeResult] = await Promise.all([
-        supabase.rpc('get_my_team_hierarchy'),
         supabase.from('manager_employee_assignments').select('manager_id,employee_id,created_at'),
         supabase.from('telegram_groups').select('telegram_chat_id,title,enabled').order('title'),
         supabase.from('telegram_response_metrics').select('telegram_chat_id,question_message_id,question_user_id,first_reply_user_id,response_seconds,calculated_at').order('calculated_at', { ascending: false }).limit(500),
+        supabase.rpc('get_my_team_hierarchy'),
       ]);
       if (isAdmin) {
         const memberResult = await supabase.from('telegram_group_members')
