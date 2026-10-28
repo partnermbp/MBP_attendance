@@ -1131,7 +1131,7 @@ export default function App() {
   // Older open sessions remain in history and are not automatically checked out.
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
   const isAdmin = profile?.active === true && normalizedRole === 'admin';
-  const canManageTeam = profile?.active === true && ['middle', 'senior', 'team leader'].includes(normalizedRole);
+  const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
   const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
     ? attendance.filter(item => item.employee_id === selectedEmployeeId)
     : attendance;
