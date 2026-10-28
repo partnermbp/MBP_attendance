@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
@@ -203,7 +203,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
-  const renderTeamNode = (person: TeamNode, depth = 0): JSX.Element => {
+  const renderTeamNode = (person: TeamNode, depth = 0): ReactElement => {
     const children = teamTree.filter(child => child.manager_id === person.id);
     const expanded = Boolean(expandedManagers[person.id]);
     return <div key={person.id} style={{border:'1px solid #344054',borderRadius:8,padding:8,marginLeft:Math.min(depth,5)*12}}>
