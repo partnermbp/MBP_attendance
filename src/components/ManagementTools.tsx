@@ -50,7 +50,6 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [managerId, setManagerId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [teamAttendance, setTeamAttendance] = useState<any[]>([]);
-  const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
   const [teamTree, setTeamTree] = useState<TeamNode[]>([]);
   const [roleSelections, setRoleSelections] = useState<Record<string, string>>({});
   const [inviteRole, setInviteRole] = useState('junior');
@@ -119,11 +118,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       if (isManager) {
         const mine = [...new Set(((treeResult.data ?? []) as TeamNode[]).map(person => person.id))];
         if (mine.length) {
-          const attendanceResult = await supabase.from('attendance')
-            .select('id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng')
-            .in('employee_id', mine).gte('check_in', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()).order('check_in', { ascending: false }).limit(500);
-          if (attendanceResult.error) setNotice((current) => current || 'Team attendance: ' + attendanceResult.error.message);
-          else setTeamAttendance(attendanceResult.data ?? []);
+          // The server returns city/country labels only; exact GPS coordinates never
+          // enter the manager's browser response.
+          const attendanceResult = await supabase.functions.invoke('manager-team-attendance');
+          if (attendanceResult.error) {
+            setNotice((current) => current || 'Team attendance location service is not deployed or returned an error. Ask the CRM Admin to deploy the manager-team-attendance Edge Function.');
+            setTeamAttendance([]);
+          } else setTeamAttendance(Array.isArray(attendanceResult.data?.records) ? attendanceResult.data.records : []);
         } else setTeamAttendance([]);
       }
     } catch {
@@ -132,42 +133,6 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   useEffect(() => { void load(); }, [supabase, profile?.id, profile?.role, selectedGroup]);
-
-  // Resolve only city/country labels for manager attendance. Coordinates are never
-  // rendered as links or map actions. Rounded coordinate keys keep lookups coarse.
-  useEffect(() => {
-    if (!isManager || !teamAttendance.length) return;
-    const unique = new Map<string, { lat: number; lng: number }>();
-    for (const row of teamAttendance) {
-      for (const [lat, lng] of [[row.check_in_lat, row.check_in_lng], [row.check_out_lat, row.check_out_lng]] as Array<[number | null, number | null]>) {
-        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-        if (!locationLabels[key]) unique.set(key, { lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)) });
-      }
-    }
-    let cancelled = false;
-    const resolveLocations = async () => {
-      for (const [key, point] of unique) {
-        if (cancelled) return;
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=10&addressdetails=1`);
-          if (!response.ok) throw new Error('Geocoding failed');
-          const data = await response.json() as { address?: Record<string, string> };
-          const address = data.address || {};
-          const city = address.city || address.town || address.village || address.municipality || address.county || address.state;
-          const countryCode = address.country_code ? address.country_code.toUpperCase() : '';
-          const label = [city, countryCode].filter(Boolean).join(', ') || 'Location unavailable';
-          if (!cancelled) setLocationLabels(current => ({ ...current, [key]: label }));
-        } catch {
-          if (!cancelled) setLocationLabels(current => ({ ...current, [key]: 'Location unavailable' }));
-        }
-        // Respect the public Nominatim service's request rate limit.
-        await new Promise(resolve => setTimeout(resolve, 1100));
-      }
-    };
-    void resolveLocations();
-    return () => { cancelled = true; };
-  }, [isManager, teamAttendance, locationLabels]);
 
   useEffect(() => {
     return () => { if (activeMedia?.url) URL.revokeObjectURL(activeMedia.url); };
@@ -350,9 +315,6 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         const timeOnly = (value: string | null, timezone: string | null) => value
           ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...(timezone ? { timeZone: timezone } : {}) }).format(new Date(value))
           : '—';
-        const locationFor = (lat: number | null, lng: number | null) => lat == null || lng == null
-          ? ''
-          : locationLabels[`${lat.toFixed(2)},${lng.toFixed(2)}`] || 'Resolving location…';
         return <div style={{ overflowX: 'auto', border: '1px solid #38302a', marginTop: 12 }}>
           <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: Math.max(620, 180 + dateKeys.length * 154), textAlign: 'left' }}>
             <thead><tr style={{ background: '#211711' }}>
@@ -379,8 +341,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
                 return <td key={date} style={{ padding: 6, borderBottom: '1px solid #38302a', textAlign: 'center', minWidth: 154 }}>
                   <div title={!present ? 'Absent' : completed ? 'Signed in and out' : 'Signed in; not signed out'} style={{ display: 'inline-flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 8, padding: '7px 9px', width: 142, minHeight: 54, boxSizing: 'border-box', background: bg, color: fg, border: '1px solid ' + (present && completed ? '#286947' : '#8a5318'), borderRadius: 4, fontSize: 12, fontWeight: 700, textAlign: 'left' }}>
                     {!present ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>Absent</span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
-                      <span>IN&nbsp; {timeOnly(record.check_in, record.work_timezone)}{record.check_in_lat != null && record.check_in_lng != null && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{locationFor(record.check_in_lat, record.check_in_lng)}</span>}</span>
-                      <span>OUT {timeOnly(record.check_out, record.work_timezone)}{record.check_out && record.check_out_lat != null && record.check_out_lng != null && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{locationFor(record.check_out_lat, record.check_out_lng)}</span>}</span>
+                      <span>IN&nbsp; {timeOnly(record.check_in, record.work_timezone)}{record.check_in_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_in_city}</span>}</span>
+                      <span>OUT {timeOnly(record.check_out, record.work_timezone)}{record.check_out && record.check_out_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_out_city}</span>}</span>
                     </span>}
                   </div>
                 </td>;
