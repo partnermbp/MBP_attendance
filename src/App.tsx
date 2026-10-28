@@ -223,6 +223,8 @@ function isApprovedEmail(email: string) {
 export default function App() {
   const [passwordFlow, setPasswordFlow] =
     useState<PasswordFlow>(readPasswordFlow);
+  const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
+  const [inviteRedeemed, setInviteRedeemed] = useState(false);
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
@@ -274,7 +276,18 @@ export default function App() {
         return;
       }
 
-      const currentProfile = profileResult.data as Profile | null;
+      let currentProfile = profileResult.data as Profile | null;
+      if (inviteToken && !inviteRedeemed && currentProfile?.active) {
+        const { error: inviteError } = await supabase.rpc('redeem_manager_invitation', { invitation_token: inviteToken });
+        if (inviteError) setMessage('Invitation could not be redeemed: ' + inviteError.message);
+        else {
+          setInviteRedeemed(true);
+          setMessage('Invitation accepted. Your manager relationship is now active.');
+          const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
+          if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
+        }
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+      }
       setProfile(currentProfile);
       // The auth function is the source of truth for Telegram-account linkage.
       try {
@@ -316,7 +329,7 @@ export default function App() {
         setProfiles([]);
         const [attendanceResult, shiftsResult] = await Promise.all([
           supabase.from('attendance')
-            .select('id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
+            .select('id, check_in, check_out, work_date, work_timezone')
             .eq('employee_id', userId)
             .order('check_in', { ascending: false })
             .limit(100),
@@ -337,7 +350,7 @@ export default function App() {
     } finally {
       setLoadingDashboard(false);
     }
-  }, []);
+  }, [inviteToken, inviteRedeemed]);
 
   useEffect(() => {
     if (!supabase) {
@@ -407,6 +420,40 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [loadDashboard, passwordFlow]);
+
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !inviteToken) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isApprovedEmail(normalizedEmail)) {
+      setMessage('This email address is not on the approved account list.');
+      return;
+    }
+    if (password.length < 8) {
+      setMessage('Use a password with at least 8 characters.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const redirectTo = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(inviteToken);
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken } },
+      });
+      if (error) setMessage('Registration failed: ' + error.message);
+      else if (data.session && data.user) {
+        setMessage('Account created. Finishing sign-in and redeeming your invitation…');
+      } else {
+        setMessage('Registration started. Confirm your email using the link sent to you, then return to this invitation link and sign in to redeem it.');
+      }
+    } catch {
+      setMessage('Registration could not be completed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -878,7 +925,9 @@ export default function App() {
 
   // Only today's open session in its own saved timezone is the active session.
   // Older open sessions remain in history and are not automatically checked out.
-  const isAdmin = profile?.active === true && String(profile.role).toLowerCase() === 'admin';
+  const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
+  const isAdmin = profile?.active === true && normalizedRole === 'admin';
+  const canManageTeam = profile?.active === true && ['middle', 'senior', 'team leader'].includes(normalizedRole);
   const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
     ? attendance.filter(item => item.employee_id === selectedEmployeeId)
     : attendance;
@@ -1022,6 +1071,17 @@ export default function App() {
               </button>
             </form>
           </details>
+          {inviteToken && <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid #344054'}}>
+            <h2 style={{fontSize:18}}>New employee? Create an account</h2>
+            <p style={{color:'#b7c0d1',fontSize:13}}>This invitation is single-use and expires after 7 days. Use your approved work email.</p>
+            <form onSubmit={handleRegister}>
+              <label htmlFor="register-email">Work email</label>
+              <input id="register-email" type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
+              <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Password (at least 8 characters)</label>
+              <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Register and accept invitation'}</button>
+            </form>
+          </div>}
         </section>
       )}
 
@@ -1092,7 +1152,7 @@ export default function App() {
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:4,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#201a16',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||String(profile?.role).toLowerCase()==='admin'||String(profile?.role).toLowerCase()==='manager').map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);setMapPreview(null);setNavOpen(false);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);setMapPreview(null);setNavOpen(false);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
             </nav>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,marginTop:18,border:'1px solid #7c3216',borderRadius:2,background:'#c4511b',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:18,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
@@ -1256,8 +1316,8 @@ export default function App() {
           </section>}
 
           </>}
-          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
-          {(String(profile?.role).toLowerCase() === 'admin' || String(profile?.role).toLowerCase() === 'manager') && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
+          {(isAdmin || canManageTeam) && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
+          {(isAdmin || canManageTeam) && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
@@ -1457,17 +1517,14 @@ export default function App() {
                     Work date: {item.work_date ?? 'Not assigned'}
                   </p>
 
-                  <p style={{ margin: '0 0 6px' }}>
-                    Check-in:{' '}
-                    {formatDate(item.check_in, item.work_timezone)}
-                  </p>
-
-                  <p style={{ margin: '0 0 6px' }}>
-                    Check-out:{' '}
-                    {item.check_out
-                      ? formatDate(item.check_out, item.work_timezone)
-                      : 'Not checked out'}
-                  </p>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'8px 0 12px'}}>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 11px',borderRadius:999,background:'#123b2c',border:'1px solid #23734d',color:'#a6f4c5',fontSize:13,fontWeight:700}}>
+                      IN · {formatDate(item.check_in, item.work_timezone)}
+                    </span>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 11px',borderRadius:999,background:item.check_out?'#172f4b':'#4a2a12',border:'1px solid '+(item.check_out?'#315d88':'#a65b18'),color:item.check_out?'#b2d7ff':'#ffd7a3',fontSize:13,fontWeight:700}}>
+                      OUT · {item.check_out ? formatDate(item.check_out, item.work_timezone) : 'Not checked out'}
+                    </span>
+                  </div>
 
                   <p style={{ margin: '0 0 6px' }}>
                     Elapsed time: {duration.elapsed}
