@@ -280,7 +280,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <tbody>{assignments.map(a => <tr key={a.manager_id + ':' + a.employee_id}><td style={cell}>{personName(a.manager_id)}</td><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{new Date(a.created_at).toLocaleDateString()}</td><td style={cell}><button type="button" style={{ ...button, background: '#b42318' }} disabled={loading} onClick={() => void removeAssignment(a)}>Remove</button></td></tr>)}</tbody>
       </table></div>
     </>}
-    {(isAdmin || (isManager && normalizedRole !== 'junior')) && <>
+    {(isManager || isAdmin) && <>
+      {(isAdmin || (isManager && normalizedRole !== 'junior')) && <>
       <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
       <p style={muted}>{isAdmin ? 'Admin can invite any role, including Telemarketing. Telemarketing is a separate track and does not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 24 hours. If registration has not happened, creating a replacement invitation for the same person invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
@@ -298,6 +299,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           <a href={'https://wa.me/?text='+encodeURIComponent('You are invited to the Attendance CRM: '+inviteUrl)} target="_blank" rel="noreferrer" style={{...button,textDecoration:'none'}}>Share via WhatsApp</a>
         </div>
       </div>}
+      </>}
       {!isAdmin && <>
       <h3>Reporting hierarchy</h3>
       <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
