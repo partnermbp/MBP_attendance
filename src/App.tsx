@@ -35,6 +35,8 @@ type Profile = {
   active: boolean;
 };
 
+type ManagerAssignment = { manager_id: string; employee_id: string };
+
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 type CrmPage = 'dashboard' | 'attendance' | 'team' | 'telegram' | 'security';
 type PasswordFlow = 'invite' | 'recovery' | null;
@@ -318,6 +320,8 @@ export default function App() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [managerAssignments, setManagerAssignments] = useState<ManagerAssignment[]>([]);
+  const [expandedManagerIds, setExpandedManagerIds] = useState<Set<string>>(() => new Set());
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
@@ -420,7 +424,7 @@ export default function App() {
         String(currentProfile.role).toLowerCase() === 'admin';
 
       if (isAdmin) {
-        const [peopleResult, attendanceResult] = await Promise.all([
+        const [peopleResult, attendanceResult, assignmentsResult] = await Promise.all([
           supabase.from('profiles')
             .select('id, email, full_name, role, active')
             .order('full_name', { ascending: true })
@@ -429,6 +433,9 @@ export default function App() {
             .select('id, employee_id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
             .order('check_in', { ascending: false })
             .limit(1000),
+          supabase.from('manager_employee_assignments')
+            .select('manager_id, employee_id')
+            .limit(2000),
         ]);
 
         if (peopleResult.error) {
@@ -444,9 +451,17 @@ export default function App() {
         } else {
           setAttendance((attendanceResult.data ?? []) as Attendance[]);
         }
+        if (assignmentsResult.error) {
+          setManagerAssignments([]);
+          setMessage(current => current || `Could not load reporting hierarchy: ${assignmentsResult.error.message}`);
+        } else {
+          setManagerAssignments((assignmentsResult.data ?? []) as ManagerAssignment[]);
+        }
         setShifts([]);
       } else {
         setProfiles([]);
+        setManagerAssignments([]);
+        setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
           supabase.from('attendance')
             .select('id, check_in, check_out, work_date, work_timezone')
@@ -991,7 +1006,7 @@ export default function App() {
     if (!supabase) return;
 
     setMapPreview(null);
-    setAttendance([]); setShifts([]); setProfiles([]); setProfile(null);
+    setAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setExpandedManagerIds(new Set()); setProfile(null);
     setReportStartDate(''); setReportEndDate(''); setDraftStartDate(''); setDraftEndDate('');
     setBusy(true);
     setMessage('');
@@ -1673,7 +1688,40 @@ export default function App() {
                 dateKeys.push(`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`);
                 cursor.setDate(cursor.getDate()+1);
               }
-              const people = profiles.filter(person => String(person.role).toLowerCase() !== 'admin' && (selectedEmployeeId === 'all' || person.id === selectedEmployeeId));
+              const allPeople = profiles.filter(person => String(person.role).toLowerCase() !== 'admin');
+              const peopleById = new Map(allPeople.map(person => [person.id, person]));
+              const childrenByManager = new Map<string, string[]>();
+              managerAssignments.forEach(assignment => {
+                if (!peopleById.has(assignment.manager_id) || !peopleById.has(assignment.employee_id)) return;
+                const children = childrenByManager.get(assignment.manager_id) ?? [];
+                if (!children.includes(assignment.employee_id)) children.push(assignment.employee_id);
+                childrenByManager.set(assignment.manager_id, children);
+              });
+              const peopleWithParents = new Set(managerAssignments.map(assignment => assignment.employee_id));
+              const topLevelRoles = new Set(['team_leader', 'senior', 'telemarketing']);
+              const topLevelPeople = allPeople.filter(person =>
+                topLevelRoles.has(String(person.role).toLowerCase()) && !peopleWithParents.has(person.id)
+              );
+              const visiblePeople: Array<{ person: Profile; depth: number; hasChildren: boolean }> = [];
+              const appendBranch = (person: Profile, depth: number, path: Set<string>) => {
+                if (path.has(person.id)) return;
+                const childIds = childrenByManager.get(person.id) ?? [];
+                visiblePeople.push({ person, depth, hasChildren: childIds.some(id => peopleById.has(id)) });
+                if (!expandedManagerIds.has(person.id)) return;
+                const nextPath = new Set(path);
+                nextPath.add(person.id);
+                childIds.forEach(id => {
+                  const child = peopleById.get(id);
+                  if (child) appendBranch(child, depth + 1, nextPath);
+                });
+              };
+              if (selectedEmployeeId !== 'all') {
+                const selectedPerson = peopleById.get(selectedEmployeeId);
+                if (selectedPerson) visiblePeople.push({ person: selectedPerson, depth: 0, hasChildren: false });
+              } else {
+                topLevelPeople.forEach(person => appendBranch(person, 0, new Set()));
+              }
+              const people = visiblePeople;
               const timeOnly = (value: string | null, timezone: string | null) => value ? new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',hour12:false,...(timezone ? {timeZone:timezone} : {})}).format(new Date(value)) : '—';
               const gpsButton = (lat: number | null, lng: number | null, title: string) => lat != null && lng != null
                 ? <button type="button" aria-label={title} title={title} onClick={() => setMapPreview({title,latitude:lat,longitude:lng})} style={{display:'inline-grid',placeItems:'center',width:23,height:23,padding:0,color:'#ff9b62',background:'#211711',border:'1px solid #7c3216',borderRadius:2,cursor:'pointer',verticalAlign:'middle'}}><MapPin size={14}/></button>
@@ -1684,8 +1732,8 @@ export default function App() {
                     <th style={{position:'sticky',left:0,zIndex:2,background:'#211711',padding:12,borderBottom:'1px solid #493023',minWidth:180}}>Employee</th>
                     {dateKeys.map(date => <th key={date} style={{padding:10,borderBottom:'1px solid #493023',whiteSpace:'nowrap',textAlign:'center'}}>{new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</th>)}
                   </tr></thead>
-                  <tbody>{people.map(person => <tr key={person.id}>
-                    <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'#151413',padding:8,borderBottom:'1px solid #38302a',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8}}><span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
+                  <tbody>{people.map(({ person, depth, hasChildren }) => <tr key={person.id}>
+                    <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'#151413',padding:8,borderBottom:'1px solid #38302a',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:depth*16}}>{hasChildren ? <button type="button" aria-label={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} title={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} onClick={() => setExpandedManagerIds(current => { const next = new Set(current); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{display:'grid',placeItems:'center',width:16,height:24,padding:0,flexShrink:0,border:0,background:'transparent',color:'#ffb36b',fontSize:18,fontWeight:800,cursor:'pointer'}}>{expandedManagerIds.has(person.id) ? '▾' : '▸'}</button> : <span aria-hidden="true" style={{display:'inline-block',width:16,flexShrink:0}}/>}<span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span><span style={{fontSize:9,fontWeight:400,color:'#ffb36b',marginTop:2}}>{String(person.role).replace(/_/g,' ')}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
                     {dateKeys.map(date => {
                       const records = reportAttendance.filter(item => item.employee_id === person.id && (item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone,new Date(item.check_in)) : item.check_in.slice(0,10))) === date);
                       const record = records[0];
