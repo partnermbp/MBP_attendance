@@ -58,8 +58,15 @@ begin
      normalized_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
     raise exception 'Enter a valid corporate email';
   end if;
+  if split_part(normalized_email, '@', 2) not in ('mostbet.partners','infradim.com','starson.cloud','double.global')
+     and normalized_email <> 'partnermbp@gmail.com' then
+    raise exception 'This corporate email domain is not approved for the CRM.';
+  end if;
   if exists (select 1 from auth.users u where lower(u.email) = normalized_email) then
     raise exception 'An account already exists for this corporate email. Ask Admin to review it instead of creating another invitation.';
+  end if;
+  if exists (select 1 from public.profiles p where lower(p.admin_panel_name) = lower(normalized_name)) then
+    raise exception 'This Admin Panel Name is already assigned to a CRM profile. Ask Admin to review it.';
   end if;
   if exists (select 1 from public.manager_invitations i where lower(i.corporate_email) = normalized_email and i.redeemed_at is null and i.expires_at > now()) then
     raise exception 'An active invitation already exists for this corporate email.';
@@ -100,6 +107,9 @@ as $$
   limit 1;
 $$;
 grant execute on function public.get_manager_invitation_details(text) to anon, authenticated;
+
+-- Remove the old ticket-less RPC: leaving it callable would bypass Telegram verification.
+drop function if exists public.redeem_manager_invitation(text);
 
 -- Redeem only after OTP verification. Existing accounts can never use an invite to change role.
 create or replace function public.redeem_manager_invitation(invitation_token text, registration_ticket text)
