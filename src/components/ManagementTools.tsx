@@ -50,6 +50,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [managerId, setManagerId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [teamAttendance, setTeamAttendance] = useState<any[]>([]);
+  const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
   const [teamTree, setTeamTree] = useState<TeamNode[]>([]);
   const [roleSelections, setRoleSelections] = useState<Record<string, string>>({});
   const [inviteRole, setInviteRole] = useState('junior');
@@ -71,7 +72,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
-  const isManager = profile?.active === true && ['middle', 'senior', 'team leader'].includes(normalizedRole);
+  const isManager = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
 
   async function load() {
     if (!supabase || (!isAdmin && !isManager)) return;
@@ -120,7 +121,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         if (mine.length) {
           const attendanceResult = await supabase.from('attendance')
             .select('id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng')
-            .in('employee_id', mine).order('check_in', { ascending: false }).limit(500);
+            .in('employee_id', mine).gte('check_in', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()).order('check_in', { ascending: false }).limit(500);
           if (attendanceResult.error) setNotice((current) => current || 'Team attendance: ' + attendanceResult.error.message);
           else setTeamAttendance(attendanceResult.data ?? []);
         } else setTeamAttendance([]);
@@ -131,6 +132,42 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   useEffect(() => { void load(); }, [supabase, profile?.id, profile?.role, selectedGroup]);
+
+  // Resolve only city/country labels for manager attendance. Coordinates are never
+  // rendered as links or map actions. Rounded coordinate keys keep lookups coarse.
+  useEffect(() => {
+    if (!isManager || !teamAttendance.length) return;
+    const unique = new Map<string, { lat: number; lng: number }>();
+    for (const row of teamAttendance) {
+      for (const [lat, lng] of [[row.check_in_lat, row.check_in_lng], [row.check_out_lat, row.check_out_lng]] as Array<[number | null, number | null]>) {
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+        if (!locationLabels[key]) unique.set(key, { lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)) });
+      }
+    }
+    let cancelled = false;
+    const resolveLocations = async () => {
+      for (const [key, point] of unique) {
+        if (cancelled) return;
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=10&addressdetails=1`);
+          if (!response.ok) throw new Error('Geocoding failed');
+          const data = await response.json() as { address?: Record<string, string> };
+          const address = data.address || {};
+          const city = address.city || address.town || address.village || address.municipality || address.county || address.state;
+          const countryCode = address.country_code ? address.country_code.toUpperCase() : '';
+          const label = [city, countryCode].filter(Boolean).join(', ') || 'Location unavailable';
+          if (!cancelled) setLocationLabels(current => ({ ...current, [key]: label }));
+        } catch {
+          if (!cancelled) setLocationLabels(current => ({ ...current, [key]: 'Location unavailable' }));
+        }
+        // Respect the public Nominatim service's request rate limit.
+        await new Promise(resolve => setTimeout(resolve, 1100));
+      }
+    };
+    void resolveLocations();
+    return () => { cancelled = true; };
+  }, [isManager, teamAttendance, locationLabels]);
 
   useEffect(() => {
     return () => { if (activeMedia?.url) URL.revokeObjectURL(activeMedia.url); };
@@ -222,7 +259,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
   const inviteRoles = isAdmin ? ['team_leader','senior','middle','junior','telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
-  const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || id;
+  const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || teamTree.find(p => p.id === id)?.full_name || teamTree.find(p => p.id === id)?.email || 'Unknown employee';
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
   const renderTeamNode = (person: TeamNode, depth = 0): ReactElement => {
     const children = teamTree.filter(child => child.manager_id === person.id);
@@ -278,7 +315,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <tbody>{assignments.map(a => <tr key={a.manager_id + ':' + a.employee_id}><td style={cell}>{personName(a.manager_id)}</td><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{new Date(a.created_at).toLocaleDateString()}</td><td style={cell}><button type="button" style={{ ...button, background: '#b42318' }} disabled={loading} onClick={() => void removeAssignment(a)}>Remove</button></td></tr>)}</tbody>
       </table></div>
     </>}
-    {(isManager || isAdmin) && <>
+    {(isAdmin || (isManager && normalizedRole !== 'junior')) && <>
       <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
       <p style={muted}>{isAdmin ? 'Admin can invite any role, including Telemarketing. Telemarketing is a separate track and does not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 24 hours. If registration has not happened, creating a replacement invitation for the same person invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
@@ -303,10 +340,58 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>Assigned employees</h3>
       {myAssignments.length ? <ul>{myAssignments.map(a => <li key={a.employee_id}>{personName(a.employee_id)}</li>)}</ul> : <p>No employees have been assigned to you yet.</p>}
       <h3>Team attendance</h3>
-      <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead><tr>{['Employee','Work date','Check-in','Check-out','GPS'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
-        <tbody>{teamAttendance.map(a => <tr key={a.id}><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{a.work_date || a.check_in?.slice(0,10)}</td><td style={cell}>{a.check_in ? new Date(a.check_in).toLocaleString() : '—'}</td><td style={cell}>{a.check_out ? new Date(a.check_out).toLocaleString() : 'Open session'}</td><td style={cell}>{a.check_in_lat != null && a.check_in_lng != null ? <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_in_lat},${a.check_in_lng}`}>📍 Check-in</a> : '—'}{a.check_out_lat != null && a.check_out_lng != null ? <> · <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${a.check_out_lat},${a.check_out_lng}`}>📍 Check-out</a></> : null}</td></tr>)}</tbody>
-      </table></div>
+      {(() => {
+        const dateKeys = Array.from({ length: 7 }, (_, index) => {
+          const date = new Date();
+          date.setHours(12, 0, 0, 0);
+          date.setDate(date.getDate() - (6 - index));
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        });
+        const timeOnly = (value: string | null, timezone: string | null) => value
+          ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...(timezone ? { timeZone: timezone } : {}) }).format(new Date(value))
+          : '—';
+        const locationFor = (lat: number | null, lng: number | null) => lat == null || lng == null
+          ? ''
+          : locationLabels[`${lat.toFixed(2)},${lng.toFixed(2)}`] || 'Resolving location…';
+        return <div style={{ overflowX: 'auto', border: '1px solid #38302a', marginTop: 12 }}>
+          <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: Math.max(620, 180 + dateKeys.length * 154), textAlign: 'left' }}>
+            <thead><tr style={{ background: '#211711' }}>
+              <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#211711', padding: 12, borderBottom: '1px solid #493023', minWidth: 180 }}>Employee</th>
+              {dateKeys.map(date => <th key={date} style={{ padding: 10, borderBottom: '1px solid #493023', whiteSpace: 'nowrap', textAlign: 'center' }}>{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}</th>)}
+            </tr></thead>
+            <tbody>{teamTree.map(person => <tr key={person.id}>
+              <th scope="row" style={{ position: 'sticky', left: 0, zIndex: 1, background: '#151413', padding: 8, borderBottom: '1px solid #38302a', fontWeight: 600, minWidth: 110, maxWidth: 180 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: Math.min(person.depth, 5) * 12 }}>
+                  <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flexShrink: 0, background: '#352116', border: '1px solid #8a5318', color: '#ffd18a', fontWeight: 800 }}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span>
+                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: 12, overflowWrap: 'anywhere' }}>{person.full_name || person.email || 'Employee'}</span>
+                    <span style={{ fontSize: 9, fontWeight: 400, color: '#ffb36b', marginTop: 2 }}>{String(person.role).replace(/_/g, ' ')}</span>
+                    {person.email && <span title={person.email} style={{ fontSize: 9, fontWeight: 400, color: '#aaa29b', overflowWrap: 'anywhere', lineHeight: 1.2, marginTop: 3 }}>{person.email}</span>}
+                  </span>
+                </div>
+              </th>
+              {dateKeys.map(date => {
+                const record = teamAttendance.find(item => item.employee_id === person.id && (item.work_date || item.check_in?.slice(0, 10)) === date);
+                const completed = Boolean(record?.check_out);
+                const present = Boolean(record);
+                const bg = present && completed ? '#153c2a' : '#4b2d10';
+                const fg = present && completed ? '#8ce2ae' : '#ffd18a';
+                return <td key={date} style={{ padding: 6, borderBottom: '1px solid #38302a', textAlign: 'center', minWidth: 154 }}>
+                  <div title={!present ? 'Absent' : completed ? 'Signed in and out' : 'Signed in; not signed out'} style={{ display: 'inline-flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 8, padding: '7px 9px', width: 142, minHeight: 54, boxSizing: 'border-box', background: bg, color: fg, border: '1px solid ' + (present && completed ? '#286947' : '#8a5318'), borderRadius: 4, fontSize: 12, fontWeight: 700, textAlign: 'left' }}>
+                    {!present ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>Absent</span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
+                      <span>IN&nbsp; {timeOnly(record.check_in, record.work_timezone)}{record.check_in_lat != null && record.check_in_lng != null && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{locationFor(record.check_in_lat, record.check_in_lng)}</span>}</span>
+                      <span>OUT {timeOnly(record.check_out, record.work_timezone)}{record.check_out && record.check_out_lat != null && record.check_out_lng != null && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{locationFor(record.check_out_lat, record.check_out_lng)}</span>}</span>
+                    </span>}
+                  </div>
+                </td>;
+              })}
+            </tr>)}
+            {teamTree.length === 0 && <tr><td colSpan={dateKeys.length + 1} style={{ padding: 18, color: '#b7aaa0' }}>No employees have been assigned to your team yet.</td></tr>}
+            </tbody>
+          </table>
+          <p style={{ margin: '10px 12px', fontSize: 12, color: '#b7aaa0' }}>Green = completed shift · Orange = incomplete or absent. Location is shown as city and country code only; GPS coordinates and map links are Admin-only. Showing the last 7 days.</p>
+        </div>;
+      })()}
       </>}
     </>}
     </>}
