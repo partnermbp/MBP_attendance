@@ -191,12 +191,28 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
 
   async function addAssignment() {
     if (!supabase || !managerId || !employeeId) return;
+    const existing = assignments.some(a => a.manager_id === managerId && a.employee_id === employeeId);
+    if (existing) {
+      setNotice('This employee is already assigned under the selected manager.');
+      return;
+    }
+    const manager = profiles.find(p => p.id === managerId);
+    const employee = profiles.find(p => p.id === employeeId);
+    const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+    if (!manager || !employee || rank(manager.role) <= rank(employee.role) || rank(manager.role) === 0 || rank(employee.role) === 0) {
+      setNotice('Invalid hierarchy: a manager can only be assigned employees below their own role. Team Leaders cannot be assigned under Senior, Middle, or Junior managers; Telemarketing is a separate track.');
+      return;
+    }
     setLoading(true); setNotice('');
-    const { error } = await supabase.from('manager_employee_assignments').upsert({
+    const { error } = await supabase.from('manager_employee_assignments').insert({
       manager_id: managerId, employee_id: employeeId, created_by: profile?.id,
-    }, { onConflict: 'manager_id,employee_id' });
-    if (error) setNotice('Could not save assignment: ' + error.message);
-    else { setNotice('Assignment saved.'); await load(); }
+    });
+    if (error) {
+      const detail = error.message.toLowerCase();
+      setNotice(detail.includes('duplicate key') || detail.includes('already exists')
+        ? 'This employee is already assigned under the selected manager.'
+        : 'Could not save assignment: ' + error.message);
+    } else { setNotice('Assignment saved.'); await load(); }
     setLoading(false);
   }
 
@@ -272,7 +288,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>Assign employees to managers</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <label>Manager<select style={input} value={managerId} onChange={e => setManagerId(e.target.value)}><option value="">Choose manager</option>{managers.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
-        <label>Employee<select style={input} value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
+        <label>Employee<select style={input} value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.filter(p => {
+          const selectedManager = profiles.find(m => m.id === managerId);
+          const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+          return !managerId || Boolean(selectedManager && rank(selectedManager.role) > rank(p.role) && rank(p.role) > 0);
+        }).map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
       </div>
       <button type="button" style={{ ...button, marginTop: 12 }} disabled={loading || !managerId || !employeeId} onClick={() => void addAssignment()}>Save assignment</button>
       <div style={{ overflowX: 'auto', marginTop: 14 }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
