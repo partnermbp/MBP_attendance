@@ -225,6 +225,7 @@ export default function App() {
     useState<PasswordFlow>(readPasswordFlow);
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
   const [inviteRedeemed, setInviteRedeemed] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [screen, setScreen] = useState<Screen>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
@@ -420,6 +421,41 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [loadDashboard, passwordFlow]);
+
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !inviteToken) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isApprovedEmail(normalizedEmail)) {
+      setMessage('This email address is not on the approved account list.');
+      return;
+    }
+    if (password.length < 8) {
+      setMessage('Use a password with at least 8 characters.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const redirectTo = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(inviteToken);
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: { emailRedirectTo: redirectTo, data: { invitation_token: inviteToken } },
+      });
+      if (error) setMessage('Registration failed: ' + error.message);
+      else if (data.session) {
+        setMessage('Account created. Redeeming manager invitation…');
+        await loadDashboard(data.user.id);
+      } else {
+        setMessage('Registration started. Confirm your email using the link sent to you, then return to this invitation link and sign in to redeem it.');
+      }
+    } catch {
+      setMessage('Registration could not be completed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1037,6 +1073,17 @@ export default function App() {
               </button>
             </form>
           </details>
+          {inviteToken && <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid #344054'}}>
+            <h2 style={{fontSize:18}}>New employee? Create an account</h2>
+            <p style={{color:'#b7c0d1',fontSize:13}}>This invitation is single-use and expires after 7 days. Use your approved work email.</p>
+            <form onSubmit={handleRegister}>
+              <label htmlFor="register-email">Work email</label>
+              <input id="register-email" type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
+              <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Password (at least 8 characters)</label>
+              <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Register and accept invitation'}</button>
+            </form>
+          </div>}
         </section>
       )}
 
