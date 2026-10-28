@@ -72,9 +72,10 @@ returns text
 language plpgsql security definer
 set search_path = public
 as $$
-declare raw_token text := encode(extensions.gen_random_bytes(32), 'hex');
-declare normalized_role text := lower(trim(replace(invited_role, '_', ' ')));
-declare inviter_role text;
+declare
+  raw_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  normalized_role text := lower(trim(replace(invited_role, '_', ' ')));
+  inviter_role text;
 begin
   select lower(replace(role::text, '_', ' ')) into inviter_role
     from public.profiles where id = auth.uid() and active = true;
@@ -174,7 +175,7 @@ as $$
     join team t on a.manager_id = t.id
     where t.depth < 12 and not a.employee_id = any(t.path)
   )
-  select p.id, p.email, p.full_name, p.role, p.active, team.manager_id, team.depth
+  select p.id, p.email, p.full_name, p.role::text, p.active, team.manager_id, team.depth
   from team join public.profiles p on p.id = team.id
   where exists (select 1 from public.profiles me where me.id = auth.uid() and me.active = true
     and (lower(me.role::text) = 'admin' or public.is_hierarchy_manager(me.id)))
