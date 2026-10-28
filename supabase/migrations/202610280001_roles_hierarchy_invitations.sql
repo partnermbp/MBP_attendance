@@ -11,7 +11,7 @@ $;
 
 -- The existing active employee account was explicitly designated as Senior.
 -- Retire the legacy employee role from current profile data before role logic is switched.
-update public.profiles set role = 'senior'::public.app_role where role::text in ('employee', 'manager');
+update public.profiles set role = 'senior'::public.app_role where role::text = 'employee';
 
 create or replace function public.is_hierarchy_manager(target_profile uuid default auth.uid())
 returns boolean
