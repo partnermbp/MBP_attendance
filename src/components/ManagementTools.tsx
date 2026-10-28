@@ -338,11 +338,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
                 const record = teamAttendance.find(item => item.employee_id === person.id && (item.work_date || item.check_in?.slice(0, 10)) === date);
                 const completed = Boolean(record?.check_out);
                 const present = Boolean(record);
-                const bg = present && completed ? '#153c2a' : '#4b2d10';
-                const fg = present && completed ? '#8ce2ae' : '#ffd18a';
+                const bg = !present ? '#451a1a' : completed ? '#153c2a' : '#4b2d10';
+                const fg = !present ? '#fda29b' : completed ? '#8ce2ae' : '#ffd18a';
+                const borderColor = !present ? '#b42318' : completed ? '#286947' : '#8a5318';
                 return <td key={date} style={{ padding: 6, borderBottom: '1px solid #38302a', textAlign: 'center', minWidth: 154 }}>
-                  <div title={!present ? 'Absent' : completed ? 'Signed in and out' : 'Signed in; not signed out'} style={{ display: 'inline-flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 8, padding: '7px 9px', width: 142, minHeight: 54, boxSizing: 'border-box', background: bg, color: fg, border: '1px solid ' + (present && completed ? '#286947' : '#8a5318'), borderRadius: 4, fontSize: 12, fontWeight: 700, textAlign: 'left' }}>
-                    {!present ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>Absent</span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
+                  <div title={!present ? 'Absent' : completed ? 'Signed in and out' : 'Signed in; not signed out'} style={{ display: 'inline-flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 8, padding: '7px 9px', width: 142, minHeight: 54, boxSizing: 'border-box', background: bg, color: fg, border: '1px solid ' + borderColor, borderRadius: 4, fontSize: 12, fontWeight: 700, textAlign: 'left' }}>
+                    {!present ? <span aria-label="Absent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}><span aria-hidden="true" style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#f04438', border: '2px solid #fda29b', boxShadow: '0 0 0 3px #7a271a' }} /></span> : <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, lineHeight: 1.2 }}>
                       <span>IN&nbsp; {timeOnly(record.check_in, record.work_timezone)}{record.check_in_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_in_city}</span>}</span>
                       <span>OUT {timeOnly(record.check_out, record.work_timezone)}{record.check_out && record.check_out_city && <span style={{ display: 'block', fontSize: 10, fontWeight: 500, marginTop: 2 }}>{record.check_out_city}</span>}</span>
                     </span>}
@@ -353,7 +354,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             {teamTree.length === 0 && <tr><td colSpan={dateKeys.length + 1} style={{ padding: 18, color: '#b7aaa0' }}>No employees have been assigned to your team yet.</td></tr>}
             </tbody>
           </table>
-          <p style={{ margin: '10px 12px', fontSize: 12, color: '#b7aaa0' }}>Green = completed shift · Orange = incomplete or absent. Location is shown as city and country code only; GPS coordinates and map links are Admin-only. Showing the last 7 days.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', margin: '10px 12px', fontSize: 12, color: '#b7aaa0' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} />Completed shift</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#f79009' }} />Incomplete shift</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: '50%', background: '#f04438' }} />Absent</span>
+            <span>Showing the last 7 days.</span>
+          </div>
         </div>;
       })()}
       </>}
