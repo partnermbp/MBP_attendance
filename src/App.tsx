@@ -313,7 +313,18 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('');
+  const [deliveryStatuses, setDeliveryStatuses] = useState<Array<{ id: string; status: string; error_message: string | null; created_at: string; message_text: string }>>([]);
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
+
+  const loadDeliveryStatuses = useCallback(async () => {
+    if (!client || !profile?.id) return;
+    let query = client.from('telegram_inbox_outbox')
+      .select('id,status,error_message,created_at,message_text')
+      .order('created_at', { ascending: false }).limit(10);
+    if (!isAdmin) query = query.eq('requested_by', profile.id);
+    const { data, error } = await query;
+    if (!error) setDeliveryStatuses((data ?? []) as Array<{ id: string; status: string; error_message: string | null; created_at: string; message_text: string }>);
+  }, [client, profile?.id, isAdmin]);
 
   const loadChats = useCallback(async () => {
     if (!client) { setNotice('Supabase is not configured in this deployment.'); setLoadingChats(false); return; }
@@ -341,7 +352,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     setLoadingMessages(false);
   }, [client]);
 
-  useEffect(() => { void loadChats(); }, [loadChats]);
+  useEffect(() => { void loadChats(); void loadDeliveryStatuses(); }, [loadChats, loadDeliveryStatuses]);
   useEffect(() => {
     if (selectedChatId === null) { setMessages([]); return; }
     void loadMessages(selectedChatId);
@@ -349,9 +360,9 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     return () => window.clearInterval(timer);
   }, [selectedChatId, loadMessages]);
   useEffect(() => {
-    const timer = window.setInterval(() => { void loadChats(); }, 15000);
+    const timer = window.setInterval(() => { void loadChats(); void loadDeliveryStatuses(); }, 15000);
     return () => window.clearInterval(timer);
-  }, [loadChats]);
+  }, [loadChats, loadDeliveryStatuses]);
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -368,6 +379,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const mutedStyle: CSSProperties = { color: '#98a2b3', fontSize: 13 };
   const actionStyle: CSSProperties = { border: '1px solid #475467', borderRadius: 8, padding: '9px 12px', background: '#1d2939', color: '#f9fafb', cursor: 'pointer' };
   const selected = chats.find(chat => chat.chat_id === selectedChatId) ?? null;
+  const statusColor = (status: string) => status === 'sent' ? '#6ce9a6' : status === 'failed' ? '#fda29b' : status === 'sending' ? '#fdb022' : '#d0d5dd';
 
   return <section style={panelStyle} aria-label="Human Telegram inbox">
     <header style={{ padding: 18, borderBottom: '1px solid #344054', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -399,7 +411,20 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} placeholder="Write a reply…" aria-label="Reply message" style={{ flex: 1, minWidth: 0, border: '1px solid #475467', borderRadius: 8, padding: '10px 12px', background: '#101828', color: '#f2f4f7' }} />
             <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
           </form>
-          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely and sent on the next worker run, usually within 10 minutes.</div>
+          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely and sent on the next worker run, usually within five minutes. Check delivery status below.</div>
+          <div style={{ padding: '0 14px 14px' }}>
+            <strong style={{ display: 'block', marginBottom: 8 }}>Recent reply delivery</strong>
+            {deliveryStatuses.length === 0 && <p style={mutedStyle}>No reply attempts found yet.</p>}
+            {deliveryStatuses.map(item => <div key={item.id} style={{ padding: '9px 10px', marginBottom: 7, border: '1px solid #344054', borderRadius: 8 }}>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <span style={{ overflowWrap: 'anywhere' }}>{item.message_text}</span>
+                <strong style={{ color: statusColor(item.status) }}>{item.status.toUpperCase()}</strong>
+              </div>
+              <div style={mutedStyle}>{new Date(item.created_at).toLocaleString()}</div>
+              {item.error_message && <div style={{ color: '#fda29b', marginTop: 5, overflowWrap: 'anywhere' }}>Error: {item.error_message}</div>}
+            </div>)}
+            <button type="button" style={actionStyle} onClick={() => void loadDeliveryStatuses()}>Refresh delivery status</button>
+          </div>
         </> : <div style={{ padding: 18, ...mutedStyle }}>Select a conversation to view its messages.</div>}
       </div>
     </div>
