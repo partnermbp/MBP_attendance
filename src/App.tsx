@@ -393,13 +393,15 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
           const { data, error } = await client.functions.invoke('telegram-inbox-refresh', { body: {} });
           if (error) throw error;
           if (data?.error) throw new Error(data.error);
-          setNotice('Sync requested. Incoming messages and queued replies will update as the worker runs.');
           await Promise.all([loadChats(), loadDeliveryStatuses()]);
           if (selectedChatId !== null) await loadMessages(selectedChatId, false);
+          setNotice('Sync requested. Incoming messages and queued replies will update as the worker runs.');
           window.setTimeout(() => {
-            void loadChats();
-            void loadDeliveryStatuses();
-            if (selectedChatId !== null) void loadMessages(selectedChatId, false);
+            void (async () => {
+              await Promise.all([loadChats(), loadDeliveryStatuses()]);
+              if (selectedChatId !== null) await loadMessages(selectedChatId, false);
+              setNotice('Sync requested. Check delivery status below; the worker may take a short time to start.');
+            })();
           }, 8000);
         } catch (error) {
           setNotice('Could not start Telegram sync. Check that the secure refresh function is deployed and configured.');
