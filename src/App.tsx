@@ -294,6 +294,33 @@ function SecurityActivityPanel() {
 }
 
 export default function App() {
+  // Give every CRM button visible feedback, including controls whose action is handled
+  // in child components. The press animation is handled by the shared stylesheet.
+  useEffect(() => {
+    const showButtonFeedback = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const clickedButton = target.closest('button');
+      if (!(clickedButton instanceof HTMLButtonElement) || clickedButton.disabled) return;
+      const parent = clickedButton.parentElement;
+      if (!parent) return;
+      const previous = clickedButton.nextElementSibling;
+      if (previous instanceof HTMLElement && previous.classList.contains('button-action-feedback')) {
+        previous.remove();
+      }
+      const feedback = document.createElement('span');
+      feedback.className = 'button-action-feedback';
+      feedback.setAttribute('role', 'status');
+      feedback.textContent = 'Done';
+      clickedButton.insertAdjacentElement('afterend', feedback);
+      window.setTimeout(() => {
+        if (feedback.isConnected) feedback.remove();
+      }, 1800);
+    };
+    document.addEventListener('click', showButtonFeedback);
+    return () => document.removeEventListener('click', showButtonFeedback);
+  }, []);
+
   const [passwordFlow, setPasswordFlow] =
     useState<PasswordFlow>(readPasswordFlow);
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
