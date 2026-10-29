@@ -306,3 +306,76 @@ input, textarea, select { font: inherit; }
   .telegram-composer > div > button[aria-label="Attach file"] { width: 44px !important; min-height: 44px; }
   .telegram-composer > div > button[type="submit"] { min-height: 44px; }
 }
+
+
+/* Mobile human Telegram inbox: horizontal chat picker, inline sync icon and compact composer actions. */
+.telegram-mobile-sync { display: none; }
+.telegram-chat-strip-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.telegram-chat-choice { min-width: 0; }
+.telegram-chat-choice strong { line-height: 1.3; }
+.telegram-composer-actions { min-width: 0; }
+@media (max-width: 760px) {
+  .telegram-inbox-header { gap: 8px !important; padding-bottom: 10px !important; }
+  .telegram-inbox-header > button.telegram-desktop-sync { display: none; }
+  .telegram-inbox-grid { display: flex !important; flex-direction: column !important; }
+  .telegram-conversation-list {
+    order: 0; display: flex; flex-direction: row; align-items: stretch;
+    gap: 6px; max-height: none !important; padding: 0 0 8px !important;
+    overflow-x: auto !important; overflow-y: hidden !important;
+    border-right: 0 !important; border-bottom: 1px solid #292a31;
+    background: transparent; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+  }
+  .telegram-chat-strip-heading {
+    position: sticky; left: 0; z-index: 4; flex: 0 0 46px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 3px; padding: 4px 2px !important; border: 0 !important;
+    background: #0c0d10; font-size: 9px !important; letter-spacing: 0 !important;
+  }
+  .telegram-mobile-sync {
+    display: inline-flex !important; width: 34px; height: 34px; min-height: 34px !important;
+    flex: 0 0 34px; align-items: center; justify-content: center; padding: 0;
+    border: 1px solid #383b45; border-radius: 8px; background: #191b21;
+    color: #f3a66f; cursor: pointer;
+  }
+  .telegram-mobile-sync:disabled { opacity: .45; }
+  .telegram-conversation-list > p { flex: 0 0 100%; padding: 8px !important; }
+  .telegram-conversation-list > .telegram-chat-choice {
+    flex: 0 0 auto !important; width: auto !important; min-width: 112px;
+    max-width: 190px; min-height: 44px; align-self: center;
+    display: flex !important; flex-direction: column; justify-content: center;
+    padding: 8px 10px !important; border: 1px solid #30323a !important;
+    border-radius: 8px !important; background: #15161b !important;
+    text-align: left; white-space: normal;
+  }
+  .telegram-conversation-list > .telegram-chat-choice.is-selected {
+    border-color: #e58b51 !important; background: #302016 !important;
+    box-shadow: inset 0 -2px #e58b51;
+  }
+  .telegram-chat-choice > span { min-width: 0; }
+  .telegram-chat-choice > span:first-child strong {
+    display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: 12px;
+  }
+  .telegram-chat-choice > span:nth-child(2),
+  .telegram-chat-choice > span:nth-child(3) { display: none !important; }
+  .telegram-conversation-panel { order: 1; width: 100%; }
+  .telegram-conversation-panel > .telegram-selected-chat-header { padding: 10px 2px !important; }
+  .telegram-messages { max-height: 46vh !important; min-height: 220px !important; }
+  .telegram-composer { padding: 9px 0 !important; }
+  .telegram-composer > div { display: flex !important; flex-wrap: nowrap !important; align-items: center !important; gap: 8px !important; }
+  .telegram-composer > div > button[aria-label="Attach file"] {
+    flex: 0 0 44px !important; width: 44px !important; height: 44px !important; min-height: 44px !important;
+  }
+  .telegram-composer > div > span { flex: 1 1 auto !important; min-width: 0; font-size: 11px; }
+  .telegram-composer > div > button[type="submit"] {
+    flex: 0 0 auto !important; width: auto !important; min-width: 76px !important;
+    min-height: 44px !important; margin-left: auto !important; padding: 8px 14px !important;
+  }
+}
+@media (max-width: 420px) {
+  .telegram-chat-strip-heading { flex-basis: 42px; }
+  .telegram-mobile-sync { width: 32px; height: 32px; flex-basis: 32px; }
+  .telegram-conversation-list > .telegram-chat-choice { min-width: 100px; max-width: 150px; }
+  .telegram-composer > div { gap: 6px !important; }
+  .telegram-composer > div > button[type="submit"] { min-width: 68px !important; padding: 7px 10px !important; }
+}
