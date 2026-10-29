@@ -26,6 +26,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const preserveScrollRef = useRef<{ height: number; top: number } | null>(null);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -126,6 +127,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const loadOlderMessages = useCallback(async () => {
     if (!supabase || !selectedChat || loadingOlderMessages) return;
     const chatId = Number(selectedChat);
+    const container = messagesContainerRef.current;
+    if (container) preserveScrollRef.current = { height: container.scrollHeight, top: container.scrollTop };
     const currentChatMessages = messages.filter(message => message.chat_id === chatId);
     const oldestMessageId = currentChatMessages.length
       ? Math.min(...currentChatMessages.map(message => message.message_id))
@@ -175,8 +178,12 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   // Keep the conversation pinned to the newest message when opening a chat or loading updates.
   useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
+    if (preserveScrollRef.current) {
+      const previous = preserveScrollRef.current;
+      container.scrollTop = container.scrollHeight - previous.height + previous.top;
+      preserveScrollRef.current = null;
+      return;
+    }
     container.scrollTop = container.scrollHeight;
   }, [selectedChat, messages, pendingReplies]);
 
