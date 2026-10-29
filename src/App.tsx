@@ -365,7 +365,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
-  const [teamMenuOpen, setTeamMenuOpen] = useState(true);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(true);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
