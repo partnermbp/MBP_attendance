@@ -120,6 +120,16 @@ async def main() -> None:
             )
             last_id = int(current[0]["last_message_id"]) if current and current[0].get("last_message_id") is not None else 0
 
+            # Upsert the chat first because message rows have a foreign key to it.
+            supabase.upsert("telegram_inbox_chats", {
+                "chat_id": chat_id,
+                "title": title[:255],
+                "username": username,
+                "last_message_id": last_id,
+                "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
+                "updated_at": iso_datetime(datetime.now(timezone.utc)),
+            }, "chat_id")
+
             # iter_messages is newest-first. Only write messages beyond the per-chat watermark.
             recent = []
             async for message in client.iter_messages(entity, limit=per_dialog_limit):
