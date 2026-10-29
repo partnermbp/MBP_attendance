@@ -479,3 +479,33 @@ input, textarea, select { font: inherit; }
 .telegram-messages article blockquote { margin:5px 0; padding:3px 0 3px 10px; border-left:3px solid #5da8e8; color:#c7ceda; }
 .telegram-messages article code, .telegram-messages article pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#0d0f13; border-radius:4px; padding:2px 4px; }
 .telegram-messages article pre { padding:8px; white-space:pre-wrap; }
+
+
+/* Formatting and emoji controls open as floating Telegram-style popovers. */
+.telegram-composer { position: relative; }
+.telegram-format-toolbar,
+.telegram-emoji-picker {
+  position: absolute;
+  z-index: 30;
+  right: 14px;
+  bottom: calc(100% + 8px);
+  width: min(340px, calc(100vw - 32px));
+  box-sizing: border-box;
+  box-shadow: 0 12px 32px #0009;
+}
+.telegram-format-toolbar { justify-content: flex-start; }
+.telegram-emoji-picker { bottom: calc(100% + 8px); }
+.telegram-popup-toggle {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:38px; height:38px; min-height:38px !important;
+  border:1px solid #475467; border-radius:8px;
+  background:#1d2939; color:#e4e7ec; cursor:pointer;
+  font-size:15px; font-weight:700; flex:0 0 auto;
+}
+.telegram-popup-toggle:hover,
+.telegram-popup-toggle.is-active { background:#293b52; border-color:#6da9e8; color:#fff; }
+@media (max-width:760px) {
+  .telegram-format-toolbar, .telegram-emoji-picker {
+    right:8px; width:min(320px, calc(100vw - 24px));
+  }
+}
