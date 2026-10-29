@@ -472,3 +472,10 @@ input, textarea, select { font: inherit; }
   .telegram-emoji-picker { grid-template-columns:repeat(7,minmax(0,1fr)); max-height:160px; }
   .telegram-human-inbox.is-mobile-expanded .telegram-emoji-picker { max-height:22vh; }
 }
+
+.telegram-spoiler { border-radius:3px; background:#777; color:transparent; filter:blur(5px); cursor:pointer; transition:filter .15s ease; }
+.telegram-spoiler:hover, .telegram-spoiler:focus { filter:none; color:inherit; }
+.telegram-messages article a { color:#8bc8ff; text-decoration:underline; overflow-wrap:anywhere; }
+.telegram-messages article blockquote { margin:5px 0; padding:3px 0 3px 10px; border-left:3px solid #5da8e8; color:#c7ceda; }
+.telegram-messages article code, .telegram-messages article pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#0d0f13; border-radius:4px; padding:2px 4px; }
+.telegram-messages article pre { padding:8px; white-space:pre-wrap; }
