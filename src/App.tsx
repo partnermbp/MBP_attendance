@@ -314,6 +314,18 @@ export default function App() {
         button.classList.remove('button-pressed');
       });
     };
+    // Keep a visible click pulse after pointerup as well. This is especially
+    // useful for the compact Save controls in Team Management, whose press
+    // state otherwise lasts only for the brief physical pointer press.
+    const clickFeedback = (event: MouseEvent) => {
+      const button = getButton(event);
+      if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+      button.classList.remove('button-clicked');
+      void button.offsetWidth;
+      button.classList.add('button-clicked');
+      window.setTimeout(() => button.classList.remove('button-clicked'), 220);
+    };
+    document.addEventListener('click', clickFeedback, true);
     document.addEventListener('pointerdown', press, true);
     document.addEventListener('pointerup', release, true);
     document.addEventListener('pointercancel', release, true);
@@ -321,6 +333,7 @@ export default function App() {
     document.addEventListener('keyup', release, true);
     window.addEventListener('blur', release);
     return () => {
+      document.removeEventListener('click', clickFeedback, true);
       document.removeEventListener('pointerdown', press, true);
       document.removeEventListener('pointerup', release, true);
       document.removeEventListener('pointercancel', release, true);
