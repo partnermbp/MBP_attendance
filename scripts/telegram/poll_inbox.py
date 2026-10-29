@@ -153,6 +153,10 @@ async def main() -> None:
             for row in existing_rows
             if row.get("chat_id") is not None
         }
+        # Avoid one sequential Supabase REST write per quiet chat. Queue chat
+        # metadata updates and persist them together after message inserts.
+        # New chats still get an initial row immediately to satisfy the message FK.
+        chat_updates: list[dict[str, Any]] = []
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
@@ -185,7 +189,7 @@ async def main() -> None:
             dialog_latest = getattr(dialog, "message", None)
             dialog_latest_id = int(dialog_latest.id) if dialog_latest is not None else 0
             if last_id and dialog_latest_id <= last_id:
-                supabase.upsert("telegram_inbox_chats", {
+                chat_updates.append({
                     "chat_id": chat_id,
                     "title": title[:255],
                     "username": username,
@@ -194,7 +198,7 @@ async def main() -> None:
                     "last_message_at": iso_datetime(dialog_latest.date) if dialog_latest else (dialog.date.isoformat() if dialog.date else None),
                     "last_synced_at": now,
                     "updated_at": now,
-                }, "chat_id")
+                })
                 dialogs_seen += 1
                 continue
 
@@ -265,18 +269,23 @@ async def main() -> None:
                 f"Chat sync: chat_id={chat_id}, stored_last_id={last_id}, "
                 f"new_messages_found={len(recent)}, watermark_after_sync={newest_id}"
             )
-            supabase.upsert("telegram_inbox_chats", {
+            synced_at = iso_datetime(datetime.now(timezone.utc))
+            chat_updates.append({
                 "chat_id": chat_id,
                 "title": title[:255],
                 "username": username,
                 "last_message_id": newest_id,
                 "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                 "last_message_at": latest_date,
-                "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
-                "updated_at": iso_datetime(datetime.now(timezone.utc)),
-            }, "chat_id")
+                "last_synced_at": synced_at,
+                "updated_at": synced_at,
+            })
             watermarks[chat_id] = newest_id
             dialogs_seen += 1
+
+        if chat_updates:
+            supabase.upsert("telegram_inbox_chats", chat_updates, "chat_id")
+            print(f"Chat metadata batch saved: rows={len(chat_updates)}")
 
         # Process queued replies. A row is claimed as "sending" before the Telegram call;
         # stale "sending" rows are deliberately not retried automatically to avoid duplicate replies.
