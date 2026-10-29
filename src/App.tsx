@@ -1605,7 +1605,7 @@ export default function App() {
 
           </>}
           {(isAdmin || canManageTeam) && ['team','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
-          {(isAdmin || canManageTeam) && activePage === 'telegram-human' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-human" />
+          {(isAdmin || canManageTeam) && activePage === 'telegram-human' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-human" />}
           {(isAdmin || canManageTeam) && activePage === 'telegram-analytics' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-analytics" />}
           {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
