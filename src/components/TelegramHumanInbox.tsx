@@ -178,6 +178,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   // Keep the conversation pinned to the newest message when opening a chat or loading updates.
   useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
     if (preserveScrollRef.current) {
       const previous = preserveScrollRef.current;
       container.scrollTop = container.scrollHeight - previous.height + previous.top;
