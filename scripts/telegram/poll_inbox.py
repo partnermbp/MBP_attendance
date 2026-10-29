@@ -56,6 +56,30 @@ class SupabaseRest:
             details = exc.read().decode("utf-8", errors="replace")[:1000]
             raise RuntimeError(f"Supabase REST request failed ({exc.code}): {details}") from exc
 
+    def storage_url(self, object_path: str) -> str:
+        encoded_path = urllib.parse.quote(object_path, safe="/")
+        return self.base.split("/rest/v1/")[0] + "/storage/v1/object/telegram-inbox-media/" + encoded_path
+
+    def storage_headers(self, content_type: str | None = None) -> dict[str, str]:
+        headers = {"apikey": self.key}
+        if not self.key.startswith("sb_secret_"):
+            headers["Authorization"] = f"Bearer {self.key}"
+        if content_type:
+            headers["Content-Type"] = content_type
+        return headers
+
+    def storage_upload(self, object_path: str, data: bytes, content_type: str) -> None:
+        headers = self.storage_headers(content_type)
+        headers["x-upsert"] = "true"
+        req = urllib.request.Request(self.storage_url(object_path), data=data, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=60) as response:
+            response.read()
+
+    def storage_download(self, object_path: str) -> bytes:
+        req = urllib.request.Request(self.storage_url(object_path), headers=self.storage_headers(), method="GET")
+        with urllib.request.urlopen(req, timeout=60) as response:
+            return response.read()
+
     def select(self, table: str, params: dict[str, str]) -> list[dict[str, Any]]:
         result = self.request("GET", table, params=params)
         return result if isinstance(result, list) else []
@@ -163,6 +187,24 @@ async def main() -> None:
                     newest_id = max(newest_id, int(message.id))
                     continue
                 sender_id = int(message.sender_id) if message.sender_id is not None else None
+                media_path = None
+                media_name = None
+                media_mime_type = None
+                media_size = None
+                if getattr(message, "media", None) is not None:
+                    media_name = getattr(getattr(message, "file", None), "name", None) or f"telegram-{message.id}"
+                    media_mime_type = getattr(getattr(message, "file", None), "mime_type", None) or "application/octet-stream"
+                    media_size = getattr(getattr(message, "file", None), "size", None)
+                    if media_size is None or int(media_size) <= 20 * 1024 * 1024:
+                        try:
+                            downloaded = await client.download_media(message, file=bytes)
+                            if isinstance(downloaded, bytes) and downloaded:
+                                safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in media_name)[-120:]
+                                media_path = f"{chat_id}/inbox/{message.id}-{safe_name or 'attachment'}"
+                                supabase.storage_upload(media_path, downloaded, media_mime_type)
+                                media_size = len(downloaded)
+                        except Exception as exc:
+                            print(f"Could not store media chat={chat_id} message={message.id}: {exc}", file=sys.stderr)
                 payload = {
                     "chat_id": chat_id,
                     "message_id": int(message.id),
@@ -171,6 +213,10 @@ async def main() -> None:
                     "message_text": body_text,
                     "sent_at": iso_datetime(message.date),
                     "reply_to_message_id": int(message.reply_to_msg_id) if message.reply_to_msg_id else None,
+                    "media_path": media_path,
+                    "media_name": media_name,
+                    "media_mime_type": media_mime_type,
+                    "media_size": media_size,
                 }
                 supabase.upsert("telegram_inbox_messages", payload, "chat_id,message_id")
                 messages_saved += 1
@@ -203,16 +249,19 @@ async def main() -> None:
         # stale "sending" rows are deliberately not retried automatically to avoid duplicate replies.
         queued = supabase.select(
             "telegram_inbox_outbox",
-            {"select": "id,chat_id,message_text", "status": "eq.pending", "order": "created_at.asc", "limit": "20"},
+            {"select": "id,chat_id,message_text,attachment_path,attachment_name,attachment_mime_type,attachment_size", "status": "eq.pending", "order": "created_at.asc", "limit": "20"},
         )
         sent_count = 0
         for item in queued:
             outbox_id = str(item["id"])
             chat_id = int(item["chat_id"])
             text_value = str(item.get("message_text") or "").strip()
-            if not text_value:
+            attachment_path = item.get("attachment_path")
+            attachment_name = item.get("attachment_name") or "attachment"
+            attachment_mime_type = item.get("attachment_mime_type") or "application/octet-stream"
+            if not text_value and not attachment_path:
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.pending"},
-                               {"status": "failed", "error_message": "Message text is empty."})
+                               {"status": "failed", "error_message": "Message text and attachment are empty."})
                 continue
             claimed = supabase.patch(
                 "telegram_inbox_outbox",
@@ -223,15 +272,25 @@ async def main() -> None:
                 # Another scheduled/manual run already claimed this row.
                 continue
             try:
-                sent = await client.send_message(chat_id, text_value)
+                if attachment_path:
+                    file_bytes = supabase.storage_download(str(attachment_path))
+                    sent = await client.send_file(
+                        chat_id, file_bytes, file=attachment_name,
+                        caption=text_value if text_value and text_value != attachment_name else None,
+                    )
+                else:
+                    sent = await client.send_message(chat_id, text_value)
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
                                {"status": "sent", "telegram_message_id": int(sent.id),
                                 "sent_at": iso_datetime(sent.date), "error_message": None})
-                # Save the outgoing message immediately; the next poll will also reconcile it.
                 supabase.upsert("telegram_inbox_messages", {
                     "chat_id": chat_id, "message_id": int(sent.id), "sender_id": int(me.id),
                     "outgoing": True, "message_text": text_value, "sent_at": iso_datetime(sent.date),
                     "reply_to_message_id": None,
+                    "media_path": attachment_path,
+                    "media_name": attachment_name if attachment_path else None,
+                    "media_mime_type": attachment_mime_type if attachment_path else None,
+                    "media_size": int(item.get("attachment_size") or 0) or None,
                 }, "chat_id,message_id")
                 sent_count += 1
             except Exception as exc:
