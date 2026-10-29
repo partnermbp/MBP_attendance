@@ -60,16 +60,30 @@ Deno.serve(async (req: Request) => {
       return json(403, { error: "Your active CRM role is not permitted to start a Telegram sync." });
     }
 
+    const headers = {
+      Authorization: "Bearer " + githubToken,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    const runsResponse = await fetch(
+      "https://api.github.com/repos/partnermbp/MBP_attendance/actions/workflows/telegram-inbox-poll.yml/runs?per_page=10",
+      { headers },
+    );
+    if (!runsResponse.ok) {
+      console.error("GitHub workflow status query failed with status " + runsResponse.status + ".");
+      return json(502, { error: "Could not check whether a Telegram sync is already running." });
+    }
+    const runsData = await runsResponse.json();
+    const activeRun = (runsData.workflow_runs ?? []).find((run: any) => run.status === "queued" || run.status === "in_progress");
+    if (activeRun) {
+      return json(200, { ok: true, running: true, message: "A Telegram sync is already queued or running." });
+    }
+
     const dispatch = await fetch(
       "https://api.github.com/repos/partnermbp/MBP_attendance/actions/workflows/telegram-inbox-poll.yml/dispatches",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${githubToken}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "Content-Type": "application/json",
-        },
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ ref: "main" }),
       },
     );
@@ -80,7 +94,7 @@ Deno.serve(async (req: Request) => {
       return json(502, { error: "GitHub could not start the Telegram worker. Check the server token permissions and workflow configuration." });
     }
 
-    return json(200, { ok: true, message: "Telegram sync requested." });
+    return json(200, { ok: true, running: true, message: "Telegram sync requested." });
   } catch (_error) {
     console.error("Unexpected error while requesting Telegram sync.");
     return json(500, { error: "Could not start Telegram sync due to a server error." });
