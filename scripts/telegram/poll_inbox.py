@@ -139,6 +139,20 @@ async def main() -> None:
         messages_saved = 0
         max_dialogs = int(os.environ.get("TELEGRAM_MAX_DIALOGS", "500"))
         per_dialog_limit = int(os.environ.get("TELEGRAM_MESSAGES_PER_DIALOG", "30"))
+        history_limit = max(per_dialog_limit, int(os.environ.get("TELEGRAM_RECENT_HISTORY_LIMIT", "100")))
+
+        # Load the current watermarks in one database request rather than one
+        # request per Telegram dialog. The worker can then ask Telegram only
+        # for messages newer than each chat's watermark.
+        existing_rows = supabase.select(
+            "telegram_inbox_chats",
+            {"select": "chat_id,last_message_id", "limit": "10000"},
+        )
+        watermarks = {
+            int(row["chat_id"]): int(row.get("last_message_id") or 0)
+            for row in existing_rows
+            if row.get("chat_id") is not None
+        }
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
@@ -149,38 +163,39 @@ async def main() -> None:
             chat_id = int(entity.id)
             title = " ".join(part for part in [entity.first_name, entity.last_name] if part) or entity.username or str(chat_id)
             username = entity.username
-            current = supabase.select(
-                "telegram_inbox_chats",
-                {"select": "last_message_id", "chat_id": f"eq.{chat_id}", "limit": "1"},
-            )
-            last_id = int(current[0]["last_message_id"]) if current and current[0].get("last_message_id") is not None else 0
+            last_id = watermarks.get(chat_id, 0)
+            now = iso_datetime(datetime.now(timezone.utc))
 
-            # Upsert the chat first because message rows have a foreign key to it.
-            supabase.upsert("telegram_inbox_chats", {
-                "chat_id": chat_id,
-                "title": title[:255],
-                "username": username,
-                "last_message_id": last_id,
-                "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
-                "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
-                "updated_at": iso_datetime(datetime.now(timezone.utc)),
-            }, "chat_id")
+            # A new chat row must exist before inserting messages because of
+            # the foreign key. Existing chats are updated only once, at the end.
+            if chat_id not in watermarks:
+                supabase.upsert("telegram_inbox_chats", {
+                    "chat_id": chat_id,
+                    "title": title[:255],
+                    "username": username,
+                    "last_message_id": 0,
+                    "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
+                    "last_synced_at": now,
+                    "updated_at": now,
+                }, "chat_id")
 
-            # Read a bounded slice of the newest history on every poll, then
-            # filter locally by the stored watermark. This is more robust than
-            # relying on Telegram's min_id + reverse pagination combination.
-            history_limit = max(per_dialog_limit, int(os.environ.get("TELEGRAM_RECENT_HISTORY_LIMIT", "100")))
-            history = []
-            async for message in client.iter_messages(entity, limit=history_limit):
-                history.append(message)
-            history.sort(key=lambda item: item.id)
-
+            # Incremental fetch for established chats avoids downloading the
+            # same 100 recent messages on every sync. Keep the initial backfill
+            # bounded so first-time setup remains predictable.
             if last_id:
-                recent = [message for message in history if int(message.id) > last_id]
+                history = []
+                async for message in client.iter_messages(entity, limit=history_limit, min_id=last_id):
+                    if int(message.id) > last_id:
+                        history.append(message)
             else:
-                recent = history[-per_dialog_limit:]
+                history = []
+                async for message in client.iter_messages(entity, limit=per_dialog_limit):
+                    history.append(message)
+            history.sort(key=lambda item: item.id)
+            recent = history if last_id else history[-per_dialog_limit:]
 
             newest_id = last_id
+            message_payloads = []
             for message in recent:
                 body_text = safe_text(message)
                 if body_text is None:
@@ -205,7 +220,7 @@ async def main() -> None:
                                 media_size = len(downloaded)
                         except Exception as exc:
                             print(f"Could not store media chat={chat_id} message={message.id}: {exc}", file=sys.stderr)
-                payload = {
+                message_payloads.append({
                     "chat_id": chat_id,
                     "message_id": int(message.id),
                     "sender_id": sender_id,
@@ -217,22 +232,22 @@ async def main() -> None:
                     "media_name": media_name,
                     "media_mime_type": media_mime_type,
                     "media_size": media_size,
-                }
-                supabase.upsert("telegram_inbox_messages", payload, "chat_id,message_id")
-                messages_saved += 1
+                })
                 newest_id = max(newest_id, int(message.id))
 
-            if recent:
-                latest_message = max(recent, key=lambda item: item.id)
-                latest_date = iso_datetime(latest_message.date)
-            else:
-                latest_date = dialog.date.isoformat() if dialog.date else None
+            # One bulk REST upsert per chat instead of one network request per
+            # message. Only advance the watermark after the bulk write succeeds.
+            if message_payloads:
+                supabase.upsert("telegram_inbox_messages", message_payloads, "chat_id,message_id")
+                messages_saved += len(message_payloads)
+
+            latest_message = max(recent, key=lambda item: item.id) if recent else None
+            latest_date = iso_datetime(latest_message.date) if latest_message else (dialog.date.isoformat() if dialog.date else None)
             print(
                 f"Chat sync: chat_id={chat_id}, stored_last_id={last_id}, "
-                f"history_latest_id={int(history[-1].id) if history else 0}, "
                 f"new_messages_found={len(recent)}, watermark_after_sync={newest_id}"
             )
-            chat_payload = {
+            supabase.upsert("telegram_inbox_chats", {
                 "chat_id": chat_id,
                 "title": title[:255],
                 "username": username,
@@ -241,8 +256,8 @@ async def main() -> None:
                 "last_message_at": latest_date,
                 "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
                 "updated_at": iso_datetime(datetime.now(timezone.utc)),
-            }
-            supabase.upsert("telegram_inbox_chats", chat_payload, "chat_id")
+            }, "chat_id")
+            watermarks[chat_id] = newest_id
             dialogs_seen += 1
 
         # Process queued replies. A row is claimed as "sending" before the Telegram call;
