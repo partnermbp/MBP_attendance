@@ -296,31 +296,39 @@ function SecurityActivityPanel() {
 
 
 export default function App() {
-  // Give every CRM button visible feedback, including controls whose action is handled
-  // in child components. The press animation is handled by the shared stylesheet.
+  // Provide a brief physical press animation without implying that every click
+  // completed successfully. Actual success/error feedback belongs to each action.
   useEffect(() => {
-    const showButtonFeedback = (event: MouseEvent) => {
+    const getButton = (event: Event) => {
       const target = event.target;
-      if (!(target instanceof Element)) return;
-      const clickedButton = target.closest('button');
-      if (!(clickedButton instanceof HTMLButtonElement) || clickedButton.disabled) return;
-      const parent = clickedButton.parentElement;
-      if (!parent) return;
-      const previous = clickedButton.nextElementSibling;
-      if (previous instanceof HTMLElement && previous.classList.contains('button-action-feedback')) {
-        previous.remove();
-      }
-      const feedback = document.createElement('span');
-      feedback.className = 'button-action-feedback';
-      feedback.setAttribute('role', 'status');
-      feedback.textContent = 'Done';
-      clickedButton.insertAdjacentElement('afterend', feedback);
-      window.setTimeout(() => {
-        if (feedback.isConnected) feedback.remove();
-      }, 1800);
+      return target instanceof Element ? target.closest('button') : null;
     };
-    document.addEventListener('click', showButtonFeedback);
-    return () => document.removeEventListener('click', showButtonFeedback);
+    const press = (event: Event) => {
+      const button = getButton(event);
+      if (button instanceof HTMLButtonElement && !button.disabled) {
+        button.classList.add('button-pressed');
+      }
+    };
+    const release = () => {
+      document.querySelectorAll('button.button-pressed').forEach((button) => {
+        button.classList.remove('button-pressed');
+      });
+    };
+    document.addEventListener('pointerdown', press, true);
+    document.addEventListener('pointerup', release, true);
+    document.addEventListener('pointercancel', release, true);
+    document.addEventListener('keydown', press, true);
+    document.addEventListener('keyup', release, true);
+    window.addEventListener('blur', release);
+    return () => {
+      document.removeEventListener('pointerdown', press, true);
+      document.removeEventListener('pointerup', release, true);
+      document.removeEventListener('pointercancel', release, true);
+      document.removeEventListener('keydown', press, true);
+      document.removeEventListener('keyup', release, true);
+      window.removeEventListener('blur', release);
+      release();
+    };
   }, []);
 
   const [passwordFlow, setPasswordFlow] =
