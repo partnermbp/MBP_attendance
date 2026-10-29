@@ -369,20 +369,33 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     const poll = async () => {
       const running = await checkWorkerStatus();
       if (cancelled) return;
+
       if (running === null) {
-        if (syncing) timer = window.setTimeout(() => { void poll(); }, 3000);
+        // Keep the button disabled while a requested run is being discovered.
+        if (syncRequestedAt !== null || syncing) timer = window.setTimeout(() => { void poll(); }, 3000);
         return;
       }
-      setSyncing(running);
-      if (!running && syncing && syncRequestedAt !== null && Date.now() - syncRequestedAt < 10000) {
+
+      if (running) {
+        setSyncing(true);
         timer = window.setTimeout(() => { void poll(); }, 3000);
-      } else if (!running) {
-        setSyncRequestedAt(null);
-        await loadChats();
-        if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-      } else {
-        timer = window.setTimeout(() => { void poll(); }, 3000);
+        return;
       }
+
+      // GitHub Actions can take several seconds to expose a dispatched run.
+      // Do not treat an immediate "idle" response as proof the request was ignored.
+      if (syncRequestedAt !== null && Date.now() - syncRequestedAt < 30000) {
+        setSyncing(true);
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+        return;
+      }
+
+      const wasSyncing = syncing || syncRequestedAt !== null;
+      setSyncing(false);
+      setSyncRequestedAt(null);
+      if (wasSyncing) setNotice('Telegram sync finished. Inbox refreshed.');
+      await loadChats();
+      if (selectedChatId !== null) await loadMessages(selectedChatId, false);
     };
     void poll();
     return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
@@ -416,10 +429,8 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
           const { data, error } = await client.functions.invoke('telegram-inbox-refresh', { body: {} });
           if (error) throw error;
           if (data?.error) throw new Error(data.error);
-          await loadChats();
-          if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-          setNotice('Sync requested. Waiting for the worker to finish…');
-          setSyncing(true);
+          setNotice('Sync request accepted. Waiting for GitHub Actions to start the worker…');
+          // Keep the control disabled until status polling confirms completion.
 
         } catch (error) {
           setSyncing(false);
@@ -453,7 +464,6 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} placeholder="Write a reply…" aria-label="Reply message" style={{ flex: 1, minWidth: 0, border: '1px solid #475467', borderRadius: 8, padding: '10px 12px', background: '#101828', color: '#f2f4f7' }} />
             <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
           </form>
-          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely. Use Sync now to request an immediate worker run, or wait for the five-minute scheduled poll.</div>
         </> : <div style={{ padding: 18, ...mutedStyle }}>Select a conversation to view its messages.</div>}
       </div>
     </div>
