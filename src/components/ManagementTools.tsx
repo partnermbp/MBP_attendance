@@ -192,6 +192,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
 
   async function addAssignment() {
     if (!supabase || !managerId || !employeeId) return;
+    setNotice('');
     const existing = assignments.some(a => a.manager_id === managerId && a.employee_id === employeeId);
     if (existing) {
       setAssignmentNotice('This employee is already assigned under the selected manager.');
