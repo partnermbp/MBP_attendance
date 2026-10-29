@@ -16,7 +16,44 @@ from typing import Any
 
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-from telethon.tl.types import User
+from telethon.extensions import html as telethon_html
+from telethon.helpers import add_surrogate, del_surrogate, strip_text
+from telethon.tl.types import MessageEntitySpoiler, User
+
+
+class TelegramHTMLParser(telethon_html.HTMLToTelegramParser):
+    """Telethon v1 HTML parser with explicit support for Telegram spoiler entities."""
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tg-spoiler":
+            self._open_tags.appendleft(tag)
+            self._open_tags_meta.appendleft(None)
+            if tag not in self._building_entities:
+                self._building_entities[tag] = MessageEntitySpoiler(
+                    offset=len(self.text), length=0
+                )
+            return
+        super().handle_starttag(tag, attrs)
+
+
+class TelegramHTML:
+    """HTML parse mode that preserves spoilers as native Telegram entities."""
+
+    @staticmethod
+    def parse(value: str) -> tuple[str, list[Any]]:
+        if not value:
+            return value, []
+        parser = TelegramHTMLParser()
+        parser.feed(add_surrogate(value))
+        clean_text = strip_text(parser.text, parser.entities)
+        parser.entities.reverse()
+        parser.entities.sort(key=lambda entity: entity.offset)
+        return del_surrogate(clean_text), parser.entities
+
+    @staticmethod
+    def unparse(value: str, entities: Any) -> str:
+        return telethon_html.unparse(value, entities)
+
 
 
 def required_env(name: str) -> str:
@@ -319,10 +356,10 @@ async def main() -> None:
                     sent = await client.send_file(
                         chat_id, file_bytes, file=attachment_name,
                         caption=text_value if text_value and text_value != attachment_name else None,
-                        parse_mode='html',
+                        parse_mode=TelegramHTML,
                     )
                 else:
-                    sent = await client.send_message(chat_id, text_value, parse_mode='html')
+                    sent = await client.send_message(chat_id, text_value, parse_mode=TelegramHTML)
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
                                {"status": "sent", "telegram_message_id": int(sent.id),
                                 "sent_at": iso_datetime(sent.date), "error_message": None})
