@@ -35,6 +35,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [selectedChat, setSelectedChat] = useState('');
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
@@ -300,6 +302,46 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     }
   }
 
+  function insertComposerMarkup(openTag: string, closeTag = openTag, placeholder = 'text') {
+    const textarea = draftRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const end = textarea?.selectionEnd ?? draft.length;
+    const selectedText = draft.slice(start, end) || placeholder;
+    setDraft(draft.slice(0, start) + openTag + selectedText + closeTag + draft.slice(end));
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      if (!draftRef.current) return;
+      draftRef.current.focus();
+      const cursor = start + openTag.length + selectedText.length + closeTag.length;
+      draftRef.current.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function insertEmoji(emoji: string) {
+    const textarea = draftRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const end = textarea?.selectionEnd ?? draft.length;
+    setDraft(draft.slice(0, start) + emoji + draft.slice(end));
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      if (!draftRef.current) return;
+      draftRef.current.focus();
+      const cursor = start + emoji.length;
+      draftRef.current.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function insertLink() {
+    const url = window.prompt('Enter link URL (https://…)');
+    if (!url) return;
+    const safeUrl = url.trim();
+    if (!safeUrl.startsWith('https://') && !safeUrl.startsWith('http://')) {
+      setNotice('Links must start with https:// or http://.');
+      return;
+    }
+    insertComposerMarkup('<a href="' + safeUrl + '">', '</a>', 'link text');
+  }
+
   async function queueReply(event: FormEvent) {
     event.preventDefault();
     if (!supabase || !profile?.id || !selectedChat || (!draft.trim() && !attachment)) return;
@@ -412,8 +454,22 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
           </div>
           <form className="telegram-composer" onSubmit={queueReply} style={{ padding: '10px 14px 12px', borderTop: '1px solid #26272d', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical', borderColor: '#292b32', background: '#111216' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="telegram-format-toolbar" role="toolbar" aria-label="Message formatting">
+              <button type="button" title="Bold" aria-label="Bold" onClick={() => insertComposerMarkup('<b>', '</b>')}><strong>B</strong></button>
+              <button type="button" title="Italic" aria-label="Italic" onClick={() => insertComposerMarkup('<i>', '</i>')}><em>I</em></button>
+              <button type="button" title="Underline" aria-label="Underline" onClick={() => insertComposerMarkup('<u>', '</u>')}><u>U</u></button>
+              <button type="button" title="Strikethrough" aria-label="Strikethrough" onClick={() => insertComposerMarkup('<s>', '</s>')}><s>S</s></button>
+              <button type="button" title="Monospace" aria-label="Monospace" onClick={() => insertComposerMarkup('<code>', '</code>')}><span style={{fontFamily:'monospace'}}> &lt;/&gt; </span></button>
+              <button type="button" title="Spoiler" aria-label="Spoiler" onClick={() => insertComposerMarkup('<tg-spoiler>', '</tg-spoiler>')}>◼◼</button>
+              <button type="button" title="Quote" aria-label="Quote" onClick={() => insertComposerMarkup('<blockquote>', '</blockquote>')}>❝</button>
+              <button type="button" title="Add link" aria-label="Add link" onClick={insertLink}>🔗</button>
+              <button type="button" className={emojiPickerOpen ? 'is-active' : ''} title="Emoji" aria-label="Choose emoji" aria-expanded={emojiPickerOpen} onClick={() => setEmojiPickerOpen(value => !value)}>☺</button>
+            </div>
+            {emojiPickerOpen && <div className="telegram-emoji-picker" role="group" aria-label="Emoji picker">
+              {['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😍','🥰','😘','😉','😎','🤔','🙌','👏','👍','👎','🙏','❤️','🔥','🎉','✨','💯','✅','❌','⚡','💰','📌','🚀','👋','💬','😢','😡','🤝','💪','🌟','🎯','🥳','🤗','😴','💡','📈','🫡','🤩'].map(emoji => <button type="button" key={emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}
+            </div>}
+            <textarea ref={draftRef} aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={3} placeholder="Message…" style={{ ...control, flex: 1, resize: 'vertical', borderColor: '#292b32', background: '#111216' }} />
+            <div className="telegram-composer-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input ref={fileInputRef} type="file" aria-label="Choose attachment" onChange={event => setAttachment(event.target.files?.[0] ?? null)} style={{ display: 'none' }} />
               <button type="button" title="Attach file" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} style={{ width: 38, height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #475467', borderRadius: 8, background: '#1d2939', color: '#e4e7ec', cursor: 'pointer', flex: '0 0 auto' }}>
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.9 1.9 0 0 1-2.6-2.6l8.5-8.5"/></svg>
