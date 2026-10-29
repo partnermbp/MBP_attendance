@@ -422,7 +422,6 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               <button type="submit" style={{ ...control, background: '#1d2939', border: '1px solid #475467', fontWeight: 700, cursor: 'pointer', marginLeft: 'auto', minWidth: 84 }} disabled={sending || (!draft.trim() && !attachment)}>{sending ? 'Sending…' : 'Send'}</button>
             </div>
           </form>
-          <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>
         </> : <div style={{ padding: 24, textAlign: 'center', border: '0', borderRadius: 0, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
       </div>
     </div>
