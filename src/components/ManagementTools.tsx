@@ -13,7 +13,7 @@ type TelegramMember = { id: number; telegram_chat_id: number; telegram_user_id: 
 
 const panel: CSSProperties = { padding: 18, margin: '20px 0', border: '1px solid #344054', borderRadius: 12 };
 const input: CSSProperties = { display: 'block', width: '100%', marginTop: 6, padding: 10, color: '#f8fafc', background: '#101828', border: '1px solid #475467', borderRadius: 8, boxSizing: 'border-box' };
-const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, color: '#fff', background: '#f97316', cursor: 'pointer', fontWeight: 600 };
+const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, color: '#fff', background: 'var(--crm-accent-strong)', cursor: 'pointer', fontWeight: 600 };
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
 const cell: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top' };
 
@@ -350,17 +350,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         return <div style={{ border: '1px solid #38302a', marginTop: 12 }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: Math.max(620, 180 + dateKeys.length * 154), textAlign: 'left' }}>
-            <thead><tr style={{ background: '#211711' }}>
-              <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#211711', padding: 12, borderBottom: '1px solid #493023', minWidth: 180 }}>Employee</th>
-              {dateKeys.map(date => <th key={date} style={{ padding: 10, borderBottom: '1px solid #493023', whiteSpace: 'nowrap', textAlign: 'center' }}>{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}</th>)}
+            <thead><tr style={{ background: 'var(--crm-card-raised)' }}>
+              <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--crm-card-raised)', padding: 12, borderBottom: '1px solid var(--crm-border)', minWidth: 180 }}>Employee</th>
+              {dateKeys.map(date => <th key={date} style={{ padding: 10, borderBottom: '1px solid var(--crm-border)', whiteSpace: 'nowrap', textAlign: 'center' }}>{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}</th>)}
             </tr></thead>
             <tbody>{teamTree.map(person => <tr key={person.id}>
-              <th scope="row" style={{ position: 'sticky', left: 0, zIndex: 1, background: '#151413', padding: 8, borderBottom: '1px solid #38302a', fontWeight: 600, minWidth: 110, maxWidth: 180 }}>
+              <th scope="row" style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--crm-card-bg)', padding: 8, borderBottom: '1px solid var(--crm-border)', fontWeight: 600, minWidth: 110, maxWidth: 180 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: Math.min(person.depth, 5) * 12 }}>
-                  <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flexShrink: 0, background: '#352116', border: '1px solid #8a5318', color: '#ffd18a', fontWeight: 800 }}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span>
+                  <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flexShrink: 0, background: 'var(--crm-accent-soft)', border: '1px solid var(--crm-accent-strong)', color: 'var(--crm-accent)', fontWeight: 800 }}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span>
                   <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <span style={{ fontSize: 12, overflowWrap: 'anywhere' }}>{person.full_name || person.email || 'Employee'}</span>
-                    <span style={{ fontSize: 9, fontWeight: 400, color: '#ffb36b', marginTop: 2 }}>{String(person.role).replace(/_/g, ' ')}</span>
+                    <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--crm-accent)', marginTop: 2 }}>{String(person.role).replace(/_/g, ' ')}</span>
                     {person.email && <span title={person.email} style={{ fontSize: 9, fontWeight: 400, color: '#aaa29b', overflowWrap: 'anywhere', lineHeight: 1.2, marginTop: 3 }}>{person.email}</span>}
                   </span>
                 </div>
