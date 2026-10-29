@@ -140,16 +140,19 @@ async def main() -> None:
                 "updated_at": iso_datetime(datetime.now(timezone.utc)),
             }, "chat_id")
 
-            # First sync imports a bounded recent history; subsequent polls fetch
-            # all messages newer than the stored watermark.
-            recent = []
+            # Read a bounded slice of the newest history on every poll, then
+            # filter locally by the stored watermark. This is more robust than
+            # relying on Telegram's min_id + reverse pagination combination.
+            history_limit = max(per_dialog_limit, int(os.environ.get("TELEGRAM_RECENT_HISTORY_LIMIT", "100")))
+            history = []
+            async for message in client.iter_messages(entity, limit=history_limit):
+                history.append(message)
+            history.sort(key=lambda item: item.id)
+
             if last_id:
-                async for message in client.iter_messages(entity, min_id=last_id, reverse=True):
-                    recent.append(message)
+                recent = [message for message in history if int(message.id) > last_id]
             else:
-                async for message in client.iter_messages(entity, limit=per_dialog_limit):
-                    recent.append(message)
-                recent.sort(key=lambda item: item.id)
+                recent = history[-per_dialog_limit:]
 
             newest_id = last_id
             for message in recent:
@@ -171,7 +174,16 @@ async def main() -> None:
                 messages_saved += 1
                 newest_id = max(newest_id, int(message.id))
 
-            latest_date = iso_datetime(recent[-1].date) if recent else (dialog.date.isoformat() if dialog.date else None)
+            if recent:
+                latest_message = max(recent, key=lambda item: item.id)
+                latest_date = iso_datetime(latest_message.date)
+            else:
+                latest_date = dialog.date.isoformat() if dialog.date else None
+            print(
+                f"Chat sync: chat_id={chat_id}, stored_last_id={last_id}, "
+                f"history_latest_id={int(history[-1].id) if history else 0}, "
+                f"new_messages_found={len(recent)}, watermark_after_sync={newest_id}"
+            )
             chat_payload = {
                 "chat_id": chat_id,
                 "title": title[:255],
