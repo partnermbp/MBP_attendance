@@ -323,24 +323,6 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     return Boolean(data?.running);
   }, [client]);
 
-  useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-    const poll = async () => {
-      const running = await checkWorkerStatus();
-      if (cancelled || running === null) return;
-      setSyncing(running);
-      if (!running) {
-        await loadChats();
-        if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-      } else {
-        timer = window.setTimeout(() => { void poll(); }, 3000);
-      }
-    };
-    void poll();
-    return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
-  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId, syncing]);
-
   const loadChats = useCallback(async () => {
     if (!client) { setNotice('Supabase is not configured in this deployment.'); setLoadingChats(false); return; }
     const { data, error } = await client.from('telegram_inbox_chats')
@@ -378,6 +360,24 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     const timer = window.setInterval(() => { void loadChats(); }, 15000);
     return () => window.clearInterval(timer);
   }, [loadChats]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      const running = await checkWorkerStatus();
+      if (cancelled || running === null) return;
+      setSyncing(running);
+      if (!running) {
+        await loadChats();
+        if (selectedChatId !== null) await loadMessages(selectedChatId, false);
+      } else {
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+      }
+    };
+    void poll();
+    return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId, syncing]);
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
