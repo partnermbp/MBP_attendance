@@ -509,3 +509,39 @@ input, textarea, select { font: inherit; }
     right:8px; width:min(320px, calc(100vw - 24px));
   }
 }
+
+
+/* Desktop Telegram chat header and assignment controls share one compact top row. */
+.telegram-chat-topbar {
+  display:flex; align-items:center; gap:16px; min-width:0;
+  padding:0 10px; border-bottom:1px solid #26272d;
+}
+.telegram-chat-topbar .telegram-selected-chat-header {
+  flex:1 1 auto; min-width:150px; border-bottom:0 !important;
+  padding:10px 4px !important;
+}
+.telegram-chat-topbar .telegram-chat-assignment {
+  flex:0 1 560px; min-width:300px; display:flex; align-items:center;
+  gap:10px; flex-wrap:wrap; border-bottom:0 !important;
+  padding:8px 4px !important; margin:0 !important;
+}
+.telegram-chat-topbar .telegram-chat-assignment > strong {
+  flex:0 0 auto; white-space:nowrap; font-size:13px;
+}
+.telegram-chat-topbar .telegram-assignment-controls {
+  flex:1 1 240px; min-width:0; margin-top:0 !important; flex-wrap:nowrap !important;
+}
+.telegram-chat-topbar .telegram-assignment-controls select { min-width:0; }
+.telegram-chat-topbar .telegram-assignment-chips {
+  flex:1 1 100%; margin-top:0 !important; padding-left:0;
+}
+@media (max-width:760px) {
+  .telegram-chat-topbar { display:flex; flex-direction:column; align-items:stretch; gap:0; padding:0; }
+  .telegram-chat-topbar .telegram-selected-chat-header { padding:10px 2px !important; }
+  .telegram-chat-topbar .telegram-chat-assignment {
+    display:block; min-width:0; padding:10px !important; margin-bottom:4px !important;
+    border-bottom:1px solid #26272d !important;
+  }
+  .telegram-chat-topbar .telegram-assignment-controls { display:grid !important; grid-template-columns:minmax(0,1fr); margin-top:8px !important; }
+  .telegram-chat-topbar .telegram-assignment-chips { margin-top:8px !important; }
+}
