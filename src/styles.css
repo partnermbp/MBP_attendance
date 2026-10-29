@@ -660,3 +660,182 @@ input, textarea, select { font: inherit; }
 :root[data-crm-theme="day"] .crm-settings-field select { background:#fff; color:#202633; }
 :root[data-crm-theme="day"] .crm-settings-reset button { background:#f0f2f6; color:#202633; border-color:#cbd3df; }
 @media(max-width:760px) { .crm-settings-section { padding:14px; } .crm-settings-choice-grid { grid-template-columns:1fr; } .crm-settings-reset { align-items:stretch; } .crm-settings-reset button { justify-content:center; } }
+
+
+/* --- Cohesive CRM appearance system: theme every shared surface, control and divider. --- */
+:root {
+  --crm-bg: #0c0d10;
+  --crm-sidebar-bg: #101114;
+  --crm-panel-bg: #111216;
+  --crm-card-bg: #191a20;
+  --crm-card-raised: #20232b;
+  --crm-text: #e8eaf0;
+  --crm-text-muted: #a6adbb;
+  --crm-border: #343640;
+  --crm-control-bg: #191b22;
+  --crm-control-border: #454956;
+  --crm-link: var(--crm-accent);
+  color-scheme: dark;
+}
+:root[data-crm-theme="day"] {
+  --crm-bg: #f2f4f8;
+  --crm-sidebar-bg: #ffffff;
+  --crm-panel-bg: #ffffff;
+  --crm-card-bg: #f7f8fb;
+  --crm-card-raised: #eef1f6;
+  --crm-text: #202633;
+  --crm-text-muted: #586477;
+  --crm-border: #d8dee8;
+  --crm-control-bg: #ffffff;
+  --crm-control-border: #c4cddb;
+  color-scheme: light;
+}
+:root[data-crm-theme="night"] { color-scheme: dark; }
+.crm-layout { background:var(--crm-bg) !important; color:var(--crm-text) !important; }
+.crm-layout > main { color:var(--crm-text); }
+.crm-layout > main > section {
+  background:var(--crm-panel-bg) !important;
+  color:var(--crm-text) !important;
+  border-color:var(--crm-border) !important;
+}
+.crm-layout h1,.crm-layout h2,.crm-layout h3,.crm-layout h4,
+.crm-layout strong,.crm-layout b,.crm-layout label,.crm-layout th,
+.crm-layout td,.crm-layout p,.crm-layout li,.crm-layout small,
+.crm-layout summary,.crm-layout legend { color:inherit; }
+.crm-layout p,.crm-layout label,.crm-layout small,.crm-layout .muted,
+.crm-layout [style*="color: #98a2b3"],.crm-layout [style*="color: #b7c0d1"],
+.crm-layout [style*="color: #a6adbb"],.crm-layout [style*="color: #9299a8"] {
+  color:var(--crm-text-muted) !important;
+}
+.crm-layout hr,.crm-layout table,.crm-layout th,.crm-layout td,
+.crm-layout [style*="border-bottom"],.crm-layout [style*="border-top"],
+.crm-layout [style*="border-right"],.crm-layout [style*="border-left"] {
+  border-color:var(--crm-border) !important;
+}
+.crm-layout article,.crm-layout main section section,
+.crm-layout [class*="card"],.crm-layout [class*="panel"]:not(.telegram-human-inbox),
+.crm-layout [class*="box"] {
+  border-color:var(--crm-border);
+}
+.crm-layout input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.crm-layout select,.crm-layout textarea {
+  background:var(--crm-control-bg) !important;
+  color:var(--crm-text) !important;
+  border-color:var(--crm-control-border) !important;
+}
+.crm-layout input::placeholder,.crm-layout textarea::placeholder { color:var(--crm-text-muted) !important; opacity:.85; }
+.crm-layout button {
+  border-color:var(--crm-border);
+}
+.crm-layout button:focus-visible,.crm-layout input:focus-visible,
+.crm-layout select:focus-visible,.crm-layout textarea:focus-visible {
+  outline:2px solid var(--crm-accent) !important; outline-offset:2px;
+}
+.crm-layout a { color:var(--crm-link); }
+.crm-sidebar { background:var(--crm-sidebar-bg) !important; color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+.crm-sidebar > div:first-child { color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+.crm-sidebar nav button { color:var(--crm-text-muted) !important; }
+.crm-sidebar nav button[aria-current="page"] {
+  color:var(--crm-accent-strong) !important;
+  background:var(--crm-accent-soft) !important;
+}
+.crm-sidebar nav button:hover { background:var(--crm-card-raised) !important; color:var(--crm-text) !important; }
+.crm-settings-section { background:var(--crm-panel-bg); color:var(--crm-text); border-color:var(--crm-border); }
+.crm-settings-choice { background:var(--crm-card-bg); color:var(--crm-text); border-color:var(--crm-border); }
+.crm-settings-toggle,.crm-settings-field { color:var(--crm-text); border-color:var(--crm-border); }
+.crm-settings-toggle small,.crm-settings-heading p,.crm-settings-reset p,
+.crm-settings-choice > span:last-child,.crm-settings-help { color:var(--crm-text-muted); }
+.crm-settings-field select { background:var(--crm-control-bg); color:var(--crm-text); border-color:var(--crm-control-border); }
+.crm-settings-reset button { background:var(--crm-card-raised); color:var(--crm-text); border-color:var(--crm-control-border); }
+.crm-layout .telegram-human-inbox { background:var(--crm-panel-bg) !important; color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+.crm-layout .telegram-chat-strip-heading,.crm-layout .telegram-conversation-list,
+.crm-layout .telegram-chat-topbar,.crm-layout .telegram-chat-assignment,
+.crm-layout .telegram-selected-chat-header,.crm-layout .telegram-composer {
+  border-color:var(--crm-border) !important;
+}
+.crm-layout .telegram-chat-strip-heading { color:var(--crm-text-muted) !important; }
+.crm-layout .telegram-chat-choice { color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+.crm-layout .telegram-chat-choice.is-selected { background:var(--crm-card-raised) !important; }
+.crm-layout .telegram-messages { background:var(--crm-panel-bg) !important; }
+.crm-layout .telegram-messages article { color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+.crm-layout .telegram-messages article a { color:var(--crm-link) !important; }
+.crm-layout .telegram-messages article blockquote { color:var(--crm-text-muted) !important; border-color:var(--crm-accent) !important; }
+.crm-layout .telegram-messages article code,.crm-layout .telegram-messages article pre { background:var(--crm-card-raised) !important; color:var(--crm-text) !important; }
+.crm-layout .telegram-format-toolbar,.crm-layout .telegram-emoji-picker {
+  background:var(--crm-card-bg) !important; border-color:var(--crm-border) !important;
+}
+.crm-layout .telegram-format-toolbar button,.crm-layout .telegram-emoji-picker button,
+.crm-layout .telegram-popup-toggle,.crm-layout .telegram-mobile-sync,.crm-layout .telegram-mobile-expand {
+  background:var(--crm-card-raised) !important; color:var(--crm-text) !important; border-color:var(--crm-border) !important;
+}
+.crm-layout .telegram-assignment-chips > span { background:var(--crm-card-bg) !important; color:var(--crm-text) !important; border-color:var(--crm-border) !important; }
+:root[data-crm-theme="day"] .crm-layout main > section { box-shadow:0 2px 14px rgba(28,42,66,.06) !important; }
+:root[data-crm-theme="day"] .crm-layout [style*="background: #0"],
+:root[data-crm-theme="day"] .crm-layout [style*="background:#0"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: #1"],
+:root[data-crm-theme="day"] .crm-layout [style*="background:#1"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: #2"],
+:root[data-crm-theme="day"] .crm-layout [style*="background:#2"] {
+  background:var(--crm-card-bg) !important;
+}
+:root[data-crm-theme="day"] .crm-layout button {
+  color:var(--crm-text) !important;
+  border-color:var(--crm-control-border) !important;
+}
+:root[data-crm-theme="day"] .crm-layout button[aria-current="page"],
+:root[data-crm-theme="day"] .crm-layout .crm-settings-choice.is-selected {
+  background:var(--crm-accent-soft) !important;
+  color:var(--crm-accent-strong) !important;
+  border-color:var(--crm-accent-strong) !important;
+}
+:root[data-crm-theme="day"] .crm-layout .telegram-messages article[style*="background: #173b31"],
+:root[data-crm-theme="day"] .crm-layout .telegram-messages article[style*="background: #191a20"],
+:root[data-crm-theme="day"] .crm-layout .telegram-messages article[style*="background: #40371e"] {
+  background:var(--crm-card-bg) !important; color:var(--crm-text) !important;
+}
+:root[data-crm-theme="day"] .crm-layout .telegram-messages article div[style*="color: #b7c0d1"],
+:root[data-crm-theme="day"] .crm-layout .telegram-messages article div[style*="color: #fff0b3"] {
+  color:var(--crm-text-muted) !important;
+}
+:root.crm-night-light::after { background:rgba(255,165,70,.055) !important; mix-blend-mode:soft-light !important; }
+:root.crm-compact .crm-layout main > section { padding:14px !important; }
+:root.crm-compact .crm-layout article { padding:9px !important; }
+
+/* Mobile: the grouped chat topbar must size to its contents, never reserve a blank flex row. */
+@media (max-width:760px) {
+  .telegram-conversation-panel { display:flex !important; flex-direction:column !important; min-height:0 !important; height:auto !important; }
+  .telegram-chat-topbar {
+    display:flex !important; flex:0 0 auto !important; flex-direction:column !important;
+    align-items:stretch !important; justify-content:flex-start !important; gap:0 !important;
+    width:100% !important; height:auto !important; min-height:0 !important;
+    max-height:none !important; padding:0 !important; margin:0 !important;
+    overflow:visible !important; box-sizing:border-box !important;
+  }
+  .telegram-chat-topbar .telegram-selected-chat-header {
+    flex:0 0 auto !important; width:100% !important; min-height:0 !important;
+    height:auto !important; padding:8px 4px !important; margin:0 !important;
+  }
+  .telegram-chat-topbar .telegram-chat-assignment {
+    display:block !important; flex:0 0 auto !important; width:100% !important;
+    min-width:0 !important; min-height:0 !important; height:auto !important;
+    max-height:none !important; padding:7px 4px 8px !important;
+    margin:0 !important; overflow:visible !important; box-sizing:border-box !important;
+  }
+  .telegram-chat-topbar .telegram-chat-assignment > strong { display:block; line-height:1.25 !important; }
+  .telegram-chat-topbar .telegram-assignment-controls {
+    display:grid !important; grid-template-columns:minmax(0,1fr) auto !important;
+    align-items:center !important; gap:7px !important; width:100% !important;
+    margin:6px 0 0 !important;
+  }
+  .telegram-chat-topbar .telegram-assignment-controls select { width:100% !important; min-width:0 !important; }
+  .telegram-chat-topbar .telegram-assignment-controls button { width:auto !important; min-width:76px !important; }
+  .telegram-chat-topbar .telegram-assignment-chips { display:flex !important; flex-wrap:wrap !important; gap:5px !important; margin:5px 0 0 !important; }
+  .telegram-conversation-panel > .telegram-chat-topbar + .telegram-messages {
+    flex:1 1 auto !important; min-height:180px !important; margin-top:0 !important;
+  }
+  .telegram-conversation-panel > .telegram-chat-topbar + .telegram-messages,
+  .telegram-conversation-panel > .telegram-chat-topbar + .telegram-messages ~ .telegram-composer { position:relative; }
+  .telegram-human-inbox:not(.is-mobile-expanded) .telegram-conversation-panel { overflow:visible !important; }
+  .telegram-human-inbox:not(.is-mobile-expanded) .telegram-chat-topbar { border-bottom:1px solid var(--crm-border) !important; }
+  .telegram-human-inbox:not(.is-mobile-expanded) .telegram-chat-topbar .telegram-chat-assignment { border:0 !important; }
+}
