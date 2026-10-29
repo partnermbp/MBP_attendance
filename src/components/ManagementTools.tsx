@@ -397,7 +397,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </>}
     </>}
     </>}
-    {page !== 'team' && <>
+    {(page === 'all' || page === 'telegram') && <>
     <hr style={{ borderColor: '#344054', margin: '24px 0' }}/>
     <TelegramHumanInbox supabase={supabase} profile={profile} profiles={profiles} />
     <h2>Telegram group analytics</h2>
