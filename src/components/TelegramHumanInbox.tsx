@@ -208,7 +208,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           </div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 390, overflowY: 'auto', padding: 10, border: '1px solid #344054', borderRadius: 10, background: '#0b1220' }}>
             {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '92%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#174c3b' : '#1b2b40', overflowWrap: 'anywhere' }}>
-              <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>
             </article>)}
             {!messages.length && <p style={muted}>No messages loaded for this conversation yet.</p>}
@@ -217,8 +217,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical' }} />
             <button type="submit" style={action} disabled={sending || !draft.trim()}>{sending ? 'Queueing…' : 'Queue reply'}</button>
           </form>
-          <p style={muted}>Replies are queued for the next GitHub Actions poll; this screen does not send directly from the browser.</p>
-          {outbox.length > 0 && <details style={{ marginTop: 10 }}><summary style={{ cursor: 'pointer' }}>Recent reply delivery status ({outbox.length})</summary><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}><thead><tr>{['Reply','Status','Time / error'].map(title => <th key={title} style={{ padding: 7, textAlign: 'left', borderBottom: '1px solid #344054' }}>{title}</th>)}</tr></thead><tbody>{outbox.map(item => <tr key={item.id}><td style={{ padding: 7, borderBottom: '1px solid #344054', whiteSpace: 'pre-wrap' }}>{item.message_text}</td><td style={{ padding: 7, borderBottom: '1px solid #344054' }}>{item.status}</td><td style={{ padding: 7, borderBottom: '1px solid #344054', overflowWrap: 'anywhere' }}>{item.error_message || (item.sent_at ? new Date(item.sent_at).toLocaleString() : new Date(item.created_at).toLocaleString())}</td></tr>)}</tbody></table></div></details>}
+          <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>}
         </> : <div style={{ padding: 24, textAlign: 'center', border: '1px dashed #475467', borderRadius: 10, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
       </div>
     </div>
