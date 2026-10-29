@@ -297,7 +297,7 @@ function SecurityActivityPanel() {
 
 type HumanInboxChat = {
   chat_id: number; title: string; username: string | null;
-  last_message_id: number; last_message_at: string | null; last_synced_at: string | null;
+  last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number;
 };
 type HumanInboxMessage = {
   chat_id: number; message_id: number; sender_id: number | null;
@@ -339,12 +339,12 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     };
     void poll();
     return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
-  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId]);
+  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId, syncing]);
 
   const loadChats = useCallback(async () => {
     if (!client) { setNotice('Supabase is not configured in this deployment.'); setLoadingChats(false); return; }
     const { data, error } = await client.from('telegram_inbox_chats')
-      .select('chat_id,title,username,last_message_id,last_message_at,last_synced_at')
+      .select('chat_id,title,username,last_message_id,last_message_at,last_synced_at,read_outbox_max_id')
       .order('last_message_at', { ascending: false, nullsFirst: false }).limit(500);
     if (error) setNotice('Could not load human-account chats: ' + error.message);
     else {
@@ -444,7 +444,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             {loadingMessages && <p style={mutedStyle}>Loading messages…</p>}
             {!loadingMessages && messages.length === 0 && <p style={mutedStyle}>No messages found for this conversation.</p>}
             {messages.map(message => <div key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', background: message.outgoing ? '#184e3b' : '#1d2939', border: '1px solid #475467', borderRadius: 12, padding: '9px 12px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              <div>{message.message_text}</div><div style={{ ...mutedStyle, marginTop: 5, textAlign: 'right' }}>{new Date(message.sent_at).toLocaleString()} · #{message.message_id}</div>
+              <div>{message.message_text}</div><div style={{ ...mutedStyle, marginTop: 5, textAlign: 'right' }}>{new Date(message.sent_at).toLocaleString()} · #{message.message_id}{message.outgoing && <span title={message.message_id <= (selected?.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected?.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected?.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected?.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
             </div>)}
           </div>
           <form onSubmit={sendReply} style={{ padding: 12, borderTop: '1px solid #344054', display: 'flex', gap: 8 }}>
