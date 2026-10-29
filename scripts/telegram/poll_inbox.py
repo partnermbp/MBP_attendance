@@ -319,9 +319,10 @@ async def main() -> None:
                     sent = await client.send_file(
                         chat_id, file_bytes, file=attachment_name,
                         caption=text_value if text_value and text_value != attachment_name else None,
+                        parse_mode='html',
                     )
                 else:
-                    sent = await client.send_message(chat_id, text_value)
+                    sent = await client.send_message(chat_id, text_value, parse_mode='html')
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
                                {"status": "sent", "telegram_message_id": int(sent.id),
                                 "sent_at": iso_datetime(sent.date), "error_message": None})
