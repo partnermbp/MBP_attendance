@@ -97,10 +97,6 @@ async def main() -> None:
     if not supabase_key:
         raise RuntimeError("Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY")
     supabase = SupabaseRest(required_env("SUPABASE_URL"), supabase_key)
-    allowed_raw = required_env("TELEGRAM_ALLOWED_USER_IDS")
-    allowed_user_ids = {int(item.strip()) for item in allowed_raw.split(",") if item.strip().isdigit()}
-    if not allowed_user_ids:
-        raise RuntimeError("TELEGRAM_ALLOWED_USER_IDS must contain at least one numeric Telegram user ID. No chats were synced.")
 
     if not api_id.isdigit():
         raise RuntimeError("TELEGRAM_API_ID must be numeric.")
