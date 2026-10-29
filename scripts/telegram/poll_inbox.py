@@ -117,13 +117,11 @@ async def main() -> None:
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
-            # Initial prototype intentionally handles private human-to-human chats only.
-            if not isinstance(entity, User) or entity.bot or (me and entity.id == me.id):
+            # Sync private human-to-human chats automatically, except Telegram's
+            # official service account (777000), which delivers login codes.
+            if not isinstance(entity, User) or entity.bot or entity.id == 777000 or (me and entity.id == me.id):
                 continue
             chat_id = int(entity.id)
-            # Privacy by default: never sync a private conversation unless an admin explicitly allowlists its numeric Telegram user ID.
-            if chat_id not in allowed_user_ids:
-                continue
             title = " ".join(part for part in [entity.first_name, entity.last_name] if part) or entity.username or str(chat_id)
             username = entity.username
             current = supabase.select(
@@ -142,12 +140,16 @@ async def main() -> None:
                 "updated_at": iso_datetime(datetime.now(timezone.utc)),
             }, "chat_id")
 
-            # iter_messages is newest-first. Only write messages beyond the per-chat watermark.
+            # First sync imports a bounded recent history; subsequent polls fetch
+            # all messages newer than the stored watermark.
             recent = []
-            async for message in client.iter_messages(entity, limit=per_dialog_limit):
-                if int(message.id) > last_id:
+            if last_id:
+                async for message in client.iter_messages(entity, min_id=last_id, reverse=True):
                     recent.append(message)
-            recent.sort(key=lambda item: item.id)
+            else:
+                async for message in client.iter_messages(entity, limit=per_dialog_limit):
+                    recent.append(message)
+                recent.sort(key=lambda item: item.id)
 
             newest_id = last_id
             for message in recent:
