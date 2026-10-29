@@ -23,6 +23,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const chatsRef = useRef<InboxChat[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
@@ -77,33 +79,43 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     setLoading(false);
   }, [supabase, profile?.id, profile?.active, selectedChat]);
 
+  const MESSAGE_PAGE_SIZE = 150;
+
   const refreshConversation = useCallback(async () => {
     if (!supabase || !selectedChat || !profile?.active) {
       setMessages([]);
+      setHasMoreMessages(false);
       return;
     }
     const chatId = Number(selectedChat);
     let messageResult: any = await supabase.from('telegram_inbox_messages')
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
-      .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
+      .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
     let attachmentSchemaMissing = false;
     if (messageResult.error && /media_path|media_name|media_mime_type|media_size|column.*does not exist|schema cache/i.test(messageResult.error.message)) {
       attachmentSchemaMissing = true;
       messageResult = await supabase.from('telegram_inbox_messages')
         .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
-        .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
+        .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
     }
     if (messageResult.error) setNotice('Could not load conversation: ' + messageResult.error.message);
     else {
-      const loaded = ((messageResult.data ?? []) as InboxMessage[]).map(message => ({
+      const newestFirst = ((messageResult.data ?? []) as InboxMessage[]).map(message => ({
         ...message,
         media_path: attachmentSchemaMissing ? null : message.media_path,
         media_name: attachmentSchemaMissing ? null : message.media_name,
         media_mime_type: attachmentSchemaMissing ? null : message.media_mime_type,
         media_size: attachmentSchemaMissing ? null : message.media_size,
       }));
+      const loaded = newestFirst.reverse();
+      setHasMoreMessages(loaded.length === MESSAGE_PAGE_SIZE);
       if (attachmentSchemaMissing) setNotice('Text chats are available. Attachment support needs the Telegram media migration applied in Supabase.');
-      setMessages(loaded);
+      setMessages(current => {
+        const combined = new Map<number, InboxMessage>();
+        for (const message of current) if (message.chat_id === chatId) combined.set(message.message_id, message);
+        for (const message of loaded) combined.set(message.message_id, message);
+        return [...combined.values()].sort((a, b) => a.message_id - b.message_id);
+      });
       setPendingReplies(current => current.filter(pending =>
         !loaded.some(message => message.outgoing && message.chat_id === pending.chat_id &&
           message.message_text === pending.message_text && new Date(message.sent_at).getTime() >= new Date(pending.created_at).getTime() - 5000)
@@ -111,6 +123,46 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     }
   }, [supabase, selectedChat, profile?.id, profile?.active]);
 
+  const loadOlderMessages = useCallback(async () => {
+    if (!supabase || !selectedChat || loadingOlderMessages) return;
+    const chatId = Number(selectedChat);
+    const currentChatMessages = messages.filter(message => message.chat_id === chatId);
+    const oldestMessageId = currentChatMessages.length
+      ? Math.min(...currentChatMessages.map(message => message.message_id))
+      : null;
+    if (oldestMessageId === null) return;
+    setLoadingOlderMessages(true);
+    let result: any = await supabase.from('telegram_inbox_messages')
+      .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+      .eq('chat_id', chatId).lt('message_id', oldestMessageId)
+      .order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    let attachmentSchemaMissing = false;
+    if (result.error && /media_path|media_name|media_mime_type|media_size|column.*does not exist|schema cache/i.test(result.error.message)) {
+      attachmentSchemaMissing = true;
+      result = await supabase.from('telegram_inbox_messages')
+        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
+        .eq('chat_id', chatId).lt('message_id', oldestMessageId)
+        .order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    }
+    if (result.error) setNotice('Could not load older messages: ' + result.error.message);
+    else {
+      const older = ((result.data ?? []) as InboxMessage[]).map(message => ({
+        ...message,
+        media_path: attachmentSchemaMissing ? null : message.media_path,
+        media_name: attachmentSchemaMissing ? null : message.media_name,
+        media_mime_type: attachmentSchemaMissing ? null : message.media_mime_type,
+        media_size: attachmentSchemaMissing ? null : message.media_size,
+      })).reverse();
+      setMessages(current => {
+        const combined = new Map<number, InboxMessage>();
+        for (const message of older) combined.set(message.message_id, message);
+        for (const message of current) if (message.chat_id === chatId) combined.set(message.message_id, message);
+        return [...combined.values()].sort((a, b) => a.message_id - b.message_id);
+      });
+      setHasMoreMessages(older.length === MESSAGE_PAGE_SIZE);
+    }
+    setLoadingOlderMessages(false);
+  }, [supabase, selectedChat, loadingOlderMessages, messages]);
   const checkWorkerStatus = useCallback(async () => {
     if (!supabase) return null;
     const { data, error } = await supabase.functions.invoke('telegram-inbox-status', { body: {} });
@@ -283,7 +335,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
         <div style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Conversations ({chats.length})</div>
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
-        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
+        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{chat.title || chat.username || chat.chat_id}</strong>
             {(unreadCounts[String(chat.chat_id)] ?? 0) > 0 && <span aria-label={unreadCounts[String(chat.chat_id)] + ' new messages'} style={{ flex: '0 0 auto', minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f97316', color: '#fff', fontSize: 12, fontWeight: 800 }}>{unreadCounts[String(chat.chat_id)]}</span>}
@@ -313,6 +365,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             </div>
           </div>}
           <div ref={messagesContainerRef} style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
+            {hasMoreMessages && <button type="button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()} style={{ ...action, alignSelf: 'center', fontSize: 12, marginBottom: 4, opacity: loadingOlderMessages ? 0.65 : 1 }}>{loadingOlderMessages ? 'Loading older messages…' : '↑ Load older messages'}</button>}
             {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>}
