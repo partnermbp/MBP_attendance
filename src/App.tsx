@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import ManagementTools from './components/ManagementTools';
 
@@ -290,6 +290,120 @@ function SecurityActivityPanel() {
         </tr>)}</tbody>
       </table>
     </div>}
+  </section>;
+}
+
+
+
+type HumanInboxChat = {
+  chat_id: number; title: string; username: string | null;
+  last_message_id: number; last_message_at: string | null; last_synced_at: string | null;
+};
+type HumanInboxMessage = {
+  chat_id: number; message_id: number; sender_id: number | null;
+  outgoing: boolean; message_text: string; sent_at: string;
+};
+
+function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null; profile: Profile | null }) {
+  const [chats, setChats] = useState<HumanInboxChat[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<HumanInboxMessage[]>([]);
+  const [draft, setDraft] = useState('');
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState('');
+  const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
+
+  const loadChats = useCallback(async () => {
+    if (!client) { setNotice('Supabase is not configured in this deployment.'); setLoadingChats(false); return; }
+    const { data, error } = await client.from('telegram_inbox_chats')
+      .select('chat_id,title,username,last_message_id,last_message_at,last_synced_at')
+      .order('last_message_at', { ascending: false, nullsFirst: false }).limit(500);
+    if (error) setNotice('Could not load human-account chats: ' + error.message);
+    else {
+      const rows = (data ?? []) as HumanInboxChat[];
+      setChats(rows);
+      setNotice('');
+      setSelectedChatId(current => current !== null && rows.some(row => row.chat_id === current) ? current : (rows[0]?.chat_id ?? null));
+    }
+    setLoadingChats(false);
+  }, [client]);
+
+  const loadMessages = useCallback(async (chatId: number, showLoading = true) => {
+    if (!client) return;
+    if (showLoading) setLoadingMessages(true);
+    const { data, error } = await client.from('telegram_inbox_messages')
+      .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at')
+      .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(200);
+    if (error) setNotice('Could not load messages: ' + error.message);
+    else setMessages(((data ?? []) as HumanInboxMessage[]).reverse());
+    setLoadingMessages(false);
+  }, [client]);
+
+  useEffect(() => { void loadChats(); }, [loadChats]);
+  useEffect(() => {
+    if (selectedChatId === null) { setMessages([]); return; }
+    void loadMessages(selectedChatId);
+    const timer = window.setInterval(() => { void loadMessages(selectedChatId, false); }, 10000);
+    return () => window.clearInterval(timer);
+  }, [selectedChatId, loadMessages]);
+  useEffect(() => {
+    const timer = window.setInterval(() => { void loadChats(); }, 15000);
+    return () => window.clearInterval(timer);
+  }, [loadChats]);
+
+  async function sendReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!client || !profile?.id || selectedChatId === null || !text || sending) return;
+    setSending(true); setNotice('');
+    const { error } = await client.from('telegram_inbox_outbox').insert({ chat_id: selectedChatId, requested_by: profile.id, message_text: text });
+    if (error) setNotice('Could not queue reply: ' + error.message);
+    else setDraft('');
+    setSending(false);
+  }
+
+  const panelStyle: CSSProperties = { border: '1px solid #344054', borderRadius: 14, overflow: 'hidden', background: '#101828', color: '#f2f4f7', margin: '18px 0 24px' };
+  const mutedStyle: CSSProperties = { color: '#98a2b3', fontSize: 13 };
+  const actionStyle: CSSProperties = { border: '1px solid #475467', borderRadius: 8, padding: '9px 12px', background: '#1d2939', color: '#f9fafb', cursor: 'pointer' };
+  const selected = chats.find(chat => chat.chat_id === selectedChatId) ?? null;
+
+  return <section style={panelStyle} aria-label="Human Telegram inbox">
+    <header style={{ padding: 18, borderBottom: '1px solid #344054', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><p style={{ ...mutedStyle, margin: '6px 0 0' }}>Private chats from the connected Telegram account. Messages refresh automatically.</p></div>
+      <button type="button" style={actionStyle} onClick={() => { void loadChats(); if (selectedChatId !== null) void loadMessages(selectedChatId); }}>Refresh</button>
+    </header>
+    {notice && <p role="alert" style={{ color: '#fda29b', padding: '0 16px' }}>{notice}</p>}
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 0.8fr) minmax(260px, 1.7fr)', minHeight: 420 }}>
+      <aside style={{ borderRight: '1px solid #344054', maxHeight: 560, overflowY: 'auto' }}>
+        {loadingChats && <p style={{ padding: 14 }}>Loading conversations…</p>}
+        {!loadingChats && chats.length === 0 && <p style={{ padding: 14, ...mutedStyle }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
+        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => setSelectedChatId(chat.chat_id)} style={{ width: '100%', display: 'block', textAlign: 'left', padding: 14, border: 0, borderBottom: '1px solid #344054', cursor: 'pointer', background: selectedChatId === chat.chat_id ? '#344054' : 'transparent', color: '#f2f4f7' }}>
+          <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{chat.title || chat.username || chat.chat_id}</strong>
+          {chat.username && <span style={mutedStyle}>@{chat.username}</span>}
+          <span style={{ display: 'block', ...mutedStyle, marginTop: 4 }}>{chat.last_message_at ? new Date(chat.last_message_at).toLocaleString() : 'No recent message'}</span>
+        </button>)}
+      </aside>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 420 }}>
+        {selected ? <>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #344054' }}><strong>{selected.title}</strong><div style={mutedStyle}>Chat ID: {selected.chat_id} · Latest message ID: {selected.last_message_id}</div></div>
+          <div style={{ flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', maxHeight: 390 }}>
+            {loadingMessages && <p style={mutedStyle}>Loading messages…</p>}
+            {!loadingMessages && messages.length === 0 && <p style={mutedStyle}>No messages found for this conversation.</p>}
+            {messages.map(message => <div key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', background: message.outgoing ? '#184e3b' : '#1d2939', border: '1px solid #475467', borderRadius: 12, padding: '9px 12px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              <div>{message.message_text}</div><div style={{ ...mutedStyle, marginTop: 5, textAlign: 'right' }}>{new Date(message.sent_at).toLocaleString()} · #{message.message_id}</div>
+            </div>)}
+          </div>
+          <form onSubmit={sendReply} style={{ padding: 12, borderTop: '1px solid #344054', display: 'flex', gap: 8 }}>
+            <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} placeholder="Write a reply…" aria-label="Reply message" style={{ flex: 1, minWidth: 0, border: '1px solid #475467', borderRadius: 8, padding: '10px 12px', background: '#101828', color: '#f2f4f7' }} />
+            <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
+          </form>
+          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely and sent on the next worker run, usually within 10 minutes.</div>
+        </> : <div style={{ padding: 18, ...mutedStyle }}>Select a conversation to view its messages.</div>}
+      </div>
+    </div>
+    <footer style={{ padding: 12, borderTop: '1px solid #344054', ...mutedStyle }}>{isAdmin ? 'Admin access: all synced private human chats.' : 'Access is limited to chats assigned to you or your direct reports.'}</footer>
   </section>;
 }
 
@@ -1572,7 +1686,7 @@ export default function App() {
 
           </>}
           {(isAdmin || canManageTeam) && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
-          {(isAdmin || canManageTeam) && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
+          {(isAdmin || canManageTeam) && activePage === 'telegram' && <><ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" /><TelegramHumanInbox client={supabase} profile={profile} /></>}
           {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
           {!isAdmin && <section style={{ marginTop: 28 }}>
