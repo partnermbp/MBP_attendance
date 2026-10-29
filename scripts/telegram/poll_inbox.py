@@ -179,9 +179,27 @@ async def main() -> None:
                     "updated_at": now,
                 }, "chat_id")
 
+            # Most dialogs have no new messages between syncs. Telegram's
+            # dialog summary already includes the newest message, so skip the
+            # per-chat history request entirely when its ID has not advanced.
+            dialog_latest = getattr(dialog, "message", None)
+            dialog_latest_id = int(dialog_latest.id) if dialog_latest is not None else 0
+            if last_id and dialog_latest_id <= last_id:
+                supabase.upsert("telegram_inbox_chats", {
+                    "chat_id": chat_id,
+                    "title": title[:255],
+                    "username": username,
+                    "last_message_id": last_id,
+                    "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
+                    "last_message_at": iso_datetime(dialog_latest.date) if dialog_latest else (dialog.date.isoformat() if dialog.date else None),
+                    "last_synced_at": now,
+                    "updated_at": now,
+                }, "chat_id")
+                dialogs_seen += 1
+                continue
+
             # Incremental fetch for established chats avoids downloading the
-            # same 100 recent messages on every sync. Keep the initial backfill
-            # bounded so first-time setup remains predictable.
+            # same history on every sync. Keep initial backfill bounded.
             if last_id:
                 history = []
                 async for message in client.iter_messages(entity, limit=history_limit, min_id=last_id):
