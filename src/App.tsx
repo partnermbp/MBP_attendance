@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -38,7 +38,7 @@ type Profile = {
 type ManagerAssignment = { manager_id: string; employee_id: string };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'attendance' | 'team' | 'telegram' | 'security';
+type CrmPage = 'dashboard' | 'attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'security';
 type PasswordFlow = 'invite' | 'recovery' | null;
 
 type Coordinates = {
@@ -365,6 +365,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(true);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -1426,18 +1427,23 @@ export default function App() {
       )}
 
       {screen === 'signed-in' && session && (
-        <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'250px minmax(0,1fr)':'64px minmax(0,1fr)',gap:18,alignItems:'start',width:'100%',maxWidth:1600,margin:'0 auto'}}>
-          <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:12,alignSelf:'start',minHeight:'calc(100vh - 24px)',padding:12,background:'#151413',border:'1px solid #344054',borderRadius:4,color:'#dce4f2'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:20,color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label="Toggle sidebar" onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',width:40,height:40,border:'1px solid #344054',borderRadius:9,background:'#201a16',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={20}/>:<Menu size={20}/>}</button></div>
-            <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><button key={item.id} type="button" title={item.label} onClick={()=>{setActivePage(item.id);setMapPreview(null);setNavOpen(false);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,textAlign:'left',border:0,borderRadius:9,background:activePage===item.id?'#7c3216':'transparent',color:activePage===item.id?'#fff':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<span className="crm-menu-label">{item.label}</span>}</button>)}
+        <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'232px minmax(0,1fr)':'58px minmax(0,1fr)',gap:0,alignItems:'stretch',width:'100%',maxWidth:'none',margin:0,minHeight:'100vh'}}>
+          <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
+            <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><div key={item.id}>
+                <button type="button" title={item.label} aria-current={activePage===item.id?'page':undefined} onClick={()=>{if(item.id==='team'){setTeamMenuOpen(v=>!v);setActivePage('team');}else setActivePage(item.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:activePage===item.id||activePage.startsWith('team-')&&item.id==='team'?'#29201c':'transparent',color:activePage===item.id||activePage.startsWith('team-')&&item.id==='team'?'#ffb17c':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{item.id==='team'&&(teamMenuOpen?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
+                {item.id==='team'&&navOpen&&teamMenuOpen&&(isAdmin||canManageTeam)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
+                  {([{label:'Employee role management',id:'team-roles' as CrmPage,icon:<UserCog size={15}/>},{label:'Link Telegram members',id:'team-links' as CrmPage,icon:<Link2 size={15}/>},{label:'Assign employees to managers',id:'team-assignments' as CrmPage,icon:<GitBranch size={15}/>},{label:isAdmin?'Admin invitation':'Employee invitations',id:'team-invitations' as CrmPage,icon:<UserPlus size={15}/>}]).filter(sub=>isAdmin||sub.id==='team-invitations').map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'#34261f':'transparent',color:activePage===sub.id?'#ffc092':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
+                </div>}
+              </div>)}
             </nav>
-            <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:12,width:'100%',padding:12,marginTop:18,border:'1px solid #7c3216',borderRadius:2,background:'#c4511b',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
-            {navOpen&&<div style={{marginTop:18,color:'#98a2b3',fontSize:12,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
+            <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid #6e371f',borderRadius:6,background:'#a94319',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
+            {navOpen&&<div style={{marginTop:16,paddingTop:12,borderTop:'1px solid #24252c',color:'#98a2b3',fontSize:11,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management',telegram:'Telegram chats & analytics',security:'Security'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations:isAdmin?'Admin invitation':'Employee invitations',telegram:'Telegram chats & analytics',security:'Security'}[activePage]}</strong></div>
           {activePage === 'dashboard' && <>
           <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
@@ -1594,11 +1600,11 @@ export default function App() {
           </section>}
 
           </>}
-          {(isAdmin || canManageTeam) && activePage === 'team' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="team" />}
+          {(isAdmin || canManageTeam) && ['team','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
           {(isAdmin || canManageTeam) && activePage === 'telegram' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram" />}
           {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
-          {!isAdmin && <section style={{ marginTop: 28 }}>
+          {!isAdmin && !activePage.startsWith('team-') && activePage !== 'team' && <section style={{ marginTop: 28 }}>
             <h2>Scheduled shifts</h2>
 
             {loadingDashboard && <p>Loading shifts…</p>}
