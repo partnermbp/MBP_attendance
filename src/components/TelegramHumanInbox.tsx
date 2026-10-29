@@ -9,10 +9,10 @@ type InboxMessage = { chat_id: number; message_id: number; sender_id: number | n
 type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
 
-const panel: CSSProperties = { border: '1px solid #344054', borderRadius: 12, padding: 16, margin: '12px 0 24px', background: '#101828' };
+const panel: CSSProperties = { padding: 0, margin: '8px 0 18px', background: 'transparent' };
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
-const control: CSSProperties = { padding: '9px 11px', border: '1px solid #475467', borderRadius: 8, color: '#f8fafc', background: '#182230', maxWidth: '100%' };
-const action: CSSProperties = { ...control, border: 0, background: '#f97316', fontWeight: 700, cursor: 'pointer' };
+const control: CSSProperties = { padding: '8px 10px', border: '1px solid #343741', borderRadius: 7, color: '#f2f3f7', background: '#15161a', maxWidth: '100%' };
+const action: CSSProperties = { ...control, border: 0, background: '#24252b', color: '#f2f3f7', fontWeight: 650, cursor: 'pointer' };
 
 export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   supabase: SupabaseClient | null;
@@ -264,18 +264,18 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const selectedAssignments = assignments.filter(item => String(item.chat_id) === selectedChat);
   const activeProfiles = profiles.filter(person => person.active && person.role.toLowerCase() !== 'admin');
 
-  return <section style={{ ...panel, padding: 0, overflow: 'hidden', color: '#f2f4f7' }}>
-    <header style={{ padding: 18, borderBottom: '1px solid #344054', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+  return <section style={{ ...panel, overflow: 'hidden', color: '#e7e8ed' }}>
+    <header style={{ padding: '8px 0 14px', borderBottom: '1px solid #26272d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><p style={{ ...muted, margin: '6px 0 0' }}>Private chats from the connected Telegram account. Messages refresh automatically.</p></div>
       <button type="button" disabled={loading || syncing} style={{ ...action, background: '#1d2939', border: '1px solid #475467', opacity: syncing ? 0.6 : 1 }} onClick={() => { void requestSync(); }}>{syncing ? 'Sync running…' : 'Sync Now'}</button>
     </header>
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 0.8fr) minmax(260px, 1.7fr)', minHeight: 420 }}>
-      <aside style={{ borderRight: '1px solid #344054', maxHeight: 560, overflowY: 'auto', minWidth: 0 }}>
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #344054', color: '#98a2b3', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Conversations ({chats.length})</div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
+      <aside style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
+        <div style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Conversations ({chats.length})</div>
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
-        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: 14, border: 0, borderBottom: '1px solid #344054', cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#344054' : 'transparent', color: '#f2f4f7' }}>
+        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{chat.title || chat.username || chat.chat_id}</strong>
             {(unreadCounts[String(chat.chat_id)] ?? 0) > 0 && <span aria-label={unreadCounts[String(chat.chat_id)] + ' new messages'} style={{ flex: '0 0 auto', minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f97316', color: '#fff', fontSize: 12, fontWeight: 800 }}>{unreadCounts[String(chat.chat_id)]}</span>}
@@ -286,8 +286,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       </aside>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 420 }}>
         {selected ? <>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #344054' }}><strong>{selected.title}</strong><div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
-          {isAdmin && <div style={{ border: '1px solid #344054', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #26272d' }}><strong>{selected.title}</strong><div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
+          {isAdmin && <div style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
             <strong>Assign to CRM employees</strong>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
@@ -304,8 +304,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               {!selectedAssignments.length && <span style={muted}>Not assigned yet.</span>}
             </div>
           </div>}
-          <div style={{ flex: 1, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', maxHeight: 390, minHeight: 240, background: '#101828' }}>
-            {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 12px', borderRadius: 12, background: message.outgoing ? '#184e3b' : '#1d2939', border: '1px solid #475467', overflowWrap: 'anywhere' }}>
+          <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
+            {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>}
               {message.media_path && <div style={{ marginTop: 6 }}>
@@ -314,14 +314,14 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
                   <a href={mediaUrls[message.chat_id + ':' + message.message_id] || '#'} target="_blank" rel="noreferrer" style={{ color: '#fdbb74', overflowWrap: 'anywhere' }}>📎 {message.media_name || 'Open attachment'}{message.media_size ? ' · ' + Math.ceil(message.media_size / 1024) + ' KB' : ''}</a>}
               </div>}
             </article>)}
-            {pendingReplies.filter(item => item.chat_id === Number(selectedChat)).map(item => <article key={'pending:' + item.id} style={{ alignSelf: 'flex-end', maxWidth: '88%', padding: '9px 12px', borderRadius: 12, background: '#8a6d1d', color: '#fff7d6', border: '1px solid #d6ad3c', overflowWrap: 'anywhere' }}>
+            {pendingReplies.filter(item => item.chat_id === Number(selectedChat)).map(item => <article key={'pending:' + item.id} style={{ alignSelf: 'flex-end', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: '#40371e', color: '#fff2c4', border: '1px solid #76612a', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#fff0b3', marginBottom: 4 }}>You · {new Date(item.created_at).toLocaleString()} · Waiting to sync</div>
               <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{item.message_text}</div>
             </article>)}
             {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
           </div>
-          <form onSubmit={queueReply} style={{ padding: 12, borderTop: '1px solid #344054', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical' }} />
+          <form onSubmit={queueReply} style={{ padding: '10px 14px 12px', borderTop: '1px solid #26272d', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical', borderColor: '#292b32', background: '#111216' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input ref={fileInputRef} type="file" aria-label="Choose attachment" onChange={event => setAttachment(event.target.files?.[0] ?? null)} style={{ display: 'none' }} />
               <button type="button" title="Attach file" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} style={{ width: 38, height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #475467', borderRadius: 8, background: '#1d2939', color: '#e4e7ec', cursor: 'pointer', flex: '0 0 auto' }}>
@@ -332,9 +332,9 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             </div>
           </form>
           <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>
-        </> : <div style={{ padding: 24, textAlign: 'center', border: '1px dashed #475467', borderRadius: 10, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
+        </> : <div style={{ padding: 24, textAlign: 'center', border: '0', borderRadius: 0, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
       </div>
     </div>
-    <footer style={{ padding: 12, borderTop: '1px solid #344054', ...muted }}>{isAdmin ? 'Admin access: all synced private human chats.' : 'Access is limited to chats assigned to you or your direct reports.'}</footer>
+    <footer style={{ padding: '8px 0', borderTop: '1px solid #26272d', ...muted }}>{isAdmin ? 'Admin access: all synced private human chats.' : 'Access is limited to chats assigned to you or your direct reports.'}</footer>
   </section>;
 }
