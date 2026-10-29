@@ -2,7 +2,7 @@
 
 This prototype uses a **normal Telegram user account** through Telegram's MTProto API
 (Telethon), not a Telegram bot. It runs a short GitHub Actions job every 10 minutes,
-syncs private human-to-human chats into Supabase, and sends replies queued in
+syncs only explicitly allowlisted private human-to-human chats into Supabase, and sends replies queued in
 `telegram_inbox_outbox`.
 
 ## Important limitations
@@ -67,6 +67,7 @@ repository secrets:
 - `TELEGRAM_SESSION_STRING` — the full session string printed locally
 - `SUPABASE_URL` — your project URL, such as `https://PROJECT.supabase.co`
 - `SUPABASE_SERVICE_ROLE_KEY` — the service-role key from Supabase API settings
+- `TELEGRAM_ALLOWED_USER_IDS` — comma-separated numeric Telegram user IDs for customer chats you explicitly approve for syncing (for example, `123456789,987654321`). The worker skips all other private conversations. Use verified numeric IDs, not usernames.
 
 Use **Actions secrets**, not repository variables. Never use the service-role key in
 any `VITE_*` variable or frontend code. If you suspect the session string was exposed,
@@ -80,8 +81,8 @@ After the workflow file is merged to `main` and all secrets are set:
 2. Choose **Run workflow**.
 3. Inspect the run logs. They should show the connected Telegram account ID and counts,
    never credentials or message bodies.
-4. Confirm that private chat metadata and recent messages appear in the
+4. Confirm that allowlisted private chat metadata and recent messages appear in the
    `telegram_inbox_chats` and `telegram_inbox_messages` tables.
 
-The workflow is not enabled successfully until the migration and all five secrets exist.
+The workflow is not enabled successfully until the migration and all six secrets exist.
 The browser CRM inbox/reply interface is not part of this first infrastructure step.
