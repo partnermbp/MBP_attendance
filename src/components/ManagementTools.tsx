@@ -45,7 +45,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   supabase: SupabaseClient | null;
   profile: Person | null;
   profiles: Person[];
-  page?: 'all' | 'team' | 'telegram';
+  page?: 'all' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram';
 }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [managerId, setManagerId] = useState('');
@@ -261,9 +261,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
 
   return <section style={panel}>
     {page !== 'telegram' && <>
+    {page === 'team' && <>
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
-    {isAdmin && <>
+    </>}
+    {isAdmin && (page === 'team' || page === 'team-roles') && <>
       <h3>Employee role management</h3>
       <p style={muted}>Admin accounts are protected and cannot be changed through this role selector.</p>
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -275,6 +277,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           </select></td>
           <td style={cell}><button type="button" style={button} disabled={loading || (roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_'))===p.role.toLowerCase().replaceAll(' ','_')} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {error}=await supabase.rpc('set_employee_role',{target_profile:p.id,new_role:roleSelections[p.id]});setNotice(error?'Could not update role: '+error.message:'Role updated.');if(!error)await load();setLoading(false);}}>Save role</button></td>
         </tr>)}</tbody></table></div>
+    </>}
+    {isAdmin && (page === 'team' || page === 'team-links') && <>
       <h3>Link Telegram members to CRM employees</h3>
       <p style={muted}>Verify the Telegram user ID against the employee before saving. These links control which Telegram analytics managers can see.</p>
       <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -288,6 +292,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         </tr>)}</tbody>
       </table></div>
       {!telegramMembers.length && <p style={muted}>No Telegram members found yet. Send messages in the test group and refresh the page.</p>}
+    </>}
+    {isAdmin && (page === 'team' || page === 'team-assignments') && <>
       <h3>Assign employees to managers</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
         <label>Manager<select style={input} value={managerId} onChange={e => setManagerId(e.target.value)}><option value="">Choose manager</option>{managers.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
@@ -305,7 +311,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </table></div>
     </>}
     {(isManager || isAdmin) && <>
-      {(isAdmin || (isManager && normalizedRole !== 'junior')) && <>
+      {(page === 'team' || page === 'team-invitations') && (isAdmin || (isManager && normalizedRole !== 'junior')) && <>
       <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
       <p style={muted}>{isAdmin ? 'Admin can invite any role, including Telemarketing. Telemarketing is a separate track and does not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 24 hours. If registration has not happened, creating a replacement invitation for the same person invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
@@ -324,7 +330,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         </div>
       </div>}
       </>}
-      {!isAdmin && <>
+      {!isAdmin && page === 'team' && <>
       <h3>Reporting hierarchy</h3>
       <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
       <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.manager_id===profile?.id).map(person=>renderTeamNode(person))}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
