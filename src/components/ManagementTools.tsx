@@ -45,7 +45,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   supabase: SupabaseClient | null;
   profile: Person | null;
   profiles: Person[];
-  page?: 'all' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram';
+  page?: 'all' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram-human' | 'telegram-analytics';
 }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [managerId, setManagerId] = useState('');
@@ -260,7 +260,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
 
   return <section style={panel}>
-    {page !== 'telegram' && <>
+    {page !== 'telegram-human' && page !== 'telegram-analytics' && <>
     {page === 'team' && <>
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
@@ -397,10 +397,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </>}
     </>}
     </>}
-    {(page === 'all' || page === 'telegram') && <>
-    <hr style={{ borderColor: '#344054', margin: '24px 0' }}/>
-    <TelegramHumanInbox supabase={supabase} profile={profile} profiles={profiles} />
-    <h2>Telegram group analytics</h2>
+    {page === 'telegram-human' && <TelegramHumanInbox supabase={supabase} profile={profile} profiles={profiles} />}
+    {page === 'telegram-analytics' && <>
+    <h2 style={{marginTop:0}}>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
     <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #b54708', borderRadius: 10, background: '#261b12' }}>
       <strong>Connect your work group with the dedicated CRM analytics bot</strong>
