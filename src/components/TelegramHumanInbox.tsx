@@ -82,7 +82,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       return;
     }
     const chatId = Number(selectedChat);
-    let messageResult = await supabase.from('telegram_inbox_messages')
+    let messageResult: any = await supabase.from('telegram_inbox_messages')
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
       .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
     let attachmentSchemaMissing = false;
