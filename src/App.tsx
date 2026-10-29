@@ -313,6 +313,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncRequestedAt, setSyncRequestedAt] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
 
@@ -368,7 +369,10 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
       const running = await checkWorkerStatus();
       if (cancelled || running === null) return;
       setSyncing(running);
-      if (!running) {
+      if (!running && syncing && syncRequestedAt !== null && Date.now() - syncRequestedAt < 10000) {
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+      } else if (!running) {
+        setSyncRequestedAt(null);
         await loadChats();
         if (selectedChatId !== null) await loadMessages(selectedChatId, false);
       } else {
@@ -377,7 +381,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     };
     void poll();
     return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
-  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId, syncing]);
+  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId, syncing, syncRequestedAt]);
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -401,6 +405,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
       <button type="button" disabled={syncing} style={{ ...actionStyle, opacity: syncing ? 0.6 : 1 }} onClick={async () => {
         if (!client || syncing) return;
         setSyncing(true);
+        setSyncRequestedAt(Date.now());
         setNotice('Requesting Telegram sync…');
         try {
           const { data, error } = await client.functions.invoke('telegram-inbox-refresh', { body: {} });
@@ -412,10 +417,9 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
           setSyncing(true);
 
         } catch (error) {
+          setSyncing(false);
+          setSyncRequestedAt(null);
           setNotice('Could not start Telegram sync. Check that the secure refresh function is deployed and configured.');
-        } finally {
-          const running = await checkWorkerStatus();
-          setSyncing(running === null ? false : running);
         }
       }}>{syncing ? 'Sync running…' : 'Sync now'}</button>
     </header>
