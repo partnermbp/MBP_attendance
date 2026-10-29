@@ -112,3 +112,50 @@ button:focus-visible {
   line-height: 1.2;
   font-weight: 600;
 }
+
+
+/* Compact, minimal CRM refinement: quieter surfaces, less framing, more usable space. */
+:root {
+  color: #e8eaf0;
+  background: #0c0d10;
+}
+body { background: #0c0d10; }
+.sidebar {
+  width: 218px;
+  padding: 22px 12px;
+  background: #101114;
+  border-right: 1px solid #202127;
+}
+.brand { gap: 10px; padding: 0 8px 24px; }
+.brand-icon { width: 34px; height: 34px; border-radius: 8px; background: #b94d1b; }
+nav { gap: 3px; }
+.nav-item { padding: 10px 11px; border-radius: 7px; gap: 10px; color: #b9bbc5; }
+.nav-item.active { background: #29201c; color: #ffb17c; }
+.nav-item:hover { background: #1c1d22; }
+.main-panel { margin-left: 218px; padding: 26px clamp(18px, 2.5vw, 38px); max-width: none; }
+.topbar { margin-bottom: 20px; }
+h1 { font-size: clamp(23px, 2.5vw, 29px); letter-spacing: -.7px; }
+.welcome { padding: 22px 24px; border-radius: 10px; background: #15161a; }
+.welcome .eyebrow { color: #ffb17c; }
+.welcome h2 { margin: 7px 0; }
+.welcome p:last-child { line-height: 1.55; }
+.welcome-icon { width: 56px; height: 56px; border: 0; border-radius: 10px; background: #202126; }
+.section-heading { margin: 25px 0 13px; }
+.setup-grid { gap: 12px; }
+.setup-card { padding: 17px; border: 0; border-radius: 10px; background: #141519; }
+.setup-card h3 { margin: 13px 0 8px; }
+.card-icon { width: 34px; height: 34px; border-radius: 9px; }
+.notice { margin-top: 16px; padding: 14px; border: 0; border-radius: 9px; }
+.preview-badge { border-radius: 6px; }
+.main-panel footer { margin-top: 24px; }
+button { border-radius: 7px; }
+input, textarea, select { font: inherit; }
+@media (max-width: 1000px) {
+  .main-panel { padding: 22px 18px; }
+}
+@media (max-width: 650px) {
+  .sidebar { width: auto; padding: 14px 12px; border-right: 0; border-bottom: 1px solid #202127; }
+  .brand { padding-bottom: 12px; }
+  .main-panel { margin-left: 0; padding: 18px 12px; }
+  .welcome { padding: 18px; }
+}
