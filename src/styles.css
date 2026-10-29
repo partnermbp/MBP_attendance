@@ -403,3 +403,40 @@ input, textarea, select { font: inherit; }
   .telegram-human-inbox.is-mobile-expanded .telegram-composer { flex:0 0 auto !important; padding:7px 0 calc(7px + env(safe-area-inset-bottom)) !important; }
   .telegram-human-inbox.is-mobile-expanded .telegram-composer textarea { min-height:64px !important; max-height:22vh; resize:vertical; }
 }
+
+
+/* Refined mobile Telegram controls: compact toolbar, swipe-friendly chat names, focused full-screen writing. */
+@media (max-width: 760px) {
+  .telegram-chat-strip-heading {
+    display: flex !important; align-items: center !important; gap: 7px !important;
+    padding: 5px 0 8px !important; min-height: 42px; border-bottom: 1px solid #292b32 !important;
+    text-transform: none !important; letter-spacing: 0 !important; font-size: 12px !important;
+  }
+  .telegram-chat-strip-heading > span { flex: 1 1 auto; min-width: 0; font-weight: 650; }
+  .telegram-mobile-sync, .telegram-mobile-expand {
+    flex: 0 0 34px !important; width: 34px !important; height: 34px !important;
+    min-height: 34px !important; padding: 0 !important; border-radius: 9px !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  }
+  .telegram-mobile-sync { border: 1px solid #383b45 !important; background: #191b21 !important; color: #d9dee8 !important; }
+  .telegram-mobile-sync:disabled { opacity: .45; }
+  .telegram-mobile-expand { border-color: #6b422a !important; background: #2a1b13 !important; color: #ffb37d !important; }
+  .telegram-conversation-list {
+    display: flex !important; flex-direction: row !important; align-items: stretch !important;
+    gap: 7px !important; padding: 0 0 9px !important; border-right: 0 !important;
+    overflow-x: auto !important; overflow-y: hidden !important; overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-snap-type: x proximity;
+  }
+  .telegram-conversation-list::-webkit-scrollbar { display: none; }
+  .telegram-conversation-list > .telegram-chat-strip-heading { flex: 0 0 116px !important; }
+  .telegram-conversation-list > .telegram-chat-choice { flex: 0 0 auto !important; scroll-snap-align: start; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-conversation-panel > .telegram-chat-assignment { display: none !important; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-conversation-panel > .telegram-selected-chat-header { flex: 0 0 auto; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-messages { flex: 1 1 0 !important; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-composer textarea { font-size: 16px !important; line-height: 1.4; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-composer > div { gap: 7px !important; }
+}
+@media (max-width: 420px) {
+  .telegram-chat-strip-heading { gap: 5px !important; }
+  .telegram-conversation-list > .telegram-chat-strip-heading { flex-basis: 108px !important; }
+}
