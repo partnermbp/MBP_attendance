@@ -37,9 +37,12 @@ class SupabaseRest:
         data = None if body is None else json.dumps(body).encode("utf-8")
         headers = {
             "apikey": self.key,
-            "Authorization": f"Bearer {self.key}",
             "Content-Type": "application/json",
         }
+        # New sb_secret_ keys are API keys, not JWTs; only legacy service-role
+        # JWTs should also be sent as a Bearer token.
+        if not self.key.startswith("sb_secret_"):
+            headers["Authorization"] = f"Bearer {self.key}"
         if prefer:
             headers["Prefer"] = prefer
         req = urllib.request.Request(self.base + table + query, data=data, headers=headers, method=method)
@@ -87,7 +90,13 @@ async def main() -> None:
     api_id = required_env("TELEGRAM_API_ID")
     api_hash = required_env("TELEGRAM_API_HASH")
     session_string = required_env("TELEGRAM_SESSION_STRING")
-    supabase = SupabaseRest(required_env("SUPABASE_URL"), required_env("SUPABASE_SERVICE_ROLE_KEY"))
+    supabase_key = (
+        os.environ.get("SUPABASE_SECRET_KEY", "").strip()
+        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    )
+    if not supabase_key:
+        raise RuntimeError("Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY")
+    supabase = SupabaseRest(required_env("SUPABASE_URL"), supabase_key)
     allowed_raw = required_env("TELEGRAM_ALLOWED_USER_IDS")
     allowed_user_ids = {int(item.strip()) for item in allowed_raw.split(",") if item.strip().isdigit()}
     if not allowed_user_ids:
