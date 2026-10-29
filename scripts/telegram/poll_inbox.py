@@ -112,7 +112,7 @@ async def main() -> None:
         print(f"Authorized Telegram account: id={me.id if me else 'unknown'}")
         dialogs_seen = 0
         messages_saved = 0
-        max_dialogs = int(os.environ.get("TELEGRAM_MAX_DIALOGS", "100"))
+        max_dialogs = int(os.environ.get("TELEGRAM_MAX_DIALOGS", "500"))
         per_dialog_limit = int(os.environ.get("TELEGRAM_MESSAGES_PER_DIALOG", "30"))
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
