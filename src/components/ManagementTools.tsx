@@ -405,7 +405,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <strong>Connect your work group with the dedicated CRM analytics bot</strong>
       <p style={muted}>This integration must use a separate Telegram bot created specifically for CRM group analytics. Do not use <code>@mbpauthbot</code>; it remains reserved for authentication.</p>
       <ol style={{ paddingLeft: 22, lineHeight: 1.7 }}>
-        <li>Create a dedicated bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: '#fdba74' }}>@BotFather</a> and store its token as the Supabase Edge Function secret <code>TELEGRAM_BOT_TOKEN</code>. Do not put the token in this CRM or GitHub frontend files.</li>
+        <li>Create a dedicated bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>@BotFather</a> and store its token as the Supabase Edge Function secret <code>TELEGRAM_BOT_TOKEN</code>. Do not put the token in this CRM or GitHub frontend files.</li>
         <li>Set <code>TELEGRAM_WEBHOOK_SECRET</code> and deploy the <code>telegram-group-webhook</code> Supabase Edge Function. Configure the Telegram webhook with the same secret token.</li>
         <li>Add the new analytics bot to each authorized work group. Enable group message access in BotFather (disable privacy mode if the bot must receive ordinary group messages); grant only the permissions needed.</li>
         <li>Send a new test message and reply in the group. New messages should appear below after the database migration is applied and the webhook is configured.</li>
