@@ -109,8 +109,16 @@ button.button-pressed:not(:disabled) {
   transform: translateY(1px) scale(.985);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, .28);
 }
+button.button-clicked:not(:disabled) {
+  animation: button-click-feedback 220ms ease-out;
+}
+@keyframes button-click-feedback {
+  0% { filter: brightness(.72); transform: translateY(1px) scale(.975); box-shadow: inset 0 2px 4px rgba(0, 0, 0, .28); }
+  100% { filter: brightness(1); transform: translateY(0) scale(1); box-shadow: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
+  button.button-clicked:not(:disabled) { animation: none; }
 }
 
 
