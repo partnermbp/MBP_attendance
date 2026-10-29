@@ -88,6 +88,10 @@ async def main() -> None:
     api_hash = required_env("TELEGRAM_API_HASH")
     session_string = required_env("TELEGRAM_SESSION_STRING")
     supabase = SupabaseRest(required_env("SUPABASE_URL"), required_env("SUPABASE_SERVICE_ROLE_KEY"))
+    allowed_raw = required_env("TELEGRAM_ALLOWED_USER_IDS")
+    allowed_user_ids = {int(item.strip()) for item in allowed_raw.split(",") if item.strip().isdigit()}
+    if not allowed_user_ids:
+        raise RuntimeError("TELEGRAM_ALLOWED_USER_IDS must contain at least one numeric Telegram user ID. No chats were synced.")
 
     if not api_id.isdigit():
         raise RuntimeError("TELEGRAM_API_ID must be numeric.")
@@ -112,6 +116,9 @@ async def main() -> None:
             if not isinstance(entity, User) or entity.bot or (me and entity.id == me.id):
                 continue
             chat_id = int(entity.id)
+            # Privacy by default: never sync a private conversation unless an admin explicitly allowlists its numeric Telegram user ID.
+            if chat_id not in allowed_user_ids:
+                continue
             title = " ".join(part for part in [entity.first_name, entity.last_name] if part) or entity.username or str(chat_id)
             username = entity.username
             current = supabase.select(
