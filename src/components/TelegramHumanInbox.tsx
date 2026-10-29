@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CSSProperties, FormEvent } from 'react';
+import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
@@ -8,6 +8,35 @@ type InboxChat = { chat_id: number; title: string; username: string | null; last
 type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null; media_path: string | null; media_name: string | null; media_mime_type: string | null; media_size: number | null };
 type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
+
+function renderTelegramMarkup(source: string): ReactNode {
+  const parsed = new DOMParser().parseFromString(source, 'text/html');
+  const renderNode = (node: Node, key: string): ReactNode => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const element = node as Element;
+    const tag = element.tagName.toLowerCase();
+    const children = Array.from(element.childNodes).map((child, index) => renderNode(child, key + '-' + index));
+    if (tag === 'b' || tag === 'strong') return <strong key={key}>{children}</strong>;
+    if (tag === 'i' || tag === 'em') return <em key={key}>{children}</em>;
+    if (tag === 'u') return <u key={key}>{children}</u>;
+    if (tag === 's' || tag === 'del' || tag === 'strike') return <s key={key}>{children}</s>;
+    if (tag === 'code') return <code key={key}>{children}</code>;
+    if (tag === 'pre') return <pre key={key}>{children}</pre>;
+    if (tag === 'blockquote') return <blockquote key={key}>{children}</blockquote>;
+    if (tag === 'tg-spoiler' || (tag === 'span' && element.classList.contains('tg-spoiler'))) {
+      return <span key={key} className="telegram-spoiler">{children}</span>;
+    }
+    if (tag === 'a') {
+      const href = element.getAttribute('href') || '';
+      if (href.startsWith('https://') || href.startsWith('http://')) {
+        return <a key={key} href={href} target="_blank" rel="noreferrer">{children}</a>;
+      }
+    }
+    return <span key={key}>{children}</span>;
+  };
+  return Array.from(parsed.body.childNodes).map((node, index) => renderNode(node, String(index)));
+}
 
 const panel: CSSProperties = { padding: 0, margin: '8px 0 18px', background: 'transparent' };
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
@@ -440,7 +469,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             {hasMoreMessages && <button type="button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()} style={{ ...action, alignSelf: 'center', fontSize: 12, marginBottom: 4, opacity: loadingOlderMessages ? 0.65 : 1 }}>{loadingOlderMessages ? 'Loading older messages…' : '↑ Load older messages'}</button>}
             {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
-              {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>}
+              {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{renderTelegramMarkup(message.message_text)}</div>}
               {message.media_path && <div style={{ marginTop: 6 }}>
                 {mediaUrls[message.chat_id + ':' + message.message_id] && message.media_mime_type?.startsWith('image/') ?
                   <a href={mediaUrls[message.chat_id + ':' + message.message_id]} target="_blank" rel="noreferrer"><img src={mediaUrls[message.chat_id + ':' + message.message_id]} alt={message.media_name || 'Telegram attachment'} style={{ display: 'block', maxWidth: 'min(100%, 360px)', maxHeight: 300, borderRadius: 8 }} /></a> :
@@ -449,7 +478,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             </article>)}
             {pendingReplies.filter(item => item.chat_id === Number(selectedChat)).map(item => <article key={'pending:' + item.id} style={{ alignSelf: 'flex-end', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: '#40371e', color: '#fff2c4', border: '1px solid #76612a', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#fff0b3', marginBottom: 4 }}>You · {new Date(item.created_at).toLocaleString()} · Waiting to sync</div>
-              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{item.message_text}</div>
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{renderTelegramMarkup(item.message_text)}</div>
             </article>)}
             {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
           </div>
