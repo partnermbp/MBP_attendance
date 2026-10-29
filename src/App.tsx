@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import ManagementTools from './components/ManagementTools';
 
