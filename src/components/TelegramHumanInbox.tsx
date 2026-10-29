@@ -31,6 +31,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -81,12 +82,26 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       return;
     }
     const chatId = Number(selectedChat);
-    const messageResult = await supabase.from('telegram_inbox_messages')
+    let messageResult = await supabase.from('telegram_inbox_messages')
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
       .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
+    let attachmentSchemaMissing = false;
+    if (messageResult.error && /media_path|media_name|media_mime_type|media_size|column.*does not exist|schema cache/i.test(messageResult.error.message)) {
+      attachmentSchemaMissing = true;
+      messageResult = await supabase.from('telegram_inbox_messages')
+        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
+        .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
+    }
     if (messageResult.error) setNotice('Could not load conversation: ' + messageResult.error.message);
     else {
-      const loaded = (messageResult.data ?? []) as InboxMessage[];
+      const loaded = ((messageResult.data ?? []) as InboxMessage[]).map(message => ({
+        ...message,
+        media_path: attachmentSchemaMissing ? null : message.media_path,
+        media_name: attachmentSchemaMissing ? null : message.media_name,
+        media_mime_type: attachmentSchemaMissing ? null : message.media_mime_type,
+        media_size: attachmentSchemaMissing ? null : message.media_size,
+      }));
+      if (attachmentSchemaMissing) setNotice('Text chats are available. Attachment support needs the Telegram media migration applied in Supabase.');
       setMessages(loaded);
       setPendingReplies(current => current.filter(pending =>
         !loaded.some(message => message.outgoing && message.chat_id === pending.chat_id &&
@@ -307,10 +322,13 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           </div>
           <form onSubmit={queueReply} style={{ padding: 12, borderTop: '1px solid #344054', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <label style={{ ...control, cursor: 'pointer' }}>📎 Attach file<input type="file" aria-label="Attach a file" onChange={event => setAttachment(event.target.files?.[0] ?? null)} style={{ display: 'block', maxWidth: '100%', marginTop: 5 }} /></label>
-              {attachment && <span style={muted}>{attachment.name} · {Math.ceil(attachment.size / 1024)} KB <button type="button" onClick={() => setAttachment(null)} style={{ ...control, padding: '2px 6px' }}>Remove</button></span>}
-              <button type="submit" style={action} disabled={sending || (!draft.trim() && !attachment)}>{sending ? 'Queueing…' : 'Queue reply'}</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input ref={fileInputRef} type="file" aria-label="Choose attachment" onChange={event => setAttachment(event.target.files?.[0] ?? null)} style={{ display: 'none' }} />
+              <button type="button" title="Attach file" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} style={{ width: 38, height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #475467', borderRadius: 8, background: '#1d2939', color: '#e4e7ec', cursor: 'pointer', flex: '0 0 auto' }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.9 1.9 0 0 1-2.6-2.6l8.5-8.5"/></svg>
+              </button>
+              {attachment && <span style={{ ...muted, flex: 1, overflowWrap: 'anywhere' }}>{attachment.name} · {Math.ceil(attachment.size / 1024)} KB <button type="button" aria-label="Remove attachment" onClick={() => { setAttachment(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ border: 0, background: 'transparent', color: '#fda29b', cursor: 'pointer' }}>×</button></span>}
+              <button type="submit" style={{ ...control, background: '#1d2939', border: '1px solid #475467', fontWeight: 700, cursor: 'pointer', marginLeft: 'auto', minWidth: 84 }} disabled={sending || (!draft.trim() && !attachment)}>{sending ? 'Sending…' : 'Send'}</button>
             </div>
           </form>
           <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>
