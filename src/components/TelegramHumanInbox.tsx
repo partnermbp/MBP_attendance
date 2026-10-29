@@ -217,7 +217,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical' }} />
             <button type="submit" style={action} disabled={sending || !draft.trim()}>{sending ? 'Queueing…' : 'Queue reply'}</button>
           </form>
-          <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>}
+          <p style={muted}>✓ means sent. Blue ✓✓ means Telegram reports the outgoing message as read.</p>
         </> : <div style={{ padding: 24, textAlign: 'center', border: '1px dashed #475467', borderRadius: 10, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
       </div>
     </div>
