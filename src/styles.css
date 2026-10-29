@@ -278,3 +278,31 @@ input, textarea, select { font: inherit; }
   .telegram-conversation-list { max-height: 175px !important; }
   .telegram-messages { max-height: 44vh !important; }
 }
+
+
+/* Targeted final mobile layout corrections for human-account Telegram inbox. */
+@media (max-width: 760px) {
+  .telegram-selected-chat-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .telegram-selected-chat-header > strong { overflow-wrap: anywhere; }
+  .telegram-selected-chat-header > div { font-size: 11px !important; overflow-wrap: anywhere; }
+  .telegram-chat-assignment { padding: 10px !important; }
+  .telegram-assignment-controls { display: grid !important; grid-template-columns: minmax(0, 1fr); }
+  .telegram-assignment-controls select,
+  .telegram-assignment-controls button { width: 100% !important; min-width: 0 !important; }
+  .telegram-assignment-chips { display: grid !important; grid-template-columns: minmax(0, 1fr); }
+  .telegram-assignment-chips > span { min-width: 0; overflow-wrap: anywhere; border-radius: 4px !important; }
+  .telegram-conversation-panel > div { min-width: 0; }
+  .telegram-human-inbox footer { padding: 10px 2px !important; font-size: 11px !important; }
+  .telegram-human-inbox [style*="border-radius: 999px"] { border-radius: 5px !important; }
+  .crm-layout section table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .crm-layout section form > div { min-width: 0; }
+  .crm-layout section input, .crm-layout section select, .crm-layout section textarea { box-sizing: border-box; }
+  .crm-layout section button { min-height: 40px; }
+}
+@media (max-width: 420px) {
+  .telegram-inbox-header p { font-size: 12px !important; line-height: 1.45; }
+  .telegram-messages article { max-width: 96% !important; padding: 8px 9px !important; }
+  .telegram-composer > div { align-items: stretch !important; }
+  .telegram-composer > div > button[aria-label="Attach file"] { width: 44px !important; min-height: 44px; }
+  .telegram-composer > div > button[type="submit"] { min-height: 44px; }
+}
