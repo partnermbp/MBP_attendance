@@ -545,3 +545,65 @@ input, textarea, select { font: inherit; }
   .telegram-chat-topbar .telegram-assignment-controls { display:grid !important; grid-template-columns:minmax(0,1fr); margin-top:8px !important; }
   .telegram-chat-topbar .telegram-assignment-chips { margin-top:8px !important; }
 }
+
+
+/* Fix mobile Telegram layout after grouping the chat title and assignment controls. */
+@media (max-width: 760px) {
+  .telegram-chat-topbar {
+    flex: 0 0 auto !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+  .telegram-chat-topbar .telegram-selected-chat-header {
+    width: 100%;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+  }
+  .telegram-chat-topbar .telegram-chat-assignment {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0 !important;
+  }
+  .telegram-chat-topbar .telegram-assignment-controls {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap !important;
+  }
+  .telegram-chat-topbar .telegram-assignment-controls select,
+  .telegram-chat-topbar .telegram-assignment-controls button {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .telegram-chat-topbar .telegram-assignment-chips {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .telegram-conversation-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .telegram-conversation-panel > .telegram-chat-topbar {
+    flex: 0 0 auto !important;
+  }
+  .telegram-conversation-panel .telegram-messages {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .telegram-human-inbox.is-mobile-expanded .telegram-conversation-panel > .telegram-chat-topbar {
+    flex: 0 0 auto !important;
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+  .telegram-human-inbox.is-mobile-expanded .telegram-chat-topbar .telegram-chat-assignment {
+    display: none !important;
+  }
+  .telegram-human-inbox.is-mobile-expanded .telegram-chat-topbar .telegram-selected-chat-header {
+    padding: 7px 2px !important;
+  }
+}
