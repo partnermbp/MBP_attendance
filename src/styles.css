@@ -28,7 +28,7 @@ button { font: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 34px; }
-.brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 3px; background: #c4511b; color: white; }
+.brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 3px; background: var(--crm-accent-strong); color: white; }
 .brand strong { display: block; font-size: 16px; color: white; }
 .brand small { display: block; margin-top: 4px; color: #a7b3ca; font-size: 12px; }
 .nav-label, .eyebrow { font-size: 10px; font-weight: 750; letter-spacing: 1.4px; }
@@ -36,16 +36,16 @@ button { font: inherit; }
 
 nav { display: grid; gap: 6px; }
 .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 0; border-radius: 2px; text-align: left; background: transparent; color: #d2ccc6; cursor: pointer; }
-.nav-item.active { color: white; background: #713017; }
-.nav-item:hover { background: #302019; color: white; }
+.nav-item.active { color: var(--crm-accent); background: var(--crm-accent-soft); }
+.nav-item:hover { background: var(--crm-card-raised); color: var(--crm-text); }
 
 .sidebar-footer { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 12px 6px; color: #a7b3ca; font-size: 11px; }
 
 .main-panel { margin-left: 245px; padding: 34px clamp(20px, 4vw, 54px); max-width: 1700px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
-.eyebrow { color: #c4511b; }
+.eyebrow { color: var(--crm-accent); }
 h1 { margin: 9px 0 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -1px; }
-.preview-badge { padding: 7px 10px; border-radius: 2px; background: #3a2115; color: #ff9b62; font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.preview-badge { padding: 7px 10px; border-radius: 2px; background: var(--crm-accent-soft); color: var(--crm-accent); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
 
 .welcome { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 28px; border-radius: 3px; background: linear-gradient(120deg, #171311, #3c2115); color: white; }
 .welcome .eyebrow { color: #c4cffa; }
@@ -135,16 +135,16 @@ body { background: #0c0d10; }
   border-right: 1px solid #202127;
 }
 .brand { gap: 10px; padding: 0 8px 24px; }
-.brand-icon { width: 34px; height: 34px; border-radius: 8px; background: #b94d1b; }
+.brand-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--crm-accent-strong); }
 nav { gap: 3px; }
 .nav-item { padding: 10px 11px; border-radius: 7px; gap: 10px; color: #b9bbc5; }
-.nav-item.active { background: #29201c; color: #ffb17c; }
+.nav-item.active { background: var(--crm-accent-soft); color: var(--crm-accent); }
 .nav-item:hover { background: #1c1d22; }
 .main-panel { margin-left: 218px; padding: 26px clamp(18px, 2.5vw, 38px); max-width: none; }
 .topbar { margin-bottom: 20px; }
 h1 { font-size: clamp(23px, 2.5vw, 29px); letter-spacing: -.7px; }
 .welcome { padding: 22px 24px; border-radius: 10px; background: #15161a; }
-.welcome .eyebrow { color: #ffb17c; }
+.welcome .eyebrow { color: var(--crm-accent); }
 .welcome h2 { margin: 7px 0; }
 .welcome p:last-child { line-height: 1.55; }
 .welcome-icon { width: 56px; height: 56px; border: 0; border-radius: 10px; background: #202126; }
@@ -420,7 +420,7 @@ input, textarea, select { font: inherit; }
   }
   .telegram-mobile-sync { border: 1px solid #383b45 !important; background: #191b21 !important; color: #d9dee8 !important; }
   .telegram-mobile-sync:disabled { opacity: .45; }
-  .telegram-mobile-expand { border-color: #6b422a !important; background: #2a1b13 !important; color: #ffb37d !important; }
+  .telegram-mobile-expand { border-color:var(--crm-accent-strong) !important; background:var(--crm-accent-soft) !important; color:var(--crm-accent) !important; }
   .telegram-conversation-list {
     display: flex !important; flex-direction: row !important; align-items: stretch !important;
     gap: 7px !important; padding: 0 0 9px !important; border-right: 0 !important;
