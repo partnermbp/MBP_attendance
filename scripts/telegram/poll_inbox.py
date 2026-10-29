@@ -64,8 +64,9 @@ class SupabaseRest:
         self.request("POST", table, params={"on_conflict": conflict}, body=body,
                      prefer="resolution=merge-duplicates,return=minimal")
 
-    def patch(self, table: str, params: dict[str, str], body: dict[str, Any]) -> None:
-        self.request("PATCH", table, params=params, body=body, prefer="return=minimal")
+    def patch(self, table: str, params: dict[str, str], body: dict[str, Any]) -> Any:
+        # Return the changed rows so conditional outbox claims can be verified.
+        return self.request("PATCH", table, params=params, body=body, prefer="return=representation")
 
 
 def iso_datetime(value: datetime | None) -> str:
@@ -211,8 +212,14 @@ async def main() -> None:
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.pending"},
                                {"status": "failed", "error_message": "Message text is empty."})
                 continue
-            supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.pending"},
-                           {"status": "sending", "error_message": None})
+            claimed = supabase.patch(
+                "telegram_inbox_outbox",
+                {"id": f"eq.{outbox_id}", "status": "eq.pending"},
+                {"status": "sending", "error_message": None},
+            )
+            if not claimed:
+                # Another scheduled/manual run already claimed this row.
+                continue
             try:
                 sent = await client.send_message(chat_id, text_value)
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
