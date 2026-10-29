@@ -394,7 +394,6 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const mutedStyle: CSSProperties = { color: '#98a2b3', fontSize: 13 };
   const actionStyle: CSSProperties = { border: '1px solid #475467', borderRadius: 8, padding: '9px 12px', background: '#1d2939', color: '#f9fafb', cursor: 'pointer' };
   const selected = chats.find(chat => chat.chat_id === selectedChatId) ?? null;
-  const statusColor = (status: string) => status === 'sent' ? '#6ce9a6' : status === 'failed' ? '#fda29b' : status === 'sending' ? '#fdb022' : '#d0d5dd';
 
   return <section style={panelStyle} aria-label="Human Telegram inbox">
     <header style={{ padding: 18, borderBottom: '1px solid #344054', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
