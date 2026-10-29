@@ -295,6 +295,7 @@ function SecurityActivityPanel() {
 
 
 
+// Telegram inbox sync controls and read receipts.
 type HumanInboxChat = {
   chat_id: number; title: string; username: string | null;
   last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number;
