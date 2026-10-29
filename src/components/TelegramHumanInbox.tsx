@@ -6,6 +6,7 @@ type Person = { id: string; full_name: string | null; email: string | null; role
 type Profile = Person | null;
 type InboxChat = { chat_id: number; title: string; username: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
 type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null };
+type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
 
 const panel: CSSProperties = { border: '1px solid #344054', borderRadius: 12, padding: 16, margin: '12px 0 24px', background: '#101828' };
@@ -20,6 +21,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 }) {
   const [chats, setChats] = useState<InboxChat[]>([]);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncRequestedAt, setSyncRequestedAt] = useState<number | null>(null);
@@ -62,7 +64,14 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
       .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
     if (messageResult.error) setNotice('Could not load conversation: ' + messageResult.error.message);
-    else setMessages((messageResult.data ?? []) as InboxMessage[]);
+    else {
+      const loaded = (messageResult.data ?? []) as InboxMessage[];
+      setMessages(loaded);
+      setPendingReplies(current => current.filter(pending =>
+        !loaded.some(message => message.outgoing && message.chat_id === pending.chat_id &&
+          message.message_text === pending.message_text && new Date(message.sent_at).getTime() >= new Date(pending.created_at).getTime() - 5000)
+      ));
+    }
   }, [supabase, selectedChat, profile?.id, profile?.active]);
 
   const checkWorkerStatus = useCallback(async () => {
@@ -74,6 +83,12 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   useEffect(() => { void refreshChats(); }, [refreshChats]);
   useEffect(() => { void refreshConversation(); }, [refreshConversation]);
+
+  useEffect(() => {
+    if (!pendingReplies.some(item => item.chat_id === Number(selectedChat))) return;
+    const timer = window.setInterval(() => { void refreshConversation(); }, 3000);
+    return () => window.clearInterval(timer);
+  }, [pendingReplies, selectedChat, refreshConversation]);
 
   useEffect(() => {
     if (!syncing) return;
@@ -100,8 +115,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
   }, [syncing, syncRequestedAt, checkWorkerStatus, refreshChats, refreshConversation]);
 
-  async function requestSync() {
-    if (!supabase || syncing) return;
+  async function requestSync(force = false) {
+    if (!supabase || (syncing && !force)) return;
     setSyncing(true);
     setSyncRequestedAt(Date.now());
     setNotice('Requesting Telegram sync…');
@@ -145,17 +160,24 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     if (!supabase || !profile?.id || !selectedChat || !draft.trim()) return;
     setSending(true);
     setNotice('');
-    const { error } = await supabase.from('telegram_inbox_outbox').insert({
-      chat_id: Number(selectedChat),
+    const textToSend = draft.trim();
+    const queuedAt = new Date().toISOString();
+    const chatId = Number(selectedChat);
+    const { data, error } = await supabase.from('telegram_inbox_outbox').insert({
+      chat_id: chatId,
       requested_by: profile.id,
-      message_text: draft.trim(),
+      message_text: textToSend,
       status: 'pending',
-    });
+    }).select('id').single();
     if (error) setNotice('Could not queue reply: ' + error.message);
     else {
       setDraft('');
-      setNotice('Reply queued. It will be sent by the next scheduled GitHub Actions run; delivery may be delayed.');
-      await refreshConversation();
+      setPendingReplies(current => [...current, {
+        id: String(data.id), chat_id: chatId, message_text: textToSend, created_at: queuedAt,
+      }]);
+      setNotice('Reply queued. Starting Telegram sync in 3 seconds…');
+      // Keep a visible local copy until the worker sends it and the synced message appears.
+      window.setTimeout(() => { void requestSync(true); }, 3000);
     }
     setSending(false);
   }
@@ -210,7 +232,11 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>
             </article>)}
-            {!messages.length && <p style={muted}>No messages loaded for this conversation yet.</p>}
+            {pendingReplies.filter(item => item.chat_id === Number(selectedChat)).map(item => <article key={'pending:' + item.id} style={{ alignSelf: 'flex-end', maxWidth: '92%', padding: '9px 11px', borderRadius: 10, background: '#8a6d1d', color: '#fff7d6', border: '1px solid #d6ad3c', overflowWrap: 'anywhere' }}>
+              <div style={{ fontSize: 11, color: '#fff0b3', marginBottom: 4 }}>You · {new Date(item.created_at).toLocaleString()} · Waiting to sync</div>
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{item.message_text}</div>
+            </article>)}
+            {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
           </div>
           <form onSubmit={queueReply} style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'stretch' }}>
             <textarea aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={2} placeholder="Write a reply as the connected human Telegram account…" style={{ ...control, flex: 1, resize: 'vertical' }} />
