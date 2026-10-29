@@ -312,6 +312,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState('');
   const [deliveryStatuses, setDeliveryStatuses] = useState<Array<{ id: string; status: string; error_message: string | null; created_at: string; message_text: string }>>([]);
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
@@ -384,7 +385,28 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   return <section style={panelStyle} aria-label="Human Telegram inbox">
     <header style={{ padding: 18, borderBottom: '1px solid #344054', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><p style={{ ...mutedStyle, margin: '6px 0 0' }}>Private chats from the connected Telegram account. Messages refresh automatically.</p></div>
-      <button type="button" style={actionStyle} onClick={() => { void loadChats(); if (selectedChatId !== null) void loadMessages(selectedChatId); }}>Refresh</button>
+      <button type="button" disabled={syncing} style={{ ...actionStyle, opacity: syncing ? 0.6 : 1 }} onClick={async () => {
+        if (!client || syncing) return;
+        setSyncing(true);
+        setNotice('Requesting Telegram sync…');
+        try {
+          const { data, error } = await client.functions.invoke('telegram-inbox-refresh', { body: {} });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+          setNotice('Sync requested. Incoming messages and queued replies will update as the worker runs.');
+          await Promise.all([loadChats(), loadDeliveryStatuses()]);
+          if (selectedChatId !== null) await loadMessages(selectedChatId, false);
+          window.setTimeout(() => {
+            void loadChats();
+            void loadDeliveryStatuses();
+            if (selectedChatId !== null) void loadMessages(selectedChatId, false);
+          }, 8000);
+        } catch (error) {
+          setNotice('Could not start Telegram sync. Check that the secure refresh function is deployed and configured.');
+        } finally {
+          setSyncing(false);
+        }
+      }}>{syncing ? 'Requesting…' : 'Sync now'}</button>
     </header>
     {notice && <p role="alert" style={{ color: '#fda29b', padding: '0 16px' }}>{notice}</p>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 0.8fr) minmax(260px, 1.7fr)', minHeight: 420 }}>
@@ -411,7 +433,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} placeholder="Write a reply…" aria-label="Reply message" style={{ flex: 1, minWidth: 0, border: '1px solid #475467', borderRadius: 8, padding: '10px 12px', background: '#101828', color: '#f2f4f7' }} />
             <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
           </form>
-          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely and sent on the next worker run, usually within five minutes. Check delivery status below.</div>
+          <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely. Use Sync now to request an immediate worker run, or wait for the five-minute scheduled poll.</div>
           <div style={{ padding: '0 14px 14px' }}>
             <strong style={{ display: 'block', marginBottom: 8 }}>Recent reply delivery</strong>
             {deliveryStatuses.length === 0 && <p style={mutedStyle}>No reply attempts found yet.</p>}
