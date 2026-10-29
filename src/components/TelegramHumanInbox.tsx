@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Profile = Person | null;
-type InboxChat = { chat_id: number; title: string; username: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null };
+type InboxChat = { chat_id: number; title: string; username: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
 type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
 
@@ -21,7 +21,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [chats, setChats] = useState<InboxChat[]>([]);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
-  const [outbox, setOutbox] = useState<Array<{ id: string; message_text: string; status: string; error_message: string | null; created_at: string; sent_at: string | null }>>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncRequestedAt, setSyncRequestedAt] = useState<number | null>(null);
   const [selectedChat, setSelectedChat] = useState('');
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
@@ -35,7 +36,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     setLoading(true);
     setNotice('');
     const [chatResult, assignmentResult] = await Promise.all([
-      supabase.from('telegram_inbox_chats').select('chat_id,title,username,last_message_id,last_message_at,last_synced_at').order('last_message_at', { ascending: false }).limit(300),
+      supabase.from('telegram_inbox_chats').select('chat_id,title,username,last_message_id,last_message_at,last_synced_at,read_outbox_max_id').order('last_message_at', { ascending: false }).limit(300),
       supabase.from('telegram_inbox_chat_assignments').select('chat_id,profile_id,assigned_by,assigned_at'),
     ]);
     if (chatResult.error) {
@@ -58,14 +59,11 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       return;
     }
     const chatId = Number(selectedChat);
-    const [messageResult, outboxResult] = await Promise.all([
-      supabase.from('telegram_inbox_messages').select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id').eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500),
-      supabase.from('telegram_inbox_outbox').select('id,message_text,status,error_message,created_at,sent_at').eq('chat_id', chatId).order('created_at', { ascending: false }).limit(30),
-    ]);
+    const messageResult = await supabase.from('telegram_inbox_messages')
+      .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
+      .eq('chat_id', chatId).order('sent_at', { ascending: true }).limit(500);
     if (messageResult.error) setNotice('Could not load conversation: ' + messageResult.error.message);
     else setMessages((messageResult.data ?? []) as InboxMessage[]);
-    if (outboxResult.error) setNotice(current => current || 'Could not load reply statuses: ' + outboxResult.error.message);
-    else setOutbox((outboxResult.data ?? []) as typeof outbox);
   }, [supabase, selectedChat, profile?.id, profile?.active]);
 
   useEffect(() => { void refreshChats(); }, [refreshChats]);
