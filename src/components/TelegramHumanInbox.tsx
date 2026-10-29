@@ -66,8 +66,55 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     else setMessages((messageResult.data ?? []) as InboxMessage[]);
   }, [supabase, selectedChat, profile?.id, profile?.active]);
 
+  const checkWorkerStatus = useCallback(async () => {
+    if (!supabase) return null;
+    const { data, error } = await supabase.functions.invoke('telegram-inbox-status', { body: {} });
+    if (error || data?.error) return null;
+    return Boolean(data?.running);
+  }, [supabase]);
+
   useEffect(() => { void refreshChats(); }, [refreshChats]);
   useEffect(() => { void refreshConversation(); }, [refreshConversation]);
+
+  useEffect(() => {
+    if (!syncing) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      const running = await checkWorkerStatus();
+      if (cancelled) return;
+      if (running === true || running === null) {
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+        return;
+      }
+      if (syncRequestedAt !== null && Date.now() - syncRequestedAt < 30000) {
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+        return;
+      }
+      setSyncing(false);
+      setSyncRequestedAt(null);
+      setNotice('Telegram sync finished. Inbox refreshed.');
+      await refreshChats();
+      await refreshConversation();
+    };
+    void poll();
+    return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [syncing, syncRequestedAt, checkWorkerStatus, refreshChats, refreshConversation]);
+
+  async function requestSync() {
+    if (!supabase || syncing) return;
+    setSyncing(true);
+    setSyncRequestedAt(Date.now());
+    setNotice('Requesting Telegram sync…');
+    const { data, error } = await supabase.functions.invoke('telegram-inbox-refresh', { body: {} });
+    if (error || data?.error) {
+      setSyncing(false);
+      setSyncRequestedAt(null);
+      setNotice('Could not start Telegram sync. Check the secure refresh function configuration.');
+      return;
+    }
+    setNotice('Sync request accepted. Waiting for the worker to start…');
+  }
 
   async function assignChat() {
     if (!supabase || !profile?.id || !isAdmin || !selectedChat || !assignee) return;
@@ -120,13 +167,13 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   return <section style={panel}>
     <h2 style={{ marginTop: 0 }}>Human Telegram account inbox</h2>
-    <p style={muted}>Uses your normal Telegram account, not a bot. The temporary GitHub Actions worker checks for messages every 10 minutes on a best-effort basis. Use Refresh after a poll to load the latest messages.</p>
+    <p style={muted}>Uses your connected human Telegram account. Messages are checked on the five-minute schedule; use Sync now to request an immediate poll.</p>
     {notice && <p role="status" style={{ padding: 10, borderRadius: 8, background: '#202b3e', overflowWrap: 'anywhere' }}>{notice}</p>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 0.8fr) minmax(0, 2fr)', gap: 14 }}>
       <aside style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <strong>Conversations ({chats.length})</strong>
-          <button type="button" style={action} onClick={() => { void refreshChats(); void refreshConversation(); }} disabled={loading}>Refresh</button>
+          <button type="button" style={{ ...action, opacity: syncing ? 0.55 : 1 }} onClick={() => { void requestSync(); }} disabled={loading || syncing}>{syncing ? "Sync running…" : "Sync now"}</button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 480, overflowY: 'auto' }}>
           {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => setSelectedChat(String(chat.chat_id))} style={{ ...control, textAlign: 'left', cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#344054' : '#182230', borderColor: String(chat.chat_id) === selectedChat ? '#f97316' : '#475467' }}>
