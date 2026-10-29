@@ -367,20 +367,20 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const tokens: string[] = [];
     const hold = (html: string) => {
-      const token = '\\u0000' + tokens.length + '\\u0000';
+      const token = '@@TG_FORMAT_' + tokens.length + '@@';
       tokens.push(html);
       return token;
     };
     let html = escaped;
-    html = html.replace(/\\x60([^\\n]+?)\\x60/g, (_m, text) => hold('<code>' + text + '</code>'));
-    html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, (_m, label, url) => hold('<a href="' + url + '">' + label + '</a>'));
-    html = html.replace(/\\|\\|([^\\n]+?)\\|\\|/g, (_m, text) => hold('<tg-spoiler>' + text + '</tg-spoiler>'));
-    html = html.replace(/\\*\\*([^\\n]+?)\\*\\*/g, (_m, text) => hold('<b>' + text + '</b>'));
-    html = html.replace(/__([^\\n]+?)__/g, (_m, text) => hold('<i>' + text + '</i>'));
-    html = html.replace(/\\+\\+([^\\n]+?)\\+\\+/g, (_m, text) => hold('<u>' + text + '</u>'));
-    html = html.replace(/~~([^\\n]+?)~~/g, (_m, text) => hold('<s>' + text + '</s>'));
+    html = html.replace(/\x60([^\x60\n]+?)\x60/g, (_m, text) => hold('<code>' + text + '</code>'));
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, label, url) => hold('<a href="' + url + '">' + label + '</a>'));
+    html = html.replace(/\|\|([^\n]+?)\|\|/g, (_m, text) => hold('<tg-spoiler>' + text + '</tg-spoiler>'));
+    html = html.replace(/\*\*([^\n]+?)\*\*/g, (_m, text) => hold('<b>' + text + '</b>'));
+    html = html.replace(/\*([^*\n]+?)\*/g, (_m, text) => hold('<i>' + text + '</i>'));
+    html = html.replace(/__([^\n]+?)__/g, (_m, text) => hold('<u>' + text + '</u>'));
+    html = html.replace(/~~([^\n]+?)~~/g, (_m, text) => hold('<s>' + text + '</s>'));
     html = html.replace(/^&gt; ?(.+)$/gm, (_m, text) => hold('<blockquote>' + text + '</blockquote>'));
-    return html.replace(/\\u0000(\\d+)\\u0000/g, (_m, index) => tokens[Number(index)]);
+    return html.replace(/@@TG_FORMAT_(\d+)@@/g, (_m, index) => tokens[Number(index)]);
   }
 
   function insertEmoji(emoji: string) {
@@ -405,7 +405,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       setNotice('Links must start with https:// or http://.');
       return;
     }
-    insertComposerMarkup('<a href="' + safeUrl + '">', '</a>', 'link text');
+    insertComposerMarkup('[', '](' + safeUrl + ')', 'link text');
   }
 
   async function queueReply(event: FormEvent) {
@@ -522,8 +522,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           <form className="telegram-composer" onSubmit={queueReply} style={{ padding: '10px 14px 12px', borderTop: '1px solid #26272d', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {formatMenuOpen && <div className="telegram-format-toolbar" role="toolbar" aria-label="Message formatting">
               <button type="button" title="Bold" aria-label="Bold" onClick={() => insertComposerMarkup('**')}><strong>B</strong></button>
-              <button type="button" title="Italic" aria-label="Italic" onClick={() => insertComposerMarkup('__')}><em>I</em></button>
-              <button type="button" title="Underline" aria-label="Underline" onClick={() => insertComposerMarkup('++')}><u>U</u></button>
+              <button type="button" title="Italic" aria-label="Italic" onClick={() => insertComposerMarkup('*')}><em>I</em></button>
+              <button type="button" title="Underline" aria-label="Underline" onClick={() => insertComposerMarkup('__')}><u>U</u></button>
               <button type="button" title="Strikethrough" aria-label="Strikethrough" onClick={() => insertComposerMarkup('~~')}><s>S</s></button>
               <button type="button" title="Monospace" aria-label="Monospace" onClick={() => insertComposerMarkup('`')}><span style={{fontFamily:'monospace'}}> &lt;/&gt; </span></button>
               <button type="button" title="Spoiler" aria-label="Spoiler" onClick={() => insertComposerMarkup('||')}>◼◼</button>
