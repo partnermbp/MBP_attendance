@@ -454,7 +454,6 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
           </form>
           <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely. Use Sync now to request an immediate worker run, or wait for the five-minute scheduled poll.</div>
-          </div>
         </> : <div style={{ padding: 18, ...mutedStyle }}>Select a conversation to view its messages.</div>}
       </div>
     </div>
