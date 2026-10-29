@@ -87,3 +87,28 @@ h1 { margin: 9px 0 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -1px; }
   .welcome { padding: 22px; }
   .welcome-icon { display: none; }
 }
+
+
+/* Consistent physical feedback for buttons across the CRM, including inline-styled controls. */
+button {
+  transition: filter 100ms ease, transform 100ms ease, box-shadow 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled):active {
+  filter: brightness(.78);
+  transform: translateY(1px) scale(.985);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .28);
+}
+button:focus-visible {
+  outline: 2px solid #ffb36b;
+  outline-offset: 2px;
+}
+.button-action-feedback {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+  color: #75e0a7;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+}

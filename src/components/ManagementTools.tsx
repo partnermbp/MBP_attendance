@@ -66,6 +66,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [loading, setLoading] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [assignmentNotice, setAssignmentNotice] = useState('');
   const [activeMedia, setActiveMedia] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [mediaLoading, setMediaLoading] = useState('');
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
@@ -191,28 +192,29 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
 
   async function addAssignment() {
     if (!supabase || !managerId || !employeeId) return;
+    setNotice('');
     const existing = assignments.some(a => a.manager_id === managerId && a.employee_id === employeeId);
     if (existing) {
-      setNotice('This employee is already assigned under the selected manager.');
+      setAssignmentNotice('This employee is already assigned under the selected manager.');
       return;
     }
     const manager = profiles.find(p => p.id === managerId);
     const employee = profiles.find(p => p.id === employeeId);
     const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
     if (!manager || !employee || rank(manager.role) <= rank(employee.role) || rank(manager.role) === 0 || rank(employee.role) === 0) {
-      setNotice('Invalid hierarchy: a manager can only be assigned employees below their own role. Team Leaders cannot be assigned under Senior, Middle, or Junior managers; Telemarketing is a separate track.');
+      setAssignmentNotice('Invalid hierarchy: a manager can only be assigned employees below their own role. Team Leaders cannot be assigned under Senior, Middle, or Junior managers; Telemarketing is a separate track.');
       return;
     }
-    setLoading(true); setNotice('');
+    setLoading(true); setAssignmentNotice('');
     const { error } = await supabase.from('manager_employee_assignments').insert({
       manager_id: managerId, employee_id: employeeId, created_by: profile?.id,
     });
     if (error) {
       const detail = error.message.toLowerCase();
-      setNotice(detail.includes('duplicate key') || detail.includes('already exists')
+      setAssignmentNotice(detail.includes('duplicate key') || detail.includes('already exists')
         ? 'This employee is already assigned under the selected manager.'
         : 'Could not save assignment: ' + error.message);
-    } else { setNotice('Assignment saved.'); await load(); }
+    } else { setAssignmentNotice('Assignment saved.'); await load(); }
     setLoading(false);
   }
 
@@ -294,7 +296,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           return !managerId || Boolean(selectedManager && rank(selectedManager.role) > rank(p.role) && rank(p.role) > 0);
         }).map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
       </div>
-      <button type="button" style={{ ...button, marginTop: 12 }} disabled={loading || !managerId || !employeeId} onClick={() => void addAssignment()}>Save assignment</button>
+      {assignmentNotice && <p role="status" aria-live="polite" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4, color: assignmentNotice === 'Assignment saved.' ? '#75e0a7' : '#fda29b', overflowWrap: 'anywhere' }}>{assignmentNotice}</p>}
+      <button type="button" style={{ ...button, marginTop: 8 }} disabled={loading || !managerId || !employeeId} onClick={() => void addAssignment()}>Save assignment</button>
       <div style={{ overflowX: 'auto', marginTop: 14 }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr><th style={cell}>Manager</th><th style={cell}>Employee</th><th style={cell}>Assigned</th><th style={cell}>Action</th></tr></thead>
         <tbody>{assignments.map(a => <tr key={a.manager_id + ':' + a.employee_id}><td style={cell}>{personName(a.manager_id)}</td><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{new Date(a.created_at).toLocaleDateString()}</td><td style={cell}><button type="button" style={{ ...button, background: '#b42318' }} disabled={loading} onClick={() => void removeAssignment(a)}>Remove</button></td></tr>)}</tbody>
