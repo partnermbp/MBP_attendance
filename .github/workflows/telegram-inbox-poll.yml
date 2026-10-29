@@ -1,0 +1,44 @@
+name: Telegram human-account inbox poll
+
+on:
+  schedule:
+    # GitHub-hosted runners are temporary. This is a best-effort polling interval,
+    # not a real-time or guaranteed schedule.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-human-account-inbox-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/telegram/requirements.txt
+
+      - name: Install Telegram client
+        run: python -m pip install -r scripts/telegram/requirements.txt
+
+      - name: Poll inbox and deliver queued replies
+        run: python scripts/telegram/poll_inbox.py
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_MAX_DIALOGS: "100"
+          TELEGRAM_MESSAGES_PER_DIALOG: "30"
