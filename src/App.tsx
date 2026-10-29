@@ -411,13 +411,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
           if (selectedChatId !== null) await loadMessages(selectedChatId, false);
           setNotice('Sync requested. Waiting for the worker to finish…');
           setSyncing(true);
-          window.setTimeout(() => {
-            void (async () => {
-              await Promise.all([loadChats(), loadDeliveryStatuses()]);
-              if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-              setNotice('Sync requested. Waiting for the worker to finish…');
-            })();
-          }, 8000);
+
         } catch (error) {
           setNotice('Could not start Telegram sync. Check that the secure refresh function is deployed and configured.');
         } finally {
