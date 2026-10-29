@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -38,7 +38,10 @@ type Profile = {
 type ManagerAssignment = { manager_id: string; employee_id: string };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security';
+type CrmPage = 'dashboard' | 'attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'settings';
+type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
+const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
+function loadCrmPreferences(): CrmPreferences { try { const raw = localStorage.getItem('mbp_crm_preferences'); return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES; } catch { return DEFAULT_PREFERENCES; } }
 type PasswordFlow = 'invite' | 'recovery' | null;
 
 type Coordinates = {
@@ -365,6 +368,10 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
+  const [preferences, setPreferences] = useState<CrmPreferences>(loadCrmPreferences);
+  const [settingsNotice, setSettingsNotice] = useState('');
+  const updatePreference = <K extends keyof CrmPreferences>(key: K, value: CrmPreferences[K]) => { setPreferences(current => { const next = { ...current, [key]: value }; try { localStorage.setItem('mbp_crm_preferences', JSON.stringify(next)); } catch { /* Browser storage may be disabled. */ } return next; }); setSettingsNotice('Your preferences have been saved on this device.'); };
+  useEffect(() => { const root = document.documentElement; root.dataset.crmTheme = preferences.theme; root.dataset.crmAccent = preferences.accent; root.classList.toggle('crm-compact', preferences.compact); root.classList.toggle('crm-reduced-motion', preferences.reducedMotion); root.classList.toggle('crm-night-light', preferences.nightLight); document.body.dataset.crmTheme = preferences.theme; }, [preferences]);
   const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(true);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
@@ -1432,7 +1439,7 @@ export default function App() {
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><div key={item.id}>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam))).map(item=><div key={item.id}>
                 <button type="button" title={item.label} aria-current={activePage===item.id?'page':undefined} onClick={()=>{if(item.id==='team'){setTeamMenuOpen(v=>!v);}else if(item.id==='telegram'){setTelegramMenuOpen(v=>!v);}else setActivePage(item.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:(activePage===item.id||activePage.startsWith('team-')&&item.id==='team'||activePage.startsWith('telegram-')&&item.id==='telegram')?'#29201c':'transparent',color:activePage===item.id||activePage.startsWith('team-')&&item.id==='team'?'#ffb17c':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{(item.id==='team'||item.id==='telegram')&&((item.id==='team'?teamMenuOpen:telegramMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
                 {item.id==='team'&&navOpen&&teamMenuOpen&&(isAdmin||canManageTeam)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
                   {([{label:'Employee role management',id:'team-roles' as CrmPage,icon:<UserCog size={15}/>},{label:'Link Telegram members',id:'team-links' as CrmPage,icon:<Link2 size={15}/>},{label:'Assign employees to managers',id:'team-assignments' as CrmPage,icon:<GitBranch size={15}/>},{label:isAdmin?'Admin invitation':'Employee invitations',id:'team-invitations' as CrmPage,icon:<UserPlus size={15}/>}]).filter(sub=>isAdmin||sub.id==='team-invitations').map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'#34261f':'transparent',color:activePage===sub.id?'#ffc092':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
@@ -1447,7 +1454,44 @@ export default function App() {
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',settings:'Settings'}[activePage]}</strong></div>
+
+          {activePage === 'settings' && <>
+            <h1>CRM Settings</h1>
+            <p style={{color:'#98a2b3',maxWidth:760,lineHeight:1.6}}>Personalize the appearance and everyday behaviour of this CRM. Preferences are saved in this browser and apply immediately.</p>
+            <section className="crm-settings-section">
+              <div className="crm-settings-heading"><Palette size={20}/><div><h2>Appearance</h2><p>Choose your theme and accent colour.</p></div></div>
+              <div className="crm-settings-choice-grid">
+                <button type="button" className={'crm-settings-choice'+(preferences.theme==='night'?' is-selected':'')} aria-pressed={preferences.theme==='night'} onClick={()=>updatePreference('theme','night')}><Moon size={20}/><strong>Night mode</strong><span>Dark surfaces, easier on the eyes in low light.</span></button>
+                <button type="button" className={'crm-settings-choice'+(preferences.theme==='day'?' is-selected':'')} aria-pressed={preferences.theme==='day'} onClick={()=>updatePreference('theme','day')}><Sun size={20}/><strong>Day mode</strong><span>Light surfaces for bright environments.</span></button>
+              </div>
+              <h3 className="crm-settings-subheading">Accent colour</h3>
+              <div className="crm-settings-choice-grid crm-accent-grid">
+                <button type="button" className={'crm-settings-choice'+(preferences.accent==='orange'?' is-selected':'')} aria-pressed={preferences.accent==='orange'} onClick={()=>updatePreference('accent','orange')}><span className="crm-accent-swatch crm-accent-orange"/><strong>Orange ember</strong><span>Original CRM colour set</span></button>
+                <button type="button" className={'crm-settings-choice'+(preferences.accent==='blue'?' is-selected':'')} aria-pressed={preferences.accent==='blue'} onClick={()=>updatePreference('accent','blue')}><span className="crm-accent-swatch crm-accent-blue"/><strong>Ocean blue</strong><span>Cool blue accent colour</span></button>
+              </div>
+              <label className="crm-settings-toggle"><span><Eye size={18}/><span><strong>Night light</strong><small>Apply a gentle warm screen tint to reduce blue light.</small></span></span><input type="checkbox" checked={preferences.nightLight} onChange={event=>updatePreference('nightLight',event.target.checked)}/></label>
+            </section>
+            <section className="crm-settings-section">
+              <div className="crm-settings-heading"><Monitor size={20}/><div><h2>Display & accessibility</h2><p>Adjust spacing and motion for your device.</p></div></div>
+              <label className="crm-settings-toggle"><span><span><strong>Compact layout</strong><small>Reduce spacing in CRM panels and tables to show more information.</small></span></span><input type="checkbox" checked={preferences.compact} onChange={event=>updatePreference('compact',event.target.checked)}/></label>
+              <label className="crm-settings-toggle"><span><span><strong>Reduce motion</strong><small>Turn off decorative transitions and movement effects.</small></span></span><input type="checkbox" checked={preferences.reducedMotion} onChange={event=>updatePreference('reducedMotion',event.target.checked)}/></label>
+            </section>
+            <section className="crm-settings-section">
+              <div className="crm-settings-heading"><Clock3 size={20}/><div><h2>Regional preferences</h2><p>Choose a preferred time zone for supported date/time views.</p></div></div>
+              <label className="crm-settings-field">Time zone
+                <select value={preferences.timezone} onChange={event=>updatePreference('timezone',event.target.value)}>
+                  <option value="local">Use this device's time zone</option><option value="UTC">UTC</option><option value="Asia/Kolkata">India — Asia/Kolkata</option><option value="Asia/Dhaka">Bangladesh — Asia/Dhaka</option><option value="Europe/Moscow">Moscow — Europe/Moscow</option>
+                </select>
+              </label>
+              <p className="crm-settings-help">The selected preference is saved on this device. Existing attendance records retain their stored work time zone.</p>
+            </section>
+            <section className="crm-settings-section crm-settings-reset">
+              <div><h2>Reset preferences</h2><p>Restore the original night mode, orange accent, and default display options.</p></div>
+              <button type="button" onClick={()=>{setPreferences({...DEFAULT_PREFERENCES});try{localStorage.setItem('mbp_crm_preferences',JSON.stringify(DEFAULT_PREFERENCES));}catch{}setSettingsNotice('Default preferences restored.');}}><RotateCcw size={16}/> Restore defaults</button>
+            </section>
+            {settingsNotice && <p className="crm-settings-notice" role="status">{settingsNotice}</p>}
+          </>}
           {activePage === 'dashboard' && <>
           <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
           <p
