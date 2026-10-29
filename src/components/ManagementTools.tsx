@@ -1,3 +1,4 @@
+import TelegramHumanInbox from './TelegramHumanInbox';
 import { useEffect, useState } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -392,6 +393,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     </>}
     {page !== 'team' && <>
     <hr style={{ borderColor: '#344054', margin: '24px 0' }}/>
+    <TelegramHumanInbox supabase={supabase} profile={profile} profiles={profiles} />
     <h2>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
     <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #b54708', borderRadius: 10, background: '#261b12' }}>
