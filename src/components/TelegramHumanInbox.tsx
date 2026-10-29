@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -20,6 +20,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   profiles: Person[];
 }) {
   const [chats, setChats] = useState<InboxChat[]>([]);
+  const chatsRef = useRef<InboxChat[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
@@ -49,7 +50,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       setChats([]);
     } else {
       const rows = (chatResult.data ?? []) as InboxChat[];
-      const previousById = new Map(chats.map(chat => [chat.chat_id, chat]));
+      const previousById = new Map(chatsRef.current.map(chat => [chat.chat_id, chat]));
       const incomingCounts: Record<string, number> = {};
       await Promise.all(rows.map(async chat => {
         const previous = previousById.get(chat.chat_id);
@@ -65,13 +66,14 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           return next;
         });
       }
+      chatsRef.current = rows;
       setChats(rows);
       if (!selectedChat && rows.length) setSelectedChat(String(rows[0].chat_id));
     }
     if (assignmentResult.error) setNotice(current => current || 'Could not load inbox assignments: ' + assignmentResult.error.message);
     else setAssignments((assignmentResult.data ?? []) as InboxAssignment[]);
     setLoading(false);
-  }, [supabase, profile?.id, profile?.active, selectedChat, chats]);
+  }, [supabase, profile?.id, profile?.active, selectedChat]);
 
   const refreshConversation = useCallback(async () => {
     if (!supabase || !selectedChat || !profile?.active) {
