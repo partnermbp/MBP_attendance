@@ -314,18 +314,32 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
   const [sending, setSending] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState('');
-  const [deliveryStatuses, setDeliveryStatuses] = useState<Array<{ id: string; status: string; error_message: string | null; created_at: string; message_text: string }>>([]);
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
 
-  const loadDeliveryStatuses = useCallback(async () => {
-    if (!client || !profile?.id) return;
-    let query = client.from('telegram_inbox_outbox')
-      .select('id,status,error_message,created_at,message_text')
-      .order('created_at', { ascending: false }).limit(10);
-    if (!isAdmin) query = query.eq('requested_by', profile.id);
-    const { data, error } = await query;
-    if (!error) setDeliveryStatuses((data ?? []) as Array<{ id: string; status: string; error_message: string | null; created_at: string; message_text: string }>);
-  }, [client, profile?.id, isAdmin]);
+  const checkWorkerStatus = useCallback(async () => {
+    if (!client) return null;
+    const { data, error } = await client.functions.invoke('telegram-inbox-status', { body: {} });
+    if (error || data?.error) return null;
+    return Boolean(data?.running);
+  }, [client]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      const running = await checkWorkerStatus();
+      if (cancelled || running === null) return;
+      setSyncing(running);
+      if (!running) {
+        await loadChats();
+        if (selectedChatId !== null) await loadMessages(selectedChatId, false);
+      } else {
+        timer = window.setTimeout(() => { void poll(); }, 3000);
+      }
+    };
+    void poll();
+    return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [checkWorkerStatus, loadChats, loadMessages, selectedChatId]);
 
   const loadChats = useCallback(async () => {
     if (!client) { setNotice('Supabase is not configured in this deployment.'); setLoadingChats(false); return; }
@@ -353,7 +367,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     setLoadingMessages(false);
   }, [client]);
 
-  useEffect(() => { void loadChats(); void loadDeliveryStatuses(); }, [loadChats, loadDeliveryStatuses]);
+  useEffect(() => { void loadChats(); }, [loadChats]);
   useEffect(() => {
     if (selectedChatId === null) { setMessages([]); return; }
     void loadMessages(selectedChatId);
@@ -361,9 +375,9 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     return () => window.clearInterval(timer);
   }, [selectedChatId, loadMessages]);
   useEffect(() => {
-    const timer = window.setInterval(() => { void loadChats(); void loadDeliveryStatuses(); }, 15000);
+    const timer = window.setInterval(() => { void loadChats(); }, 15000);
     return () => window.clearInterval(timer);
-  }, [loadChats, loadDeliveryStatuses]);
+  }, [loadChats]);
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -393,22 +407,24 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
           const { data, error } = await client.functions.invoke('telegram-inbox-refresh', { body: {} });
           if (error) throw error;
           if (data?.error) throw new Error(data.error);
-          await Promise.all([loadChats(), loadDeliveryStatuses()]);
+          await loadChats();
           if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-          setNotice('Sync requested. Incoming messages and queued replies will update as the worker runs.');
+          setNotice('Sync requested. Waiting for the worker to finish…');
+          setSyncing(true);
           window.setTimeout(() => {
             void (async () => {
               await Promise.all([loadChats(), loadDeliveryStatuses()]);
               if (selectedChatId !== null) await loadMessages(selectedChatId, false);
-              setNotice('Sync requested. Check delivery status below; the worker may take a short time to start.');
+              setNotice('Sync requested. Waiting for the worker to finish…');
             })();
           }, 8000);
         } catch (error) {
           setNotice('Could not start Telegram sync. Check that the secure refresh function is deployed and configured.');
         } finally {
-          setSyncing(false);
+          const running = await checkWorkerStatus();
+          setSyncing(running === null ? false : running);
         }
-      }}>{syncing ? 'Requesting…' : 'Sync now'}</button>
+      }}>{syncing ? 'Sync running…' : 'Sync now'}</button>
     </header>
     {notice && <p role="alert" style={{ color: '#fda29b', padding: '0 16px' }}>{notice}</p>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 0.8fr) minmax(260px, 1.7fr)', minHeight: 420 }}>
@@ -436,19 +452,7 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
             <button type="submit" disabled={!draft.trim() || sending} style={{ ...actionStyle, opacity: !draft.trim() || sending ? 0.55 : 1 }}>{sending ? 'Queueing…' : 'Send'}</button>
           </form>
           <div style={{ ...mutedStyle, padding: '0 14px 12px' }}>Replies are queued securely. Use Sync now to request an immediate worker run, or wait for the five-minute scheduled poll.</div>
-          <div style={{ padding: '0 14px 14px' }}>
-            <strong style={{ display: 'block', marginBottom: 8 }}>Recent reply delivery</strong>
-            {deliveryStatuses.length === 0 && <p style={mutedStyle}>No reply attempts found yet.</p>}
-            {deliveryStatuses.map(item => <div key={item.id} style={{ padding: '9px 10px', marginBottom: 7, border: '1px solid #344054', borderRadius: 8 }}>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <span style={{ overflowWrap: 'anywhere' }}>{item.message_text}</span>
-                <strong style={{ color: statusColor(item.status) }}>{item.status.toUpperCase()}</strong>
-              </div>
-              <div style={mutedStyle}>{new Date(item.created_at).toLocaleString()}</div>
-              {item.error_message && <div style={{ color: '#fda29b', marginTop: 5, overflowWrap: 'anywhere' }}>Error: {item.error_message}</div>}
-            </div>)}
-            <button type="button" style={actionStyle} onClick={() => void loadDeliveryStatuses()}>Refresh delivery status</button>
-          </div>
+div>
         </> : <div style={{ padding: 18, ...mutedStyle }}>Select a conversation to view its messages.</div>}
       </div>
     </div>
