@@ -23,6 +23,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const chatsRef = useRef<InboxChat[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -119,6 +120,13 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   useEffect(() => { void refreshChats(); }, [refreshChats]);
   useEffect(() => { void refreshConversation(); }, [refreshConversation]);
+
+  // Keep the conversation pinned to the newest message when opening a chat or loading updates.
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [selectedChat, messages, pendingReplies]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -304,7 +312,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               {!selectedAssignments.length && <span style={muted}>Not assigned yet.</span>}
             </div>
           </div>}
-          <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
+          <div ref={messagesContainerRef} style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
             {messages.map(message => <article key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.message_text}</div>}
