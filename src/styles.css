@@ -440,3 +440,35 @@ input, textarea, select { font: inherit; }
   .telegram-chat-strip-heading { gap: 5px !important; }
   .telegram-conversation-list > .telegram-chat-strip-heading { flex-basis: 108px !important; }
 }
+
+
+/* Telegram-like rich-text composer and emoji panel. */
+.telegram-format-toolbar {
+  display:flex; align-items:center; flex-wrap:wrap; gap:4px; padding:5px;
+  border:1px solid #292b32; border-radius:10px; background:#14161b;
+}
+.telegram-format-toolbar button {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:32px; min-height:32px !important; padding:0;
+  border:1px solid transparent; border-radius:7px; background:transparent;
+  color:#d7dce5; cursor:pointer; font-size:16px;
+}
+.telegram-format-toolbar button:hover,
+.telegram-format-toolbar button.is-active { background:#292d36; border-color:#424754; color:#8bc8ff; }
+.telegram-emoji-picker {
+  display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:3px;
+  max-height:190px; overflow-y:auto; padding:8px; border:1px solid #30343d;
+  border-radius:10px; background:#17191f; box-shadow:0 8px 24px #0005;
+}
+.telegram-emoji-picker button {
+  min-height:36px !important; padding:3px; border:0; border-radius:7px;
+  background:transparent; cursor:pointer; font-size:22px; line-height:1;
+}
+.telegram-emoji-picker button:hover { background:#30343d; }
+.telegram-composer textarea { min-height:74px; line-height:1.5; }
+@media (max-width:760px) {
+  .telegram-format-toolbar { gap:2px; padding:4px; }
+  .telegram-format-toolbar button { width:32px; height:32px; min-height:32px !important; }
+  .telegram-emoji-picker { grid-template-columns:repeat(7,minmax(0,1fr)); max-height:160px; }
+  .telegram-human-inbox.is-mobile-expanded .telegram-emoji-picker { max-height:22vh; }
+}
