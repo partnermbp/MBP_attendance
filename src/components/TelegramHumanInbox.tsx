@@ -55,7 +55,6 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const refreshConversation = useCallback(async () => {
     if (!supabase || !selectedChat || !profile?.active) {
       setMessages([]);
-      setOutbox([]);
       return;
     }
     const chatId = Number(selectedChat);
