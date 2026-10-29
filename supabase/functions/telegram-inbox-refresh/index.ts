@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
       return json(500, { error: "Could not verify your CRM permissions." });
     }
     const role = String(profile?.role ?? "").toLowerCase();
-    if (!profile || profile.active !== true || !["admin", "manager", "team_manager"].includes(role)) {
+    if (!profile || profile.active !== true || !["admin", "junior", "middle", "senior", "team leader", "team_leader"].includes(role)) {
       return json(403, { error: "Your active CRM role is not permitted to start a Telegram sync." });
     }
 
