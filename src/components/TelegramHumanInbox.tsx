@@ -64,7 +64,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [selectedChat, setSelectedChat] = useState('');
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);\n  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -336,14 +336,51 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     const start = textarea?.selectionStart ?? draft.length;
     const end = textarea?.selectionEnd ?? draft.length;
     const selectedText = draft.slice(start, end) || placeholder;
-    setDraft(draft.slice(0, start) + openTag + selectedText + closeTag + draft.slice(end));
-    setEmojiPickerOpen(false);
+    const nextDraft = draft.slice(0, start) + openTag + selectedText + closeTag + draft.slice(end);
+    setDraft(nextDraft);
+    setFormatMenuOpen(false);
     requestAnimationFrame(() => {
       if (!draftRef.current) return;
       draftRef.current.focus();
       const cursor = start + openTag.length + selectedText.length + closeTag.length;
       draftRef.current.setSelectionRange(cursor, cursor);
     });
+  }
+
+  function insertQuote() {
+    const textarea = draftRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const end = textarea?.selectionEnd ?? draft.length;
+    const selectedText = draft.slice(start, end) || 'quoted text';
+    const quoted = selectedText.split('\\n').map(line => '> ' + line).join('\\n');
+    setDraft(draft.slice(0, start) + quoted + draft.slice(end));
+    setFormatMenuOpen(false);
+    requestAnimationFrame(() => {
+      if (!draftRef.current) return;
+      draftRef.current.focus();
+      const cursor = start + quoted.length;
+      draftRef.current.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function markdownToTelegramHtml(value: string): string {
+    const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const tokens: string[] = [];
+    const hold = (html: string) => {
+      const token = '\\u0000' + tokens.length + '\\u0000';
+      tokens.push(html);
+      return token;
+    };
+    let html = escaped;
+    html = html.replace(/\\x60([^\\n]+?)\\x60/g, (_m, text) => hold('<code>' + text + '</code>'));
+    html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, (_m, label, url) => hold('<a href="' + url + '">' + label + '</a>'));
+    html = html.replace(/\\|\\|([^\\n]+?)\\|\\|/g, (_m, text) => hold('<tg-spoiler>' + text + '</tg-spoiler>'));
+    html = html.replace(/\\*\\*([^\\n]+?)\\*\\*/g, (_m, text) => hold('<b>' + text + '</b>'));
+    html = html.replace(/__([^\\n]+?)__/g, (_m, text) => hold('<i>' + text + '</i>'));
+    html = html.replace(/\\+\\+([^\\n]+?)\\+\\+/g, (_m, text) => hold('<u>' + text + '</u>'));
+    html = html.replace(/~~([^\\n]+?)~~/g, (_m, text) => hold('<s>' + text + '</s>'));
+    html = html.replace(/^&gt; ?(.+)$/gm, (_m, text) => hold('<blockquote>' + text + '</blockquote>'));
+    return html.replace(/\\u0000(\\d+)\\u0000/g, (_m, index) => tokens[Number(index)]);
   }
 
   function insertEmoji(emoji: string) {
@@ -376,7 +413,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     if (!supabase || !profile?.id || !selectedChat || (!draft.trim() && !attachment)) return;
     setSending(true);
     setNotice('');
-    const textToSend = draft.trim();
+    const textToSend = markdownToTelegramHtml(draft.trim());
     const queuedAt = new Date().toISOString();
     const chatId = Number(selectedChat);
     let attachmentPath: string | null = null;
@@ -483,22 +520,23 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
           </div>
           <form className="telegram-composer" onSubmit={queueReply} style={{ padding: '10px 14px 12px', borderTop: '1px solid #26272d', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className="telegram-format-toolbar" role="toolbar" aria-label="Message formatting">
-              <button type="button" title="Bold" aria-label="Bold" onClick={() => insertComposerMarkup('<b>', '</b>')}><strong>B</strong></button>
-              <button type="button" title="Italic" aria-label="Italic" onClick={() => insertComposerMarkup('<i>', '</i>')}><em>I</em></button>
-              <button type="button" title="Underline" aria-label="Underline" onClick={() => insertComposerMarkup('<u>', '</u>')}><u>U</u></button>
-              <button type="button" title="Strikethrough" aria-label="Strikethrough" onClick={() => insertComposerMarkup('<s>', '</s>')}><s>S</s></button>
-              <button type="button" title="Monospace" aria-label="Monospace" onClick={() => insertComposerMarkup('<code>', '</code>')}><span style={{fontFamily:'monospace'}}> &lt;/&gt; </span></button>
-              <button type="button" title="Spoiler" aria-label="Spoiler" onClick={() => insertComposerMarkup('<tg-spoiler>', '</tg-spoiler>')}>◼◼</button>
-              <button type="button" title="Quote" aria-label="Quote" onClick={() => insertComposerMarkup('<blockquote>', '</blockquote>')}>❝</button>
+            {formatMenuOpen && <div className="telegram-format-toolbar" role="toolbar" aria-label="Message formatting">
+              <button type="button" title="Bold" aria-label="Bold" onClick={() => insertComposerMarkup('**')}><strong>B</strong></button>
+              <button type="button" title="Italic" aria-label="Italic" onClick={() => insertComposerMarkup('__')}><em>I</em></button>
+              <button type="button" title="Underline" aria-label="Underline" onClick={() => insertComposerMarkup('++')}><u>U</u></button>
+              <button type="button" title="Strikethrough" aria-label="Strikethrough" onClick={() => insertComposerMarkup('~~')}><s>S</s></button>
+              <button type="button" title="Monospace" aria-label="Monospace" onClick={() => insertComposerMarkup('`')}><span style={{fontFamily:'monospace'}}> &lt;/&gt; </span></button>
+              <button type="button" title="Spoiler" aria-label="Spoiler" onClick={() => insertComposerMarkup('||')}>◼◼</button>
+              <button type="button" title="Quote" aria-label="Quote" onClick={insertQuote}>❝</button>
               <button type="button" title="Add link" aria-label="Add link" onClick={insertLink}>🔗</button>
-              <button type="button" className={emojiPickerOpen ? 'is-active' : ''} title="Emoji" aria-label="Choose emoji" aria-expanded={emojiPickerOpen} onClick={() => setEmojiPickerOpen(value => !value)}>☺</button>
-            </div>
+            </div>}
             {emojiPickerOpen && <div className="telegram-emoji-picker" role="group" aria-label="Emoji picker">
               {['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😍','🥰','😘','😉','😎','🤔','🙌','👏','👍','👎','🙏','❤️','🔥','🎉','✨','💯','✅','❌','⚡','💰','📌','🚀','👋','💬','😢','😡','🤝','💪','🌟','🎯','🥳','🤗','😴','💡','📈','🫡','🤩'].map(emoji => <button type="button" key={emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}
             </div>}
             <textarea ref={draftRef} aria-label="Reply to Telegram customer" value={draft} onChange={event => setDraft(event.target.value)} maxLength={12000} rows={3} placeholder="Message…" style={{ ...control, flex: 1, resize: 'vertical', borderColor: '#292b32', background: '#111216' }} />
             <div className="telegram-composer-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button type="button" className={formatMenuOpen ? 'telegram-popup-toggle is-active' : 'telegram-popup-toggle'} title="Text formatting" aria-label="Text formatting" aria-expanded={formatMenuOpen} onClick={() => { setFormatMenuOpen(value => !value); setEmojiPickerOpen(false); }}>Aa</button>
+              <button type="button" className={emojiPickerOpen ? 'telegram-popup-toggle is-active' : 'telegram-popup-toggle'} title="Emoji" aria-label="Choose emoji" aria-expanded={emojiPickerOpen} onClick={() => { setEmojiPickerOpen(value => !value); setFormatMenuOpen(false); }}>☺</button>
               <input ref={fileInputRef} type="file" aria-label="Choose attachment" onChange={event => setAttachment(event.target.files?.[0] ?? null)} style={{ display: 'none' }} />
               <button type="button" title="Attach file" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} style={{ width: 38, height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #475467', borderRadius: 8, background: '#1d2939', color: '#e4e7ec', cursor: 'pointer', flex: '0 0 auto' }}>
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.9 1.9 0 0 1-2.6-2.6l8.5-8.5"/></svg>
