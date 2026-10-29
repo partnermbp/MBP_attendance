@@ -3,8 +3,8 @@ name: Telegram human-account inbox poll
 on:
   schedule:
     # GitHub-hosted runners are temporary. This is a best-effort polling interval,
-    # not a real-time or guaranteed schedule.
-    - cron: "*/10 * * * *"
+    # not a real-time or guaranteed schedule; the worker runs approximately every five minutes.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
