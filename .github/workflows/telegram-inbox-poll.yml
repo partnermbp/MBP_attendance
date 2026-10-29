@@ -1,6 +1,11 @@
 name: Telegram human-account inbox poll
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/telegram/**'
+      - '.github/workflows/telegram-inbox-poll.yml'
   schedule:
     # GitHub-hosted runners are temporary. This is a best-effort polling interval,
     # not a real-time or guaranteed schedule; the worker runs approximately every five minutes.
