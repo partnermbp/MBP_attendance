@@ -137,6 +137,7 @@ async def main() -> None:
                 "title": title[:255],
                 "username": username,
                 "last_message_id": last_id,
+                "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                 "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
                 "updated_at": iso_datetime(datetime.now(timezone.utc)),
             }, "chat_id")
@@ -190,6 +191,7 @@ async def main() -> None:
                 "title": title[:255],
                 "username": username,
                 "last_message_id": newest_id,
+                "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                 "last_message_at": latest_date,
                 "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
                 "updated_at": iso_datetime(datetime.now(timezone.utc)),
