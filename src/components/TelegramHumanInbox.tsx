@@ -27,6 +27,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const preserveScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const olderCacheTimerRef = useRef<number | null>(null);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const [assignments, setAssignments] = useState<InboxAssignment[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -163,6 +164,18 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
         return [...combined.values()].sort((a, b) => a.message_id - b.message_id);
       });
       setHasMoreMessages(older.length === MESSAGE_PAGE_SIZE);
+      if (older.length) {
+        if (olderCacheTimerRef.current !== null) window.clearTimeout(olderCacheTimerRef.current);
+        olderCacheTimerRef.current = window.setTimeout(() => {
+          setMessages(current => current
+            .filter(message => message.chat_id === chatId)
+            .sort((a, b) => b.message_id - a.message_id)
+            .slice(0, MESSAGE_PAGE_SIZE)
+            .sort((a, b) => a.message_id - b.message_id));
+          setHasMoreMessages(true);
+          olderCacheTimerRef.current = null;
+        }, 60 * 60 * 1000);
+      }
     }
     setLoadingOlderMessages(false);
   }, [supabase, selectedChat, loadingOlderMessages, messages]);
@@ -344,7 +357,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
         <div style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Conversations ({chats.length})</div>
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
-        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
+        {chats.map(chat => <button key={chat.chat_id} type="button" onClick={() => { if (olderCacheTimerRef.current !== null) window.clearTimeout(olderCacheTimerRef.current); olderCacheTimerRef.current = null; setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{chat.title || chat.username || chat.chat_id}</strong>
             {(unreadCounts[String(chat.chat_id)] ?? 0) > 0 && <span aria-label={unreadCounts[String(chat.chat_id)] + ' new messages'} style={{ flex: '0 0 auto', minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f97316', color: '#fff', fontSize: 12, fontWeight: 800 }}>{unreadCounts[String(chat.chat_id)]}</span>}
