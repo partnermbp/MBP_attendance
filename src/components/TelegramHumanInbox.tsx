@@ -64,7 +64,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [selectedChat, setSelectedChat] = useState('');
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);\n  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [formatMenuOpen, setFormatMenuOpen] = useState(false);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
