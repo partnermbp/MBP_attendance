@@ -367,7 +367,11 @@ function TelegramHumanInbox({ client, profile }: { client: SupabaseClient | null
     let timer: number | undefined;
     const poll = async () => {
       const running = await checkWorkerStatus();
-      if (cancelled || running === null) return;
+      if (cancelled) return;
+      if (running === null) {
+        if (syncing) timer = window.setTimeout(() => { void poll(); }, 3000);
+        return;
+      }
       setSyncing(running);
       if (!running && syncing && syncRequestedAt !== null && Date.now() - syncRequestedAt < 10000) {
         timer = window.setTimeout(() => { void poll(); }, 3000);
