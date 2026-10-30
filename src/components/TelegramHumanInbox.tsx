@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -71,6 +72,10 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [groupParticipants, setGroupParticipants] = useState<any[]>([]);
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const searchPopupRef = useRef<HTMLDivElement>(null);
+  const participantsPopupRef = useRef<HTMLDivElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const groupTitleRef = useRef<HTMLButtonElement>(null);
+  const [overlayPosition, setOverlayPosition] = useState({ top: 100, left: 100, width: 320 });
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -513,15 +518,17 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     return () => { cancelled = true; };
   }, [supabase, selected?.chat_id, selected?.chat_type]);
   useEffect(() => {
-    if (!contactSearchOpen) return;
+    if (!contactSearchOpen && !participantsOpen) return;
     const closeOnOutside = (event: PointerEvent) => {
-      if (searchPopupRef.current && !searchPopupRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (contactSearchOpen && !searchPopupRef.current?.contains(target) && !searchTriggerRef.current?.contains(target)) {
         setContactSearchOpen(false); setContactSearch(''); setContactSearchBusy(false); setContactSearchDone(false);
       }
+      if (participantsOpen && !participantsPopupRef.current?.contains(target) && !groupTitleRef.current?.contains(target)) setParticipantsOpen(false);
     };
     document.addEventListener('pointerdown', closeOnOutside);
     return () => document.removeEventListener('pointerdown', closeOnOutside);
-  }, [contactSearchOpen]);
+  }, [contactSearchOpen, participantsOpen]);
   useEffect(() => { setParticipantsOpen(false); }, [selected?.chat_id]);
   const activeProfiles = profiles.filter(person => person.active && person.role.toLowerCase() !== 'admin');
 
@@ -533,16 +540,14 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
     <div className="telegram-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
       <aside className="telegram-conversation-list" style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
-        <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('private')} aria-pressed={chatFilter==='private'}>CHATS <span>({privateChatCount})</span></button><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('group')} aria-pressed={chatFilter==='group'}>GROUPS <span>({groupChatCount})</span></button><button className="telegram-search-trigger" type="button" title="Search contacts / start a new chat" aria-label="Search contacts" onClick={() => { setContactSearchOpen(true); setContactSearchDone(false); setContactSearch(''); }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button className="telegram-mobile-sync" type="button" aria-label={syncing ? 'Telegram sync running' : 'Sync Telegram chats'} title={syncing ? 'Sync running…' : 'Sync now'} disabled={loading || syncing} onClick={() => { void requestSync(); }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg></button><button className="telegram-mobile-expand" type="button" aria-label={mobileExpanded ? "Exit full-screen Telegram composer" : "Expand Telegram chat to full screen"} title={mobileExpanded ? "Exit full screen" : "Expand to full screen"} onClick={() => setMobileExpanded(value => !value)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{mobileExpanded ? <><path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M3 16h5v5"/><path d="M21 16h-5v5"/></> : <><path d="M8 3H3v5"/><path d="M16 3h5v5"/><path d="M3 16v5h5"/><path d="M21 16v5h-5"/></>}</svg></button></div>
-        {contactSearchOpen && <div className="telegram-contact-search-popover" ref={searchPopupRef}>
-          <form onSubmit={event => { event.preventDefault(); void startContactSearch(); }} className="telegram-contact-search-form">
-            <input autoFocus value={contactSearch} onChange={event => { setContactSearch(event.target.value); setContactSearchDone(false); }} placeholder="Phone number or @username" aria-label="Phone number or Telegram username" />
-            <button type="submit" disabled={!contactSearch.trim() || contactSearchBusy}>{contactSearchBusy ? '…' : 'Search'}</button>
-          </form>
-          {contactSearchBusy && <span style={muted}>Syncing Telegram contacts…</span>}
-          {contactSearchDone && contactMatches.length === 0 && <span style={muted}>No contacts found</span>}
-          {contactSearchDone && contactMatches.map(chat => <button className="telegram-contact-search-result" key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setMessages([]); }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}{chat.phone_number ? ' · +' + chat.phone_number : ''}</button>)}
-        </div>}
+        <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('private')} aria-pressed={chatFilter==='private'}>CHATS <span>({privateChatCount})</span></button><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('group')} aria-pressed={chatFilter==='group'}>GROUPS <span>({groupChatCount})</span></button><button className="telegram-search-trigger" ref={searchTriggerRef} type="button" title="Search contacts / start a new chat" aria-label="Search contacts" onClick={() => {
+          const rect = searchTriggerRef.current?.getBoundingClientRect();
+          if (rect) {
+            const width = Math.min(360, window.innerWidth - 24);
+            setOverlayPosition({ top: Math.min(rect.bottom + 8, window.innerHeight - 120), left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), width });
+          }
+          setParticipantsOpen(false); setContactSearchOpen(true); setContactSearchDone(false); setContactSearch('');
+        }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button className="telegram-mobile-sync" type="button" aria-label={syncing ? 'Telegram sync running' : 'Sync Telegram chats'} title={syncing ? 'Sync running…' : 'Sync now'} disabled={loading || syncing} onClick={() => { void requestSync(); }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg></button><button className="telegram-mobile-expand" type="button" aria-label={mobileExpanded ? "Exit full-screen Telegram composer" : "Expand Telegram chat to full screen"} title={mobileExpanded ? "Exit full screen" : "Expand to full screen"} onClick={() => setMobileExpanded(value => !value)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{mobileExpanded ? <><path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M3 16h5v5"/><path d="M21 16h-5v5"/></> : <><path d="M8 3H3v5"/><path d="M16 3h5v5"/><path d="M3 16v5h5"/><path d="M21 16v5h-5"/></>}</svg></button></div>
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
         {visibleChats.map(chat => <button className={"telegram-chat-choice" + (String(chat.chat_id) === selectedChat ? " is-selected" : "")} key={chat.chat_id} type="button" onClick={() => { if (olderCacheTimerRef.current !== null) window.clearTimeout(olderCacheTimerRef.current); olderCacheTimerRef.current = null; setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
@@ -557,18 +562,15 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       <div className="telegram-conversation-panel" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 420 }}>
         {selected ? <>
           <div className="telegram-chat-topbar">
-            <div className="telegram-selected-chat-header" style={{ padding: '10px 14px', borderBottom: '1px solid #26272d' }}>{selected.chat_type === 'group' ? <button type="button" className="telegram-group-title-toggle" aria-expanded={participantsOpen} onClick={() => setParticipantsOpen(value => !value)}>{selected.title} <span>{participantsOpen ? '▴' : '▾'}</span></button> : <strong>{selected.title}</strong>}<div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
-            {selected.chat_type === 'group' && <div className="telegram-group-participants">
-<button type="button" className="telegram-group-participants-toggle" aria-expanded={participantsOpen} onClick={() => setParticipantsOpen(value => !value)}>
-<span>Participants ({groupParticipants.length})</span><span aria-hidden="true">{participantsOpen ? '▴' : '▾'}</span>
-</button>
-{participantsOpen && <div className="telegram-group-participants-list">
-{groupParticipants.length === 0 ? <div style={muted}>No participant details available yet. Use Sync Now to refresh group members.</div> : groupParticipants.map(person => <div className="telegram-group-participant" key={person.telegram_user_id}>
-<span className="telegram-group-participant-name"><strong>{person.display_name || person.username || person.telegram_user_id}</strong>{person.username ? <small>@{person.username}</small> : <small>{person.telegram_user_id}</small>}{person.is_self ? <small>You</small> : null}{person.is_bot ? <small>Bot</small> : null}</span>
-<button type="button" aria-label={person.username ? 'Copy @' + person.username : 'Copy Telegram user ID'} title="Copy handler" onClick={() => { void navigator.clipboard.writeText(person.username ? '@' + person.username : String(person.telegram_user_id)); }} className="telegram-copy-handler">Copy</button>
-</div>)}
-</div>}
-</div>}{isAdmin && <div className="telegram-chat-assignment" style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
+            <div className="telegram-selected-chat-header" style={{ padding: '10px 14px', borderBottom: '1px solid #26272d' }}>{selected.chat_type === 'group' ? <button ref={groupTitleRef} type="button" className="telegram-group-title-toggle" aria-expanded={participantsOpen} onClick={() => {
+              const rect = groupTitleRef.current?.getBoundingClientRect();
+              if (rect) {
+                const width = Math.min(340, window.innerWidth - 24);
+                setOverlayPosition({ top: Math.min(rect.bottom + 8, window.innerHeight - 160), left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), width });
+              }
+              setContactSearchOpen(false); setParticipantsOpen(value => !value);
+            }}>{selected.title}</button> : <strong>{selected.title}</strong>}<div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
+            {isAdmin && <div className="telegram-chat-assignment" style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
               <strong>Assign to CRM employees</strong>
               <div className="telegram-assignment-controls" style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
@@ -633,6 +635,22 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
         </> : <div style={{ padding: 24, textAlign: 'center', border: '0', borderRadius: 0, color: '#b7c0d1' }}>Select a conversation to view messages and reply.</div>}
       </div>
     </div>
+    {contactSearchOpen && createPortal(<div className="telegram-contact-search-popover telegram-floating-popover" ref={searchPopupRef} style={{ top: overlayPosition.top, left: overlayPosition.left, width: overlayPosition.width }}>
+      <form onSubmit={event => { event.preventDefault(); void startContactSearch(); }} className="telegram-contact-search-form">
+        <input autoFocus value={contactSearch} onChange={event => { setContactSearch(event.target.value); setContactSearchDone(false); }} placeholder="Phone number or @username" aria-label="Phone number or Telegram username" />
+        <button type="submit" disabled={!contactSearch.trim() || contactSearchBusy}>{contactSearchBusy ? '…' : 'Search'}</button>
+      </form>
+      {contactSearchBusy && <span style={muted}>Syncing Telegram contacts…</span>}
+      {contactSearchDone && contactMatches.length === 0 && <span style={muted}>No contacts found</span>}
+      {contactSearchDone && contactMatches.map(chat => <button className="telegram-contact-search-result" key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setMessages([]); }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}{chat.phone_number ? ' · +' + chat.phone_number : ''}</button>)}
+    </div>, document.body)}
+    {participantsOpen && selected?.chat_type === 'group' && createPortal(<div className="telegram-group-participants-list telegram-floating-popover telegram-participants-popover" ref={participantsPopupRef} style={{ top: overlayPosition.top, left: overlayPosition.left, width: overlayPosition.width }}>
+      <div className="telegram-participants-heading">Participants ({groupParticipants.length})</div>
+      {groupParticipants.length === 0 ? <div className="telegram-participant-empty">No participant details available yet. Use Sync Now to refresh group members.</div> : groupParticipants.map(person => <div className="telegram-group-participant" key={person.telegram_user_id}>
+        <span className="telegram-group-participant-name"><strong>{person.display_name || person.username || person.telegram_user_id}</strong>{person.username ? <small>@{person.username}</small> : null}{person.is_self ? <small>You</small> : null}{person.is_bot ? <small>Bot</small> : null}</span>
+        {person.username && <button type="button" aria-label={'Copy @' + person.username} title="Copy Telegram handler" onClick={() => { void navigator.clipboard.writeText('@' + person.username); }} className="telegram-copy-handler"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button>}
+      </div>)}
+    </div>, document.body)}
     <footer style={{ padding: '8px 0', borderTop: '1px solid #26272d', ...muted }}>{isAdmin ? 'Admin access: all synced private human chats.' : 'Access is limited to chats assigned to you or your direct reports.'}</footer>
   </section>;
 }
