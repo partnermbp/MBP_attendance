@@ -221,6 +221,24 @@ async def main() -> None:
             last_id = watermarks.get(chat_id, 0)
             now = iso_datetime(datetime.now(timezone.utc))
 
+
+
+            # A new chat row must exist before inserting messages because of
+            # the foreign key. Existing chats are updated only once, at the end.
+            if chat_id not in watermarks:
+                supabase.upsert("telegram_inbox_chats", {
+                    "chat_id": chat_id,
+                    "title": title[:255],
+                    "username": username,
+                    "phone_number": getattr(entity, "phone", None),
+                    "chat_type": chat_type,
+                    "is_contact_only": False,
+                    "last_message_id": 0,
+                    "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
+                    "last_synced_at": now,
+                    "updated_at": now,
+                }, "chat_id")
+
             if is_group:
                 try:
                     supabase.request("PATCH", "telegram_inbox_chat_members",
@@ -249,20 +267,6 @@ async def main() -> None:
                 except Exception as exc:
                     print(f"Could not sync participants chat={chat_id}: {exc}", file=sys.stderr)
 
-            # A new chat row must exist before inserting messages because of
-            # the foreign key. Existing chats are updated only once, at the end.
-            if chat_id not in watermarks:
-                supabase.upsert("telegram_inbox_chats", {
-                    "chat_id": chat_id,
-                    "title": title[:255],
-                    "username": username,
-                    "chat_type": chat_type,
-                    "last_message_id": 0,
-                    "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
-                    "last_synced_at": now,
-                    "updated_at": now,
-                }, "chat_id")
-
             # Most dialogs have no new messages between syncs. Telegram's
             # dialog summary already includes the newest message, so skip the
             # per-chat history request entirely when its ID has not advanced.
@@ -270,14 +274,12 @@ async def main() -> None:
             dialog_latest_id = int(dialog_latest.id) if dialog_latest is not None else 0
             if last_id and dialog_latest_id <= last_id:
                 chat_updates.append({
-                    "chat_id": chat_id,
-                    "title": title[:255],
-                    "username": username,
-                    "last_message_id": last_id,
+                    "chat_id": chat_id, "title": title[:255], "username": username,
+                    "phone_number": getattr(entity, "phone", None), "chat_type": chat_type,
+                    "is_contact_only": False, "last_message_id": last_id,
                     "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                     "last_message_at": iso_datetime(dialog_latest.date) if dialog_latest else (dialog.date.isoformat() if dialog.date else None),
-                    "last_synced_at": now,
-                    "updated_at": now,
+                    "last_synced_at": now, "updated_at": now,
                 })
                 dialogs_seen += 1
                 continue
@@ -351,18 +353,36 @@ async def main() -> None:
             )
             synced_at = iso_datetime(datetime.now(timezone.utc))
             chat_updates.append({
-                "chat_id": chat_id,
-                "title": title[:255],
-                "username": username,
-                "chat_type": chat_type,
-                "last_message_id": newest_id,
+                "chat_id": chat_id, "title": title[:255], "username": username,
+                "phone_number": getattr(entity, "phone", None), "chat_type": chat_type,
+                "is_contact_only": False, "last_message_id": newest_id,
                 "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
-                "last_message_at": latest_date,
-                "last_synced_at": synced_at,
+                "last_message_at": latest_date, "last_synced_at": synced_at,
                 "updated_at": synced_at,
             })
             watermarks[chat_id] = newest_id
             dialogs_seen += 1
+
+
+        # Index Telegram contacts for search/new-chat. Keep these rows hidden from
+        # the normal inbox list until a real dialog exists.
+        contact_rows = []
+        async for contact in client.iter_contacts():
+            if getattr(contact, "bot", False) or int(contact.id) == 777000 or (me and int(contact.id) == int(me.id)):
+                continue
+            contact_name = " ".join(part for part in [getattr(contact, "first_name", None), getattr(contact, "last_name", None)] if part).strip() or getattr(contact, "username", None) or str(contact.id)
+            contact_rows.append({
+                "chat_id": int(contact.id), "title": contact_name[:255],
+                "username": getattr(contact, "username", None),
+                "phone_number": getattr(contact, "phone", None),
+                "chat_type": "private", "is_contact_only": True,
+                "last_message_id": 0, "read_outbox_max_id": 0,
+                "last_message_at": None, "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
+                "updated_at": iso_datetime(datetime.now(timezone.utc)),
+            })
+        if contact_rows:
+            supabase.upsert("telegram_inbox_chats", contact_rows, "chat_id")
+        print(f"Telegram contacts indexed: {len(contact_rows)}")
 
         if chat_updates:
             supabase.upsert("telegram_inbox_chats", chat_updates, "chat_id")
