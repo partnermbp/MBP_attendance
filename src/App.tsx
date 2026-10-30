@@ -533,10 +533,13 @@ export default function App() {
         } else {
           setManagerAssignments((assignmentsResult.data ?? []) as ManagerAssignment[]);
         }
-        setShifts([]);
+        setShifts((shiftsResult.data ?? []) as Shift[]);
+        setTelegramMembers((membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null}>);
+        setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
       } else {
         setProfiles([]);
         setManagerAssignments([]);
+        setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
           supabase.from('attendance')
