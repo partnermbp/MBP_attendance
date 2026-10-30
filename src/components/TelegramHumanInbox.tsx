@@ -6,8 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Profile = Person | null;
 type InboxChat = { chat_id: number; title: string; username: string | null; chat_type: 'private' | 'group'; is_contact_only?: boolean; phone_number?: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
-type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null; media_path: string | null; media_name: string | null; media_mime_type: string | null; media_size: number | null };
-type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
+type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; sent_by_profile_id?: string | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null; media_path: string | null; media_name: string | null; media_mime_type: string | null; media_size: number | null };
+type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string; sent_by_profile_id: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
 
 function renderTelegramMarkup(source: string): ReactNode {
@@ -139,13 +139,18 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     }
     const chatId = Number(selectedChat);
     let messageResult: any = await supabase.from('telegram_inbox_messages')
-      .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+      .select('chat_id,message_id,sender_id,sent_by_profile_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
       .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    if (messageResult.error && /sent_by_profile_id|column.*does not exist|schema cache/i.test(messageResult.error.message)) {
+      messageResult = await supabase.from('telegram_inbox_messages')
+        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+        .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    }
     let attachmentSchemaMissing = false;
     if (messageResult.error && /media_path|media_name|media_mime_type|media_size|column.*does not exist|schema cache/i.test(messageResult.error.message)) {
       attachmentSchemaMissing = true;
       messageResult = await supabase.from('telegram_inbox_messages')
-        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id')
+        .select('chat_id,message_id,sender_id,sent_by_profile_id,outgoing,message_text,sent_at,reply_to_message_id')
         .eq('chat_id', chatId).order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
     }
     if (messageResult.error) setNotice('Could not load conversation: ' + messageResult.error.message);
@@ -188,6 +193,12 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
       .eq('chat_id', chatId).lt('message_id', oldestMessageId)
       .order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    if (result.error && /sent_by_profile_id|column.*does not exist|schema cache/i.test(result.error.message)) {
+      result = await supabase.from('telegram_inbox_messages')
+        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+        .eq('chat_id', chatId).lt('message_id', oldestMessageId)
+        .order('message_id', { ascending: false }).limit(MESSAGE_PAGE_SIZE);
+    }
     let attachmentSchemaMissing = false;
     if (result.error && /media_path|media_name|media_mime_type|media_size|column.*does not exist|schema cache/i.test(result.error.message)) {
       attachmentSchemaMissing = true;
@@ -468,7 +479,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       setDraft('');
       setAttachment(null);
       setPendingReplies(current => [...current, {
-        id: String(data.id), chat_id: chatId, message_text: textToSend, created_at: queuedAt,
+        id: String(data.id), chat_id: chatId, message_text: textToSend, created_at: queuedAt, sent_by_profile_id: profile.id,
       }]);
       setNotice('Reply queued. Starting Telegram sync in 3 seconds…');
       // Keep a visible local copy until the worker sends it and the synced message appears.
@@ -530,9 +541,14 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       document.getElementById('telegram-message-' + messageId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
     if (messages.some(message => message.message_id === messageId)) { jump(); return; }
-    const { data, error } = await supabase.from('telegram_inbox_messages')
+    let { data, error } = await supabase.from('telegram_inbox_messages')
       .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
       .eq('chat_id', Number(selectedChat)).eq('message_id', messageId).maybeSingle();
+    if (error && /sent_by_profile_id|column.*does not exist|schema cache/i.test(error.message)) {
+      ({ data, error } = await supabase.from('telegram_inbox_messages')
+        .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+        .eq('chat_id', Number(selectedChat)).eq('message_id', messageId).maybeSingle());
+    }
     if (error || !data) { setNotice('The original replied-to message is not available in synced history.'); return; }
     setMessages(current => [...current, data as InboxMessage].sort((a,b) => a.message_id-b.message_id));
     window.setTimeout(jump, 120);
@@ -632,7 +648,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
             {hasMoreMessages && <button type="button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()} style={{ ...action, alignSelf: 'center', fontSize: 12, marginBottom: 4, opacity: loadingOlderMessages ? 0.65 : 1 }}>{loadingOlderMessages ? 'Loading older messages…' : '↑ Load older messages'}</button>}
             {messages.map(message => <article id={'telegram-message-' + message.message_id} className={message.outgoing ? 'telegram-message-sent' : 'telegram-message-received'} key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
               {message.reply_to_message_id && <button type="button" onClick={() => void jumpToRepliedMessage(message.reply_to_message_id!)} style={{ display: 'block', width: '100%', marginBottom: 7, padding: '5px 8px', textAlign: 'left', border: '1px solid #586174', borderRadius: 6, background: '#252d3a', color: '#d7e5ff', cursor: 'pointer', fontSize: 11 }}>↪ Go to message · #{message.reply_to_message_id}</button>}
-              <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
+              <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title}{message.outgoing && message.sent_by_profile_id && <><span style={{ display: 'inline-flex', marginLeft: 6, padding: '1px 6px', borderRadius: 999, background: '#25483c', color: '#b8f2d5', fontSize: 10, fontWeight: 700, letterSpacing: 0, verticalAlign: 'middle' }}>{profiles.find(person => person.id === message.sent_by_profile_id)?.full_name || profiles.find(person => person.id === message.sent_by_profile_id)?.email || 'CRM employee'}</span></>} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{renderTelegramMarkup(message.message_text)}</div>}
               {message.media_path && <div style={{ marginTop: 6 }}>
                 {mediaUrls[message.chat_id + ':' + message.message_id] && message.media_mime_type?.startsWith('image/') ?
@@ -641,7 +657,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               </div>}
             </article>)}
             {pendingReplies.filter(item => item.chat_id === Number(selectedChat)).map(item => <article className="telegram-message-queued" key={'pending:' + item.id} style={{ alignSelf: 'flex-end', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: '#40371e', color: '#fff2c4', border: '1px solid #76612a', overflowWrap: 'anywhere' }}>
-              <div style={{ fontSize: 11, color: '#fff0b3', marginBottom: 4 }}>You · {new Date(item.created_at).toLocaleString()} · Waiting to sync</div>
+              <div style={{ fontSize: 11, color: '#fff0b3', marginBottom: 4 }}>{profiles.find(person => person.id === item.sent_by_profile_id)?.full_name || profiles.find(person => person.id === item.sent_by_profile_id)?.email || 'You'} · {new Date(item.created_at).toLocaleString()} · Waiting to sync</div>
               <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{renderTelegramMarkup(item.message_text)}</div>
             </article>)}
             {!messages.length && !pendingReplies.some(item => item.chat_id === Number(selectedChat)) && <p style={muted}>No messages loaded for this conversation yet.</p>}
