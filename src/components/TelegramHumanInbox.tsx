@@ -121,7 +121,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       }
       chatsRef.current = rows;
       setChats(rows);
-      if (!selectedChat && rows.length) { const first = rows.find(chat => chat.chat_type === 'private') ?? rows[0]; setChatFilter(first.chat_type); setSelectedChat(String(first.chat_id)); }
+      if (!selectedChat && rows.length) { const first = rows.find(chat => !chat.is_contact_only && chat.chat_type === 'private') ?? rows.find(chat => !chat.is_contact_only); if (first) { setChatFilter(first.chat_type); setSelectedChat(String(first.chat_id)); } }
     }
     if (assignmentResult.error) setNotice(current => current || 'Could not load inbox assignments: ' + assignmentResult.error.message);
     else setAssignments((assignmentResult.data ?? []) as InboxAssignment[]);
