@@ -18,19 +18,12 @@ alter table public.telegram_inbox_search_requests enable row level security;
 
 drop policy if exists "Authorized staff can request Telegram username lookup"
   on public.telegram_inbox_search_requests;
-create policy "Authorized staff can request Telegram username lookup"
+create policy "Signed-in users can request Telegram username lookup"
   on public.telegram_inbox_search_requests for insert to authenticated
-  with check (
-    requested_by = auth.uid()
-    and exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid() and p.active = true
-        and lower(p.role::text) in ('admin','junior','middle','senior','team leader','team_leader')
-    )
-  );
+  with check (requested_by = auth.uid());
 
 drop policy if exists "Staff can read own Telegram username lookup requests"
   on public.telegram_inbox_search_requests;
 create policy "Staff can read own Telegram username lookup requests"
   on public.telegram_inbox_search_requests for select to authenticated
-  using (requested_by = auth.uid() or public.is_active_admin());
+  using (requested_by = auth.uid());
