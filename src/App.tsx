@@ -376,6 +376,7 @@ export default function App() {
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
+  const [humanTelegramAccess, setHumanTelegramAccess] = useState(false);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -1192,6 +1193,18 @@ export default function App() {
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
   const isAdmin = profile?.active === true && normalizedRole === 'admin';
   const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
+  const canUseHumanTelegram = isAdmin || (profile?.active === true && normalizedRole === 'telemarketing' && humanTelegramAccess);
+  useEffect(() => {
+    let cancelled = false;
+    setHumanTelegramAccess(false);
+    if (!supabase || !profile?.active || normalizedRole !== 'telemarketing') return;
+    void supabase.from('telegram_human_access').select('profile_id').eq('profile_id', profile.id).maybeSingle()
+      .then(({ data, error }) => { if (!cancelled && !error) setHumanTelegramAccess(Boolean(data)); });
+    return () => { cancelled = true; };
+  }, [profile?.id, profile?.active, normalizedRole]);
+  useEffect(() => {
+    if (activePage === 'telegram-human' && !canUseHumanTelegram) setActivePage('dashboard');
+  }, [activePage, canUseHumanTelegram]);
   const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
     ? attendance.filter(item => item.employee_id === selectedEmployeeId)
     : attendance;
@@ -1445,8 +1458,8 @@ export default function App() {
                 {item.id==='team'&&navOpen&&teamMenuOpen&&(isAdmin||canManageTeam)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
                   {([{label:'Employee role management',id:'team-roles' as CrmPage,icon:<UserCog size={15}/>},{label:'Link Telegram members',id:'team-links' as CrmPage,icon:<Link2 size={15}/>},{label:'Assign employees to managers',id:'team-assignments' as CrmPage,icon:<GitBranch size={15}/>},{label:isAdmin?'Admin invitation':'Employee invitations',id:'team-invitations' as CrmPage,icon:<UserPlus size={15}/>}]).filter(sub=>isAdmin||sub.id==='team-invitations').map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{if(sub.id==='telegram-human')setTelegramHumanNavKey(value=>value+1);setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
                 </div>}
-                {item.id==='telegram'&&navOpen&&telegramMenuOpen&&(isAdmin||canManageTeam)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
-                  {[{label:'Human Telegram chat',id:'telegram-human' as CrmPage,icon:<MessageCircle size={15}/>},{label:'Telegram group analytics',id:'telegram-analytics' as CrmPage,icon:<Users size={15}/>}].map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
+                {item.id==='telegram'&&navOpen&&telegramMenuOpen&&(isAdmin||canManageTeam||canUseHumanTelegram)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
+                  {[{label:'Human Telegram chat',id:'telegram-human' as CrmPage,icon:<MessageCircle size={15}/>},{label:'Telegram group analytics',id:'telegram-analytics' as CrmPage,icon:<Users size={15}/>}].filter(sub=>sub.id==='telegram-human'?canUseHumanTelegram:(isAdmin||canManageTeam)).map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
                 </div>}
               </div>)}
             </nav>
@@ -1650,7 +1663,7 @@ export default function App() {
 
           </>}
           {(isAdmin || canManageTeam) && ['team','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
-          {(isAdmin || canManageTeam) && activePage === 'telegram-human' && <ManagementTools key={telegramHumanNavKey} supabase={supabase} profile={profile} profiles={profiles} page="telegram-human" />}
+          {canUseHumanTelegram && activePage === 'telegram-human' && <ManagementTools key={telegramHumanNavKey} supabase={supabase} profile={profile} profiles={profiles} page="telegram-human" />}
           {(isAdmin || canManageTeam) && activePage === 'telegram-analytics' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-analytics" />}
           {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
