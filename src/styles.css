@@ -1031,3 +1031,13 @@ body::after { content:none; }
 :root[data-crm-theme="day"] .crm-layout .telegram-message-queued > div:first-child { color:#92400e !important; }
 :root[data-crm-theme="day"] .crm-layout .telegram-message-sent a,
 :root[data-crm-theme="day"] .crm-layout .telegram-message-queued a { color:#1d4ed8 !important; }
+
+
+/* Incoming private Telegram messages must never inherit the sent-message green capsule. */
+:root[data-crm-theme="day"] .crm-layout .telegram-message-received {
+  background:#eaf2ff !important;
+  color:#1e3a5f !important;
+  border-color:#b7cdec !important;
+}
+:root[data-crm-theme="day"] .crm-layout .telegram-message-received > div:first-child { color:#365d89 !important; }
+:root[data-crm-theme="day"] .crm-layout .telegram-message-received a { color:#1d4ed8 !important; }
