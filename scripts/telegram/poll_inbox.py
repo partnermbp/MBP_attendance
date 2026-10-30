@@ -346,7 +346,8 @@ async def main() -> None:
                     "chat_id": chat_id,
                     "message_id": int(message.id),
                     "sender_id": sender_id,
-                    "sent_by_profile_id": crm_sender_by_message.get((chat_id, int(message.id))) if message.out else None,
+                    **({"sent_by_profile_id": crm_sender_by_message[(chat_id, int(message.id))]}
+                       if message.out and (chat_id, int(message.id)) in crm_sender_by_message else {}),
                     "outgoing": bool(message.out),
                     "message_text": body_text,
                     "sent_at": iso_datetime(message.date),
