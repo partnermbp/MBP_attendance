@@ -1714,7 +1714,8 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}\n          {activePage === 'attendance-records' && <>
+          {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
+          {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
             <h2>{isAdmin ? 'Attendance records' : 'My attendance records'}</h2>
             <p style={{ color: '#b7c0d1' }}>
