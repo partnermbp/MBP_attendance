@@ -362,7 +362,16 @@ async def main() -> None:
             # One bulk REST upsert per chat instead of one network request per
             # message. Only advance the watermark after the bulk write succeeds.
             if message_payloads:
-                supabase.upsert("telegram_inbox_messages", message_payloads, "chat_id,message_id")
+                try:
+                    supabase.upsert("telegram_inbox_messages", message_payloads, "chat_id,message_id")
+                except RuntimeError as exc:
+                    # Keep inbox polling operational until the sender-attribution
+                    # migration has been applied and PostgREST has refreshed.
+                    if "sent_by_profile_id" not in str(exc):
+                        raise
+                    for payload in message_payloads:
+                        payload.pop("sent_by_profile_id", None)
+                    supabase.upsert("telegram_inbox_messages", message_payloads, "chat_id,message_id")
                 messages_saved += len(message_payloads)
 
             latest_message = max(recent, key=lambda item: item.id) if recent else None
@@ -505,7 +514,7 @@ async def main() -> None:
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
                                {"status": "sent", "telegram_message_id": int(sent.id),
                                 "sent_at": iso_datetime(sent.date), "error_message": None})
-                supabase.upsert("telegram_inbox_messages", {
+                sent_payload = {
                     "chat_id": chat_id, "message_id": int(sent.id), "sender_id": int(me.id),
                     "sent_by_profile_id": item.get("requested_by"),
                     "outgoing": True, "message_text": text_value, "sent_at": iso_datetime(sent.date),
@@ -514,7 +523,14 @@ async def main() -> None:
                     "media_name": attachment_name if attachment_path else None,
                     "media_mime_type": attachment_mime_type if attachment_path else None,
                     "media_size": int(item.get("attachment_size") or 0) or None,
-                }, "chat_id,message_id")
+                }
+                try:
+                    supabase.upsert("telegram_inbox_messages", sent_payload, "chat_id,message_id")
+                except RuntimeError as exc:
+                    if "sent_by_profile_id" not in str(exc):
+                        raise
+                    sent_payload.pop("sent_by_profile_id", None)
+                    supabase.upsert("telegram_inbox_messages", sent_payload, "chat_id,message_id")
                 sent_count += 1
             except Exception as exc:
                 supabase.patch("telegram_inbox_outbox", {"id": f"eq.{outbox_id}", "status": "eq.sending"},
