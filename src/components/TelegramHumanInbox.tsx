@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Profile = Person | null;
-type InboxChat = { chat_id: number; title: string; username: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
+type InboxChat = { chat_id: number; title: string; username: string | null; chat_type: 'private' | 'group'; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
 type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null; media_path: string | null; media_name: string | null; media_mime_type: string | null; media_size: number | null };
 type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
@@ -63,6 +63,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [syncOnMount] = useState(true);
   const [syncRequestedAt, setSyncRequestedAt] = useState<number | null>(null);
   const [selectedChat, setSelectedChat] = useState('');
+  const [chatFilter, setChatFilter] = useState<'private' | 'group'>('private');
+  const [groupParticipants, setGroupParticipants] = useState<any[]>([]);
   const [assignee, setAssignee] = useState('');
   const [draft, setDraft] = useState('');
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -82,7 +84,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     setLoading(true);
     setNotice('');
     const [chatResult, assignmentResult] = await Promise.all([
-      supabase.from('telegram_inbox_chats').select('chat_id,title,username,last_message_id,last_message_at,last_synced_at,read_outbox_max_id').order('last_message_at', { ascending: false }).limit(300),
+      supabase.from('telegram_inbox_chats').select('chat_id,title,username,chat_type,last_message_id,last_message_at,last_synced_at,read_outbox_max_id').order('last_message_at', { ascending: false }).limit(300),
       supabase.from('telegram_inbox_chat_assignments').select('chat_id,profile_id,assigned_by,assigned_at'),
     ]);
     if (chatResult.error) {
@@ -108,7 +110,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       }
       chatsRef.current = rows;
       setChats(rows);
-      if (!selectedChat && rows.length) setSelectedChat(String(rows[0].chat_id));
+      if (!selectedChat && rows.length) { const first = rows.find(chat => chat.chat_type === 'private') ?? rows[0]; setChatFilter(first.chat_type); setSelectedChat(String(first.chat_id)); }
     }
     if (assignmentResult.error) setNotice(current => current || 'Could not load inbox assignments: ' + assignmentResult.error.message);
     else setAssignments((assignmentResult.data ?? []) as InboxAssignment[]);
@@ -463,6 +465,9 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   }
 
   const selected = chats.find(chat => String(chat.chat_id) === selectedChat);
+  const visibleChats = chats.filter(chat => chat.chat_type === chatFilter);
+  const privateChatCount = chats.filter(chat => chat.chat_type === 'private').length;
+  const groupChatCount = chats.filter(chat => chat.chat_type === 'group').length;
   const selectedAssignments = assignments.filter(item => String(item.chat_id) === selectedChat);
   const activeProfiles = profiles.filter(person => person.active && person.role.toLowerCase() !== 'admin');
 
@@ -474,10 +479,10 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
     <div className="telegram-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
       <aside className="telegram-conversation-list" style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
-        <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><span>Chats ({chats.length})</span><button className="telegram-mobile-sync" type="button" aria-label={syncing ? 'Telegram sync running' : 'Sync Telegram chats'} title={syncing ? 'Sync running…' : 'Sync now'} disabled={loading || syncing} onClick={() => { void requestSync(); }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg></button><button className="telegram-mobile-expand" type="button" aria-label={mobileExpanded ? "Exit full-screen Telegram composer" : "Expand Telegram chat to full screen"} title={mobileExpanded ? "Exit full screen" : "Expand to full screen"} onClick={() => setMobileExpanded(value => !value)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{mobileExpanded ? <><path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M3 16h5v5"/><path d="M21 16h-5v5"/></> : <><path d="M8 3H3v5"/><path d="M16 3h5v5"/><path d="M3 16v5h5"/><path d="M21 16v5h-5"/></>}</svg></button></div>
+        <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><button type="button" onClick={() => setChatFilter('private')} aria-pressed={chatFilter==='private'}>CHATS ({privateChatCount})</button><button type="button" onClick={() => setChatFilter('group')} aria-pressed={chatFilter==='group'}>GROUPS ({groupChatCount})</button><button className="telegram-mobile-sync" type="button" aria-label={syncing ? 'Telegram sync running' : 'Sync Telegram chats'} title={syncing ? 'Sync running…' : 'Sync now'} disabled={loading || syncing} onClick={() => { void requestSync(); }}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg></button><button className="telegram-mobile-expand" type="button" aria-label={mobileExpanded ? "Exit full-screen Telegram composer" : "Expand Telegram chat to full screen"} title={mobileExpanded ? "Exit full screen" : "Expand to full screen"} onClick={() => setMobileExpanded(value => !value)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{mobileExpanded ? <><path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M3 16h5v5"/><path d="M21 16h-5v5"/></> : <><path d="M8 3H3v5"/><path d="M16 3h5v5"/><path d="M3 16v5h5"/><path d="M21 16v5h-5"/></>}</svg></button></div>
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
-        {chats.map(chat => <button className={"telegram-chat-choice" + (String(chat.chat_id) === selectedChat ? " is-selected" : "")} key={chat.chat_id} type="button" onClick={() => { if (olderCacheTimerRef.current !== null) window.clearTimeout(olderCacheTimerRef.current); olderCacheTimerRef.current = null; setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
+        {visibleChats.map(chat => <button className={"telegram-chat-choice" + (String(chat.chat_id) === selectedChat ? " is-selected" : "")} key={chat.chat_id} type="button" onClick={() => { if (olderCacheTimerRef.current !== null) window.clearTimeout(olderCacheTimerRef.current); olderCacheTimerRef.current = null; setMessages([]); setHasMoreMessages(false); setSelectedChat(String(chat.chat_id)); setUnreadCounts(current => ({ ...current, [String(chat.chat_id)]: 0 })); }} style={{ width: '100%', display: 'block', textAlign: 'left', padding: '11px 8px', border: 0, borderBottom: '1px solid #202127', borderRadius: 7, cursor: 'pointer', background: String(chat.chat_id) === selectedChat ? '#202126' : 'transparent', color: '#f2f4f7' }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{chat.title || chat.username || chat.chat_id}</strong>
             {(unreadCounts[String(chat.chat_id)] ?? 0) > 0 && <span aria-label={unreadCounts[String(chat.chat_id)] + ' new messages'} style={{ flex: '0 0 auto', minWidth: 22, height: 22, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--crm-accent-strong)', color: '#fff', fontSize: 12, fontWeight: 800 }}>{unreadCounts[String(chat.chat_id)]}</span>}
