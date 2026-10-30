@@ -65,11 +65,6 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     return date >= appliedFrom && date <= appliedTo && (employeeFilter === 'all' || a.employee_id === employeeFilter);
   }), [attendance, appliedFrom, appliedTo, employeeFilter]);
   const scopedShifts = useMemo(() => shifts.filter(s => s.employee_id && personMap.has(s.employee_id) && dayKey(s.starts_at) >= appliedFrom && dayKey(s.starts_at) <= appliedTo && (employeeFilter === 'all' || s.employee_id === employeeFilter)), [shifts, personMap, appliedFrom, appliedTo, employeeFilter]);
-  const shiftByEmployeeDay = useMemo(() => {
-    const map = new Map<string, Shift[]>();
-    scopedShifts.forEach(s => { const key = s.employee_id + '|' + dayKey(s.starts_at); map.set(key, [...(map.get(key) || []), s]); });
-    return map;
-  }, [scopedShifts]);
   const matchedShiftIds = useMemo(() => {
     const matched = new Set<string>();
     scopedShifts.forEach(s => {
