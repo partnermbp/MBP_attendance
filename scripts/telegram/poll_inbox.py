@@ -192,6 +192,19 @@ async def main() -> None:
             for row in existing_rows
             if row.get("chat_id") is not None
         }
+        # Keep the CRM employee attribution when the same Telegram messages
+        # are fetched again during later history synchronization.
+        sent_outbox_rows = supabase.select(
+            "telegram_inbox_outbox",
+            {"select": "chat_id,telegram_message_id,requested_by", "status": "eq.sent",
+             "telegram_message_id": "not.is.null", "limit": "10000"},
+        )
+        crm_sender_by_message = {
+            (int(row["chat_id"]), int(row["telegram_message_id"])): str(row["requested_by"])
+            for row in sent_outbox_rows
+            if row.get("chat_id") is not None and row.get("telegram_message_id") is not None
+            and row.get("requested_by")
+        }
         # Avoid one sequential Supabase REST write per quiet chat. Queue chat
         # metadata updates and persist them together after message inserts.
         # New chats still get an initial row immediately to satisfy the message FK.
@@ -333,6 +346,7 @@ async def main() -> None:
                     "chat_id": chat_id,
                     "message_id": int(message.id),
                     "sender_id": sender_id,
+                    "sent_by_profile_id": crm_sender_by_message.get((chat_id, int(message.id))) if message.out else None,
                     "outgoing": bool(message.out),
                     "message_text": body_text,
                     "sent_at": iso_datetime(message.date),
@@ -455,7 +469,7 @@ async def main() -> None:
         # stale "sending" rows are deliberately not retried automatically to avoid duplicate replies.
         queued = supabase.select(
             "telegram_inbox_outbox",
-            {"select": "id,chat_id,message_text,attachment_path,attachment_name,attachment_mime_type,attachment_size", "status": "eq.pending", "order": "created_at.asc", "limit": "20"},
+            {"select": "id,chat_id,requested_by,message_text,attachment_path,attachment_name,attachment_mime_type,attachment_size", "status": "eq.pending", "order": "created_at.asc", "limit": "20"},
         )
         sent_count = 0
         for item in queued:
@@ -492,6 +506,7 @@ async def main() -> None:
                                 "sent_at": iso_datetime(sent.date), "error_message": None})
                 supabase.upsert("telegram_inbox_messages", {
                     "chat_id": chat_id, "message_id": int(sent.id), "sender_id": int(me.id),
+                    "sent_by_profile_id": item.get("requested_by"),
                     "outgoing": True, "message_text": text_value, "sent_at": iso_datetime(sent.date),
                     "reply_to_message_id": None,
                     "media_path": attachment_path,
