@@ -5,6 +5,7 @@ import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import ManagementTools from './components/ManagementTools';
+import TeamAttendanceReport from './components/TeamAttendanceReport';
 
 type Attendance = {
   id: string;
@@ -38,7 +39,7 @@ type Profile = {
 type ManagerAssignment = { manager_id: string; employee_id: string };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'settings';
+type CrmPage = 'dashboard' | 'attendance' | 'attendance-records' | 'team-attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'settings';
 type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
 const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
 function loadCrmPreferences(): CrmPreferences { try { const raw = localStorage.getItem('mbp_crm_preferences'); return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES; } catch { return DEFAULT_PREFERENCES; } }
@@ -372,7 +373,7 @@ export default function App() {
   const [settingsNotice, setSettingsNotice] = useState('');
   const updatePreference = <K extends keyof CrmPreferences>(key: K, value: CrmPreferences[K]) => { setPreferences(current => { const next = { ...current, [key]: value }; try { localStorage.setItem('mbp_crm_preferences', JSON.stringify(next)); } catch { /* Browser storage may be disabled. */ } return next; }); setSettingsNotice('Your preferences have been saved on this device.'); };
   useEffect(() => { const root = document.documentElement; root.dataset.crmTheme = preferences.theme; root.dataset.crmAccent = preferences.accent; root.classList.toggle('crm-compact', preferences.compact); root.classList.toggle('crm-reduced-motion', preferences.reducedMotion); root.classList.toggle('crm-night-light', preferences.nightLight); document.body.dataset.crmTheme = preferences.theme; }, [preferences]);
-  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);\n  const [attendanceMenuOpen, setAttendanceMenuOpen] = useState(false);\n  const [telegramMembers, setTelegramMembers] = useState<Array<{telegram_user_id:number;profile_id:string|null}>>([]);\n  const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>>([]);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
@@ -485,7 +486,7 @@ export default function App() {
         String(currentProfile.role).toLowerCase() === 'admin';
 
       if (isAdmin) {
-        const [peopleResult, attendanceResult, assignmentsResult] = await Promise.all([
+        const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           supabase.from('profiles')
             .select('id, email, full_name, role, active')
             .order('full_name', { ascending: true })
@@ -497,6 +498,17 @@ export default function App() {
           supabase.from('manager_employee_assignments')
             .select('manager_id, employee_id')
             .limit(2000),
+          supabase.from('shifts')
+            .select('id, employee_id, starts_at, ends_at')
+            .order('starts_at', { ascending: false })
+            .limit(3000),
+          supabase.from('telegram_group_members')
+            .select('telegram_user_id, profile_id')
+            .not('profile_id', 'is', null)
+            .limit(5000),
+          supabase.from('telegram_response_metrics')
+            .select('question_user_id, first_reply_user_id, response_seconds')
+            .limit(10000),
         ]);
 
         if (peopleResult.error) {
@@ -1067,7 +1079,7 @@ export default function App() {
     if (!supabase) return;
 
     setMapPreview(null);
-    setAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setExpandedManagerIds(new Set()); setProfile(null);
+    setAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setTelegramMembers([]); setTelegramResponseMetrics([]); setExpandedManagerIds(new Set()); setProfile(null);
     setReportStartDate(''); setReportEndDate(''); setDraftStartDate(''); setDraftEndDate('');
     setBusy(true);
     setMessage('');
@@ -1453,8 +1465,11 @@ export default function App() {
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance & reports',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
-                <button type="button" title={item.label} aria-current={activePage===item.id?'page':undefined} onClick={()=>{if(item.id==='team'){if(!navOpen){setNavOpen(true);setTeamMenuOpen(true);setTelegramMenuOpen(false);}else{setTeamMenuOpen(!teamMenuOpen);setTelegramMenuOpen(false);}}else if(item.id==='telegram'){if(!navOpen){setNavOpen(true);setTelegramMenuOpen(true);setTeamMenuOpen(false);}else{setTelegramMenuOpen(!telegramMenuOpen);setTeamMenuOpen(false);}}else{setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(item.id);}setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:(activePage===item.id||activePage.startsWith('team-')&&item.id==='team'||activePage.startsWith('telegram-')&&item.id==='telegram')?'var(--crm-accent-soft)':'transparent',color:activePage===item.id||activePage.startsWith('team-')&&item.id==='team'?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{(item.id==='team'||item.id==='telegram')&&((item.id==='team'?teamMenuOpen:telegramMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
+                <button type="button" title={item.label} aria-current={activePage===item.id?'page':undefined} onClick={()=>{if(item.id==='team'){if(!navOpen){setNavOpen(true);setTeamMenuOpen(true);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}else{setTeamMenuOpen(!teamMenuOpen);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='telegram'){if(!navOpen){setNavOpen(true);setTelegramMenuOpen(true);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}else{setTelegramMenuOpen(!telegramMenuOpen);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='attendance'){if(!navOpen){setNavOpen(true);setAttendanceMenuOpen(true);setTeamMenuOpen(false);setTelegramMenuOpen(false);}else{setAttendanceMenuOpen(!attendanceMenuOpen);setTeamMenuOpen(false);setTelegramMenuOpen(false);}}else{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(item.id);}setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:(activePage===item.id||activePage==='attendance-records'||activePage==='team-attendance'&&item.id==='attendance'||activePage.startsWith('team-')&&item.id==='team'||activePage.startsWith('telegram-')&&item.id==='telegram')?'var(--crm-accent-soft)':'transparent',color:activePage===item.id||activePage.startsWith('team-')&&item.id==='team'?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{(item.id==='team'||item.id==='telegram'||item.id==='attendance')&&((item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:attendanceMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
+                {item.id==='attendance'&&navOpen&&attendanceMenuOpen&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
+                  {[{label:'Attendance records',id:'attendance-records' as CrmPage,icon:<CalendarDays size={15}/>},...(isAdmin?[{label:'Team attendance report',id:'team-attendance' as CrmPage,icon:<Users size={15}/>}]:[])].map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
+                </div>}
                 {item.id==='team'&&navOpen&&teamMenuOpen&&(isAdmin||canManageTeam)&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid #383027',display:'grid',gap:2}}>
                   {([{label:'Employee role management',id:'team-roles' as CrmPage,icon:<UserCog size={15}/>},{label:'Link Telegram members',id:'team-links' as CrmPage,icon:<Link2 size={15}/>},{label:'Assign employees to managers',id:'team-assignments' as CrmPage,icon:<GitBranch size={15}/>},{label:isAdmin?'Admin invitation':'Employee invitations',id:'team-invitations' as CrmPage,icon:<UserPlus size={15}/>}]).filter(sub=>isAdmin||sub.id==='team-invitations').map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{if(sub.id==='telegram-human')setTelegramHumanNavKey(value=>value+1);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
                 </div>}
@@ -1468,7 +1483,7 @@ export default function App() {
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance & reports',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',settings:'Settings'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance', 'attendance-records':'Attendance records','team-attendance':'Team attendance report',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',settings:'Settings'}[activePage]}</strong></div>
 
           {activePage === 'settings' && <>
             <h1>CRM Settings</h1>
@@ -1696,9 +1711,9 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'attendance' && <>
+          {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}\n          {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
-            <h2>{isAdmin ? 'Team attendance report' : 'Attendance report'}</h2>
+            <h2>{isAdmin ? 'Attendance records' : 'My attendance records'}</h2>
             <p style={{ color: '#b7c0d1' }}>
               {isAdmin ? 'Filter the latest team attendance records by employee and date.' : 'Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.'}
             </p>
