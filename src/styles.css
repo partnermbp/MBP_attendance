@@ -1223,3 +1223,41 @@ body::after { content:none; }
   .telegram-chat-strip-heading .telegram-mobile-sync,
   .telegram-chat-strip-heading .telegram-mobile-expand { flex-basis:34px !important; width:34px !important; min-width:34px !important; height:34px !important; min-height:34px !important; }
 }
+
+/* Final mobile inbox corrections: swipeable chat picker and hide CRM assignment in full-screen mode. */
+@media (max-width: 760px) {
+  .telegram-conversation-list {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+    width: 100%;
+    max-height: none !important;
+    padding: 0 0 9px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .telegram-conversation-list > .telegram-chat-strip-heading {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 5 !important;
+    flex: 0 0 auto !important;
+    align-self: stretch !important;
+  }
+  .telegram-conversation-list > .telegram-chat-choice {
+    flex: 0 0 164px !important;
+    width: 164px !important;
+    min-width: 164px !important;
+    max-width: 164px !important;
+    min-height: 54px !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+  }
+  .telegram-human-inbox.is-mobile-expanded > .telegram-page-assignment {
+    display: none !important;
+  }
+}
