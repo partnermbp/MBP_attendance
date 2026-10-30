@@ -18,7 +18,8 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.extensions import html as telethon_html
 from telethon.helpers import add_surrogate, del_surrogate, strip_text
-from telethon.tl.types import MessageEntitySpoiler, User
+from telethon.tl.types import MessageEntitySpoiler, User, Chat, Channel
+from telethon import utils
 
 
 class TelegramHTMLParser(telethon_html.HTMLToTelegramParser):
@@ -197,15 +198,56 @@ async def main() -> None:
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
-            # Sync private human-to-human chats automatically, except Telegram's
-            # official service account (777000), which delivers login codes.
-            if not isinstance(entity, User) or entity.bot or entity.id == 777000 or (me and entity.id == me.id):
+            # Sync private human-to-human chats and groups from the linked account.
+            # Broadcast channels and Telegram service/bot accounts are excluded.
+            is_private = isinstance(entity, User)
+            is_group = bool(getattr(dialog, "is_group", False)) and isinstance(entity, (Chat, Channel))
+            if is_private:
+                if entity.bot or entity.id == 777000 or (me and entity.id == me.id):
+                    continue
+                chat_id = int(entity.id)
+                title = " ".join(part for part in [entity.first_name, entity.last_name] if part) or entity.username or str(chat_id)
+                username = entity.username
+                chat_type = "private"
+            elif is_group:
+                if isinstance(entity, Channel) and bool(getattr(entity, "broadcast", False)):
+                    continue
+                chat_id = int(utils.get_peer_id(entity))
+                title = str(getattr(entity, "title", None) or dialog.name or chat_id)
+                username = getattr(entity, "username", None)
+                chat_type = "group"
+            else:
                 continue
-            chat_id = int(entity.id)
-            title = " ".join(part for part in [entity.first_name, entity.last_name] if part) or entity.username or str(chat_id)
-            username = entity.username
             last_id = watermarks.get(chat_id, 0)
             now = iso_datetime(datetime.now(timezone.utc))
+
+            if is_group:
+                try:
+                    supabase.request("PATCH", "telegram_inbox_chat_members",
+                        params={"chat_id": f"eq.{chat_id}"},
+                        body={"is_active": False, "last_seen_at": now})
+                    participant_rows = []
+                    async for participant in client.iter_participants(entity, limit=1000):
+                        display_name = " ".join(part for part in [
+                            getattr(participant, "first_name", None),
+                            getattr(participant, "last_name", None)
+                        ] if part).strip() or getattr(participant, "title", None) or getattr(participant, "username", None) or str(participant.id)
+                        participant_rows.append({
+                            "chat_id": chat_id,
+                            "telegram_user_id": int(participant.id),
+                            "username": getattr(participant, "username", None),
+                            "display_name": display_name[:255],
+                            "is_bot": bool(getattr(participant, "bot", False)),
+                            "is_self": bool(me and int(participant.id) == int(me.id)),
+                            "is_active": True,
+                            "last_seen_at": now
+                        })
+                    if participant_rows:
+                        supabase.upsert("telegram_inbox_chat_members", participant_rows,
+                                        "chat_id,telegram_user_id")
+                    print(f"Group participants synced: chat_id={chat_id}, members={len(participant_rows)}")
+                except Exception as exc:
+                    print(f"Could not sync participants chat={chat_id}: {exc}", file=sys.stderr)
 
             # A new chat row must exist before inserting messages because of
             # the foreign key. Existing chats are updated only once, at the end.
@@ -214,6 +256,7 @@ async def main() -> None:
                     "chat_id": chat_id,
                     "title": title[:255],
                     "username": username,
+                    "chat_type": chat_type,
                     "last_message_id": 0,
                     "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                     "last_synced_at": now,
@@ -311,6 +354,7 @@ async def main() -> None:
                 "chat_id": chat_id,
                 "title": title[:255],
                 "username": username,
+                "chat_type": chat_type,
                 "last_message_id": newest_id,
                 "read_outbox_max_id": int(getattr(dialog.dialog, "read_outbox_max_id", 0) or 0),
                 "last_message_at": latest_date,
