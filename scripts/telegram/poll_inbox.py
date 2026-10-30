@@ -369,6 +369,57 @@ async def main() -> None:
             dialogs_seen += 1
 
 
+        # Resolve explicitly requested public Telegram usernames through Telegram itself.
+        # Results are indexed as contact-only rows: searchable and usable for a new
+        # conversation, but never displayed in the ordinary inbox list.
+        search_requests = supabase.select(
+            "telegram_inbox_search_requests",
+            {"select": "id,requested_by,query", "status": "eq.pending", "order": "created_at.asc", "limit": "10"},
+        )
+        for search_request in search_requests:
+            request_id = str(search_request["id"])
+            requested_username = str(search_request.get("query") or "").strip().lstrip("@")
+            try:
+                if not requested_username or len(requested_username) > 32:
+                    raise ValueError("Enter a valid Telegram username.")
+                search_result = await client(functions.contacts.SearchRequest(q=requested_username, limit=10))
+                found_users = []
+                for found_user in getattr(search_result, "users", []):
+                    if not isinstance(found_user, User) or found_user.bot or (me and int(found_user.id) == int(me.id)):
+                        continue
+                    found_users.append(found_user)
+                if not found_users:
+                    supabase.patch("telegram_inbox_search_requests",
+                        {"id": f"eq.{request_id}", "status": "eq.pending"},
+                        {"status": "completed", "result_count": 0, "error_message": None, "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                    continue
+                found_users.sort(key=lambda item: (str(getattr(item, "username", "") or "").lower() != requested_username.lower(),
+                                                   str(getattr(item, "username", "") or "").lower()))
+                resolved_rows = []
+                for found_user in found_users:
+                    display_name = " ".join(part for part in [
+                        getattr(found_user, "first_name", None), getattr(found_user, "last_name", None)
+                    ] if part).strip() or getattr(found_user, "username", None) or str(found_user.id)
+                    resolved_rows.append({
+                        "chat_id": int(found_user.id), "title": display_name[:255],
+                        "username": getattr(found_user, "username", None),
+                        "phone_number": getattr(found_user, "phone", None),
+                        "chat_type": "private", "is_contact_only": int(found_user.id) not in dialog_chat_ids,
+                        "last_message_id": watermarks.get(int(found_user.id), 0),
+                        "read_outbox_max_id": 0, "last_synced_at": iso_datetime(datetime.now(timezone.utc)),
+                        "updated_at": iso_datetime(datetime.now(timezone.utc)),
+                    })
+                supabase.upsert("telegram_inbox_chats", resolved_rows, "chat_id")
+                supabase.patch("telegram_inbox_search_requests",
+                    {"id": f"eq.{request_id}", "status": "eq.pending"},
+                    {"status": "completed", "result_count": len(resolved_rows), "error_message": None, "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                print(f"Telegram username search resolved: query={requested_username}, matches={len(resolved_rows)}")
+            except Exception as exc:
+                supabase.patch("telegram_inbox_search_requests",
+                    {"id": f"eq.{request_id}", "status": "eq.pending"},
+                    {"status": "failed", "result_count": 0, "error_message": str(exc)[:500], "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                print(f"Telegram username search failed for {requested_username}: {exc}", file=sys.stderr)
+
         # Index Telegram contacts for search/new-chat. Keep these rows hidden from
         # the normal inbox list until a real dialog exists.
         contact_rows = []
