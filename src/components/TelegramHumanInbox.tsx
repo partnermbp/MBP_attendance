@@ -56,6 +56,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const [contactSearch, setContactSearch] = useState('');
   const [contactSearchBusy, setContactSearchBusy] = useState(false);
   const [contactSearchDone, setContactSearchDone] = useState(false);
+  const [contactResults, setContactResults] = useState<InboxChat[]>([]);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
@@ -301,7 +302,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       setNotice('Telegram sync finished. Inbox refreshed.');
       await refreshChats();
       await refreshConversation();
-      if (contactSearchOpen) { setContactSearchBusy(false); setContactSearchDone(true); }
+      if (contactSearchOpen) { await loadContactSearchResults(); }
     };
     void poll();
     return () => { cancelled = true; if (timer !== undefined) window.clearTimeout(timer); };
@@ -477,10 +478,36 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   }
 
 
+  async function loadContactSearchResults() {
+    if (!supabase || !contactSearch.trim()) return;
+    const raw = contactSearch.trim();
+    const handler = raw.replace(/^@/, '').trim();
+    let query = supabase.from('telegram_inbox_chats')
+      .select('chat_id,title,username,phone_number,chat_type,is_contact_only,last_message_id,last_message_at,last_synced_at,read_outbox_max_id')
+      .eq('chat_type', 'private').limit(30);
+    if (raw.startsWith('@')) {
+      query = query.ilike('username', handler);
+    } else if (/^[+\d][\d\s()+-]*$/.test(raw)) {
+      query = query.ilike('phone_number', '%' + raw.replace(/[^\d+]/g, '') + '%');
+    } else {
+      query = query.or('title.ilike.%' + handler + '%,username.ilike.%' + handler + '%');
+    }
+    const { data, error } = await query.order('title', { ascending: true });
+    if (error) {
+      setContactResults([]);
+      setNotice('Contact search failed: ' + error.message);
+    } else {
+      setContactResults((data ?? []) as InboxChat[]);
+    }
+    setContactSearchBusy(false);
+    setContactSearchDone(true);
+  }
+
   async function startContactSearch() {
     if (!contactSearch.trim()) return;
     setContactSearchBusy(true);
     setContactSearchDone(false);
+    setContactResults([]);
     await requestSync(true);
   }
 
@@ -499,7 +526,6 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   }
 
   const selected = chats.find(chat => String(chat.chat_id) === selectedChat);
-  const contactMatches = chats.filter(chat => chat.is_contact_only && chat.chat_type === 'private' && (String(chat.title || '') + ' ' + String(chat.username || '') + ' ' + String(chat.phone_number || '') + ' ' + String(chat.chat_id)).toLowerCase().includes(contactSearch.trim().replace(/^@/, '').toLowerCase()));
   const visibleChats = chats.filter(chat => chat.chat_type === chatFilter && !chat.is_contact_only);
   const privateChatCount = chats.filter(chat => chat.chat_type === 'private' && !chat.is_contact_only).length;
   const groupChatCount = chats.filter(chat => chat.chat_type === 'group').length;
@@ -522,7 +548,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     const closeOnOutside = (event: PointerEvent) => {
       const target = event.target as Node;
       if (contactSearchOpen && !searchPopupRef.current?.contains(target) && !searchTriggerRef.current?.contains(target)) {
-        setContactSearchOpen(false); setContactSearch(''); setContactSearchBusy(false); setContactSearchDone(false);
+        setContactSearchOpen(false); setContactSearch(''); setContactSearchBusy(false); setContactSearchDone(false); setContactResults([]);
       }
       if (participantsOpen && !participantsPopupRef.current?.contains(target) && !groupTitleRef.current?.contains(target)) setParticipantsOpen(false);
     };
@@ -637,12 +663,12 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     </div>
     {contactSearchOpen && createPortal(<div className="telegram-contact-search-popover telegram-floating-popover" ref={searchPopupRef} style={{ top: overlayPosition.top, left: overlayPosition.left, width: overlayPosition.width }}>
       <form onSubmit={event => { event.preventDefault(); void startContactSearch(); }} className="telegram-contact-search-form">
-        <input autoFocus value={contactSearch} onChange={event => { setContactSearch(event.target.value); setContactSearchDone(false); }} placeholder="Phone number or @username" aria-label="Phone number or Telegram username" />
+        <input autoFocus value={contactSearch} onChange={event => { setContactSearch(event.target.value); setContactSearchDone(false); setContactResults([]); }} placeholder="Phone number or @username" aria-label="Phone number or Telegram username" />
         <button type="submit" disabled={!contactSearch.trim() || contactSearchBusy}>{contactSearchBusy ? '…' : 'Search'}</button>
       </form>
       {contactSearchBusy && <span style={muted}>Syncing Telegram contacts…</span>}
-      {contactSearchDone && contactMatches.length === 0 && <span style={muted}>No contacts found</span>}
-      {contactSearchDone && contactMatches.map(chat => <button className="telegram-contact-search-result" key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setMessages([]); }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}{chat.phone_number ? ' · +' + chat.phone_number : ''}</button>)}
+      {contactSearchDone && contactResults.length === 0 && <span style={muted}>No matching Telegram contacts or chats found</span>}
+      {contactSearchDone && contactResults.map(chat => <button className="telegram-contact-search-result" key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setContactResults([]); setMessages([]); }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}{chat.phone_number ? ' · +' + chat.phone_number : ''}</button>)}
     </div>, document.body)}
     {participantsOpen && selected?.chat_type === 'group' && createPortal(<div className="telegram-group-participants-list telegram-floating-popover telegram-participants-popover" ref={participantsPopupRef} style={{ top: overlayPosition.top, left: overlayPosition.left, width: overlayPosition.width }}>
       <div className="telegram-participants-heading">Participants ({groupParticipants.length})</div>
