@@ -464,6 +464,21 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     setSending(false);
   }
 
+
+  async function jumpToRepliedMessage(messageId: number) {
+    if (!supabase || !selectedChat) return;
+    const jump = () => {
+      document.getElementById('telegram-message-' + messageId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    if (messages.some(message => message.message_id === messageId)) { jump(); return; }
+    const { data, error } = await supabase.from('telegram_inbox_messages')
+      .select('chat_id,message_id,sender_id,outgoing,message_text,sent_at,reply_to_message_id,media_path,media_name,media_mime_type,media_size')
+      .eq('chat_id', Number(selectedChat)).eq('message_id', messageId).maybeSingle();
+    if (error || !data) { setNotice('The original replied-to message is not available in synced history.'); return; }
+    setMessages(current => [...current, data as InboxMessage].sort((a,b) => a.message_id-b.message_id));
+    window.setTimeout(jump, 120);
+  }
+
   const selected = chats.find(chat => String(chat.chat_id) === selectedChat);
   const visibleChats = chats.filter(chat => chat.chat_type === chatFilter);
   const privateChatCount = chats.filter(chat => chat.chat_type === 'private').length;
@@ -534,7 +549,8 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           </div>
           <div className="telegram-messages" ref={messagesContainerRef} style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
             {hasMoreMessages && <button type="button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()} style={{ ...action, alignSelf: 'center', fontSize: 12, marginBottom: 4, opacity: loadingOlderMessages ? 0.65 : 1 }}>{loadingOlderMessages ? 'Loading older messages…' : '↑ Load older messages'}</button>}
-            {messages.map(message => <article className={message.outgoing ? 'telegram-message-sent' : 'telegram-message-received'} key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
+            {messages.map(message => <article id={'telegram-message-' + message.message_id} className={message.outgoing ? 'telegram-message-sent' : 'telegram-message-received'} key={message.chat_id + ':' + message.message_id} style={{ alignSelf: message.outgoing ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: '9px 11px', borderRadius: 10, background: message.outgoing ? '#173b31' : '#191a20', border: '1px solid #292b32', overflowWrap: 'anywhere' }}>
+              {message.reply_to_message_id && <button type="button" onClick={() => void jumpToRepliedMessage(message.reply_to_message_id!)} style={{ display: 'block', width: '100%', marginBottom: 7, padding: '5px 8px', textAlign: 'left', border: '1px solid #586174', borderRadius: 6, background: '#252d3a', color: '#d7e5ff', cursor: 'pointer', fontSize: 11 }}>↪ Go to message · #{message.reply_to_message_id}</button>}
               <div style={{ fontSize: 11, color: '#b7c0d1', marginBottom: 4 }}>{message.outgoing ? 'Connected account' : selected.title} · {new Date(message.sent_at).toLocaleString()}{message.outgoing && <span title={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read on Telegram' : 'Sent, not yet marked as read'} aria-label={message.message_id <= (selected.read_outbox_max_id ?? 0) ? 'Read' : 'Sent'} style={{ marginLeft: 7, color: message.message_id <= (selected.read_outbox_max_id ?? 0) ? '#53bdeb' : '#98a2b3', fontWeight: 700, letterSpacing: -2 }}>{message.message_id <= (selected.read_outbox_max_id ?? 0) ? '✓✓' : '✓'}</span>}</div>
               {message.message_text && message.message_text !== '[Attachment]' && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{renderTelegramMarkup(message.message_text)}</div>}
               {message.media_path && <div style={{ marginTop: 6 }}>
