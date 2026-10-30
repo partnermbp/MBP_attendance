@@ -1261,3 +1261,68 @@ body::after { content:none; }
     display: none !important;
   }
 }
+
+
+/* Keep mobile Telegram controls on their own row; swipe only the chat-name strip below. */
+@media (max-width: 760px) {
+  .telegram-conversation-list {
+    display: block !important;
+    width: 100%;
+    box-sizing: border-box;
+    max-height: none !important;
+    padding: 0 0 8px !important;
+    overflow: visible !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--crm-border);
+  }
+  .telegram-conversation-list > .telegram-chat-strip-heading {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 2 !important;
+    display: flex !important;
+    width: 100%;
+    min-height: 48px;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    border: 1px solid var(--crm-border) !important;
+    border-radius: 11px;
+    background: var(--crm-card-bg) !important;
+  }
+  .telegram-chat-options-strip {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .telegram-chat-options-strip > .telegram-chat-choice {
+    flex: 0 0 164px !important;
+    width: 164px !important;
+    min-width: 164px !important;
+    max-width: 164px !important;
+    min-height: 54px !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+  }
+  .telegram-chat-options-strip > p {
+    flex: 0 0 100%;
+    margin: 0;
+  }
+}
+@media (max-width: 420px) {
+  .telegram-chat-options-strip > .telegram-chat-choice {
+    flex-basis: 148px !important;
+    width: 148px !important;
+    min-width: 148px !important;
+    max-width: 148px !important;
+  }
+}
