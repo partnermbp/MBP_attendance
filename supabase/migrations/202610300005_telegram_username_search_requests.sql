@@ -25,7 +25,7 @@ create policy "Authorized staff can request Telegram username lookup"
     and exists (
       select 1 from public.profiles p
       where p.id = auth.uid() and p.active = true
-        and lower(p.role) in ('admin','junior','middle','senior','team leader','team_leader')
+        and lower(p.role::text) in ('admin','junior','middle','senior','team leader','team_leader')
     )
   );
 
