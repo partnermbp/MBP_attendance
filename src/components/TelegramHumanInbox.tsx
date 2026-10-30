@@ -469,6 +469,19 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   const privateChatCount = chats.filter(chat => chat.chat_type === 'private').length;
   const groupChatCount = chats.filter(chat => chat.chat_type === 'group').length;
   const selectedAssignments = assignments.filter(item => String(item.chat_id) === selectedChat);
+  useEffect(() => {
+    if (!supabase || !selected || selected.chat_type !== 'group') { setGroupParticipants([]); return; }
+    let cancelled = false;
+    void supabase.from('telegram_inbox_chat_members')
+      .select('telegram_user_id,username,display_name,is_bot,is_self,is_active')
+      .eq('chat_id', selected.chat_id).eq('is_active', true).order('display_name')
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setNotice(current => current || 'Could not load group participants: ' + error.message);
+        setGroupParticipants(data ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [supabase, selected?.chat_id, selected?.chat_type]);
   const activeProfiles = profiles.filter(person => person.active && person.role.toLowerCase() !== 'admin');
 
   return <section className={"telegram-human-inbox" + (mobileExpanded ? " is-mobile-expanded" : "")} style={{ ...panel, overflow: 'hidden', color: '#e7e8ed' }}>
@@ -495,7 +508,13 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
         {selected ? <>
           <div className="telegram-chat-topbar">
             <div className="telegram-selected-chat-header" style={{ padding: '10px 14px', borderBottom: '1px solid #26272d' }}><strong>{selected.title}</strong><div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
-            {isAdmin && <div className="telegram-chat-assignment" style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
+            {selected.chat_type === 'group' && <div style={{padding:'10px 14px',borderBottom:'1px solid #26272d'}}>
+<strong>Participants ({groupParticipants.length})</strong>
+{groupParticipants.length === 0 ? <div style={muted}>No participant details available yet. Use Sync Now to refresh group members.</div> : <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:9}}>
+{groupParticipants.map(person => <span key={person.telegram_user_id} style={{...control,fontSize:12}}>
+<strong>{person.display_name || person.username || person.telegram_user_id}</strong>{person.username ? ' @'+person.username : ''}{person.is_self ? ' · You' : ''}{person.is_bot ? ' · Bot' : ''}
+</span>)}</div>}
+</div>}{isAdmin && <div className="telegram-chat-assignment" style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
               <strong>Assign to CRM employees</strong>
               <div className="telegram-assignment-controls" style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
