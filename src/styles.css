@@ -964,3 +964,70 @@ body::after { content:none; }
   .crm-brand-title { margin:6px 0 !important; font-size:12px; }
   .crm-layout { background:var(--crm-bg) !important; }
 }
+
+
+/* --- Day mode readability hardening for React inline styles across every CRM page. ---
+   React serializes inline hex colours to rgb(), so the earlier hex-only selectors
+   missed many legacy controls and labels. Normalize dark inline surfaces and
+   light inline text while leaving explicit semantic status colours intact. */
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(16"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(17"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(21"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(25"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(28"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(29"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(32"],
+:root[data-crm-theme="day"] .crm-layout [style*="background: rgb(36"] {
+  background:var(--crm-card-bg) !important;
+}
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(255"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(248"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(247"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(242"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(241"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(239"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(238"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(231"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(228"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(220"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(215"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(199"] {
+  color:var(--crm-text) !important;
+}
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(183"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(166"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(152"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(146"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(130"],
+:root[data-crm-theme="day"] .crm-layout [style*="color: rgb(128"] {
+  color:var(--crm-text-muted) !important;
+}
+/* Text on legacy dark inline buttons must remain dark after their surface is lightened. */
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(16"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(17"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(21"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(25"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(28"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(29"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(32"],
+:root[data-crm-theme="day"] .crm-layout button[style*="background: rgb(36"] {
+  color:var(--crm-text) !important;
+  border-color:var(--crm-control-border) !important;
+}
+:root[data-crm-theme="day"] .crm-layout button:disabled { opacity:.58; }
+
+/* Preserve distinct Human Telegram message states in Day mode. */
+:root[data-crm-theme="day"] .crm-layout .telegram-message-sent {
+  background:#dcfce7 !important;
+  color:#14532d !important;
+  border-color:#86c99b !important;
+}
+:root[data-crm-theme="day"] .crm-layout .telegram-message-queued {
+  background:#fef3c7 !important;
+  color:#78350f !important;
+  border-color:#e8bd58 !important;
+}
+:root[data-crm-theme="day"] .crm-layout .telegram-message-sent > div:first-child { color:#166534 !important; }
+:root[data-crm-theme="day"] .crm-layout .telegram-message-queued > div:first-child { color:#92400e !important; }
+:root[data-crm-theme="day"] .crm-layout .telegram-message-sent a,
+:root[data-crm-theme="day"] .crm-layout .telegram-message-queued a { color:#1d4ed8 !important; }
