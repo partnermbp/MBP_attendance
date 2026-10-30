@@ -493,16 +493,43 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {page === 'telegram-analytics' && <>
     <h2 style={{marginTop:0}}>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
-    <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #b54708', borderRadius: 10, background: '#261b12' }}>
-      <strong>Connect your work group with the dedicated CRM analytics bot</strong>
-      <p style={muted}>This integration must use a separate Telegram bot created specifically for CRM group analytics. Do not use <code>@mbpauthbot</code>; it remains reserved for authentication.</p>
-      <ol style={{ paddingLeft: 22, lineHeight: 1.7 }}>
-        <li>Create a dedicated bot with <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>@BotFather</a> and store its token as the Supabase Edge Function secret <code>TELEGRAM_BOT_TOKEN</code>. Do not put the token in this CRM or GitHub frontend files.</li>
-        <li>Set <code>TELEGRAM_WEBHOOK_SECRET</code> and deploy the <code>telegram-group-webhook</code> Supabase Edge Function. Configure the Telegram webhook with the same secret token.</li>
-        <li>Add the new analytics bot to each authorized work group. Enable group message access in BotFather (disable privacy mode if the bot must receive ordinary group messages); grant only the permissions needed.</li>
-        <li>Send a new test message and reply in the group. New messages should appear below after the database migration is applied and the webhook is configured.</li>
+    <div style={{ padding: 16, margin: '12px 0 18px', border: '1px solid #344054', borderRadius: 12, background: 'var(--crm-card-bg)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 220, flex: '1 1 280px' }}>
+          <div style={{ color: 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Group connection</div>
+          <strong style={{ display: 'block', marginTop: 5, fontSize: 16 }}>Connect your work groups with @md_shobbot</strong>
+          <p style={{ ...muted, margin: '6px 0 0' }}>Use the existing CRM Telegram bot. Each manager can choose the work group they manage; once the bot receives a new message from that group, it will appear in the analytics list below.</p>
+        </div>
+        <a href="https://t.me/md_shobbot?startgroup=crm_group_analytics" target="_blank" rel="noreferrer" style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+          <span aria-hidden="true">＋</span> Add @md_shobbot to a group
+        </a>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginTop: 16 }}>
+        <div style={{ padding: 12, borderRadius: 8, background: 'var(--crm-card-raised)' }}>
+          <div style={{ ...muted, fontSize: 11 }}>Groups detected by CRM</div>
+          <strong style={{ display: 'block', fontSize: 23, marginTop: 3 }}>{groups.filter(g => g.enabled).length}</strong>
+        </div>
+        <div style={{ padding: 12, borderRadius: 8, background: 'var(--crm-card-raised)' }}>
+          <div style={{ ...muted, fontSize: 11 }}>Next step</div>
+          <strong style={{ display: 'block', fontSize: 13, marginTop: 6 }}>Send a test message</strong>
+          <span style={{ ...muted, fontSize: 11 }}>The group is detected after the bot receives activity.</span>
+        </div>
+      </div>
+      <ol style={{ paddingLeft: 21, margin: '14px 0 0', lineHeight: 1.75, color: 'var(--crm-text)', fontSize: 13 }}>
+        <li>Click <strong>Add @md_shobbot to a group</strong> and choose the relevant work group in Telegram.</li>
+        <li>Confirm adding the bot. It does not need broad admin permissions just for message collection.</li>
+        <li>For full group-message analytics, the bot must have message access. Check that Telegram shows it <strong>has access to messages</strong>; if not, the bot owner must disable Group Privacy in <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>@BotFather</a>, then remove and re-add the bot to that group.</li>
+        <li>Send a new test message in the group. Once captured by the CRM webhook, the group will appear in the selector below.</li>
       </ol>
-      <p style={muted}>The bot cannot import older group history or read receipts. Avoid collecting private or unrelated conversations; tell group participants what is logged and obtain the required consent.</p>
+      {groups.filter(g => g.enabled).length > 0 && <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--crm-border)' }}>
+        <strong style={{ fontSize: 12 }}>Groups already detected</strong>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>
+          {groups.filter(g => g.enabled).map(g => <span key={g.telegram_chat_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 9px', borderRadius: 6, background: 'var(--crm-card-raised)', color: 'var(--crm-text)', fontSize: 12 }}>
+            <span aria-hidden="true" style={{ color: '#22c55e' }}>●</span>{g.title}
+          </span>)}
+        </div>
+      </div>}
+      <p style={{ ...muted, margin: '13px 0 0', fontSize: 11 }}>Only new messages received after connection can be collected; Telegram bots cannot retrieve earlier group history or read receipts. Make sure group participants know that messages are being processed for CRM analytics.</p>
     </div>
     <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
