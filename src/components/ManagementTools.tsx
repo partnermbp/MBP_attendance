@@ -75,6 +75,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [inviteLoading, setInviteLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [assignmentNotice, setAssignmentNotice] = useState('');
+  const [humanAccessIds, setHumanAccessIds] = useState<Set<string>>(() => new Set());
   const [activeMedia, setActiveMedia] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [mediaLoading, setMediaLoading] = useState('');
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
@@ -151,6 +152,15 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   useEffect(() => { void load(); }, [supabase, profile?.id, profile?.role, selectedGroup]);
+  useEffect(() => {
+    if (!supabase || !isAdmin || !(page === 'team' || page === 'team-roles')) return;
+    let cancelled = false;
+    void supabase.from('telegram_human_access').select('profile_id').then(({ data, error }) => {
+      if (!cancelled && !error) setHumanAccessIds(new Set((data ?? []).map((row: { profile_id: string }) => row.profile_id)));
+      if (error) setNotice(current => current || 'Could not load Human Telegram permissions: ' + error.message);
+    });
+    return () => { cancelled = true; };
+  }, [supabase, isAdmin, page]);
   useEffect(() => {
     const restore = groupScrollRestoreRef.current;
     const container = groupMessagesContainerRef.current;
@@ -334,6 +344,18 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {page === 'team' && <>
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
     <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
+    </>}
+    {isAdmin && (page === 'team' || page === 'team-roles') && <>
+      <h3>Human Telegram Chat access</h3>
+      <p style={muted}>Only active Telemarketing managers can be granted access. Enable each person individually; changing their role away from Telemarketing automatically removes eligibility.</p>
+      <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr><th style={cell}>Telemarketing manager</th><th style={cell}>Access</th><th style={cell}>Permission</th></tr></thead>
+        <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase().replaceAll('_',' ')==='telemarketing').map(person=><tr key={'human-access-'+person.id}>
+          <td style={cell}>{person.full_name || person.email || person.id}</td>
+          <td style={cell}><span style={{color:humanAccessIds.has(person.id)?'#16a34a':'#98a2b3',fontWeight:700}}>{humanAccessIds.has(person.id)?'Enabled':'Disabled'}</span></td>
+          <td style={cell}><button type="button" style={button} disabled={loading} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const enabled=humanAccessIds.has(person.id);const result=enabled?await supabase.from('telegram_human_access').delete().eq('profile_id',person.id):await supabase.from('telegram_human_access').insert({profile_id:person.id,granted_by:profile?.id});if(result.error)setNotice('Could not '+(enabled?'revoke':'grant')+' Human Telegram access: '+result.error.message);else{setHumanAccessIds(current=>{const next=new Set(current);if(enabled)next.delete(person.id);else next.add(person.id);return next;});setNotice('Human Telegram access '+(enabled?'revoked':'enabled')+' for '+(person.full_name||person.email||'this manager')+'.');}setLoading(false);}}>{humanAccessIds.has(person.id)?'Revoke access':'Enable access'}</button></td>
+        </tr>)}</tbody></table></div>
+      {!profiles.some(p=>p.active && p.role.toLowerCase().replaceAll('_',' ')==='telemarketing')&&<p style={muted}>No active Telemarketing managers are registered.</p>}
     </>}
     {isAdmin && (page === 'team' || page === 'team-roles') && <>
       <h3>Employee role management</h3>
