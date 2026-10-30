@@ -20,6 +20,7 @@ from telethon.extensions import html as telethon_html
 from telethon.helpers import add_surrogate, del_surrogate, strip_text
 from telethon.tl.types import MessageEntitySpoiler, User, Chat, Channel
 from telethon import utils
+from telethon.tl import functions
 
 
 class TelegramHTMLParser(telethon_html.HTMLToTelegramParser):
@@ -367,7 +368,8 @@ async def main() -> None:
         # Index Telegram contacts for search/new-chat. Keep these rows hidden from
         # the normal inbox list until a real dialog exists.
         contact_rows = []
-        async for contact in client.iter_contacts():
+        contacts_result = await client(functions.contacts.GetContactsRequest(hash=0))
+        for contact in contacts_result.users:
             if getattr(contact, "bot", False) or int(contact.id) == 777000 or (me and int(contact.id) == int(me.id)):
                 continue
             contact_name = " ".join(part for part in [getattr(contact, "first_name", None), getattr(contact, "last_name", None)] if part).strip() or getattr(contact, "username", None) or str(contact.id)
