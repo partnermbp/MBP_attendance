@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Profile = Person | null;
-type InboxChat = { chat_id: number; title: string; username: string | null; chat_type: 'private' | 'group'; is_contact_only?: boolean; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
+type InboxChat = { chat_id: number; title: string; username: string | null; chat_type: 'private' | 'group'; is_contact_only?: boolean; phone_number?: string | null; last_message_id: number; last_message_at: string | null; last_synced_at: string | null; read_outbox_max_id: number };
 type InboxMessage = { chat_id: number; message_id: number; sender_id: number | null; outgoing: boolean; message_text: string; sent_at: string; reply_to_message_id: number | null; media_path: string | null; media_name: string | null; media_mime_type: string | null; media_size: number | null };
 type PendingReply = { id: string; chat_id: number; message_text: string; created_at: string };
 type InboxAssignment = { chat_id: number; profile_id: string; assigned_by: string | null; assigned_at: string };
@@ -88,7 +88,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     setLoading(true);
     setNotice('');
     const [chatResult, assignmentResult] = await Promise.all([
-      supabase.from('telegram_inbox_chats').select('chat_id,title,username,chat_type,is_contact_only,last_message_id,last_message_at,last_synced_at,read_outbox_max_id').order('last_message_at', { ascending: false }).limit(300),
+      supabase.from('telegram_inbox_chats').select('chat_id,title,username,phone_number,chat_type,is_contact_only,last_message_id,last_message_at,last_synced_at,read_outbox_max_id').order('last_message_at', { ascending: false }).limit(300),
       supabase.from('telegram_inbox_chat_assignments').select('chat_id,profile_id,assigned_by,assigned_at'),
     ]);
     if (chatResult.error) {
@@ -492,7 +492,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   }
 
   const selected = chats.find(chat => String(chat.chat_id) === selectedChat);
-  const contactMatches = chats.filter(chat => chat.is_contact_only && chat.chat_type === 'private' && (String(chat.title || '') + ' ' + String(chat.username || '') + ' ' + String(chat.chat_id)).toLowerCase().includes(contactSearch.trim().replace(/^@/, '').toLowerCase()));
+  const contactMatches = chats.filter(chat => chat.is_contact_only && chat.chat_type === 'private' && (String(chat.title || '') + ' ' + String(chat.username || '') + ' ' + String(chat.phone_number || '') + ' ' + String(chat.chat_id)).toLowerCase().includes(contactSearch.trim().replace(/^@/, '').toLowerCase()));
   const visibleChats = chats.filter(chat => chat.chat_type === chatFilter && !chat.is_contact_only);
   const privateChatCount = chats.filter(chat => chat.chat_type === 'private' && !chat.is_contact_only).length;
   const groupChatCount = chats.filter(chat => chat.chat_type === 'group').length;
@@ -529,7 +529,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           </form>
           {contactSearchBusy && <span style={muted}>Syncing Telegram contacts…</span>}
           {contactSearchDone && contactMatches.length === 0 && <span style={muted}>No contacts found</span>}
-          {contactSearchDone && contactMatches.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setMessages([]); }} style={{ ...action, textAlign: 'left' }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}</button>)}
+          {contactSearchDone && contactMatches.map(chat => <button key={chat.chat_id} type="button" onClick={() => { setChatFilter('private'); setSelectedChat(String(chat.chat_id)); setContactSearchOpen(false); setContactSearch(''); setContactSearchDone(false); setMessages([]); }} style={{ ...action, textAlign: 'left' }}>{chat.title}{chat.username ? ' · @' + chat.username : ''}{chat.phone_number ? ' · +' + chat.phone_number : ''}</button>)}
         </div>}
         {loading && <p style={{ padding: 14, ...muted }}>Loading conversations…</p>}
         {!loading && chats.length === 0 && <p style={{ padding: 14, ...muted }}>No conversations are available to your account. Admins can see all synced chats; employees need an assigned chat.</p>}
