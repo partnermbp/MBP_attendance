@@ -577,6 +577,23 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       <button className="telegram-desktop-sync" type="button" disabled={loading || syncing} style={{ ...action, background: '#1d2939', border: '1px solid #475467', opacity: syncing ? 0.6 : 1 }} onClick={() => { void requestSync(); }}>{syncing ? 'Sync running…' : 'Sync Now'}</button>
     </header>
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
+    {isAdmin && selected && <section className="telegram-page-assignment">
+      <div className="telegram-page-assignment-heading"><strong>Assign to CRM employees</strong><span>Current conversation: {selected.title}</span></div>
+      <div className="telegram-assignment-controls">
+        <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
+          <option value="">Choose employee…</option>
+          {activeProfiles.map(person => <option key={person.id} value={person.id}>{person.full_name || person.email || person.id} · {person.role}</option>)}
+        </select>
+        <button type="button" style={action} disabled={!assignee} onClick={() => void assignChat()}>Assign</button>
+      </div>
+      <div className="telegram-assignment-chips">
+        {selectedAssignments.map(item => {
+          const person = profiles.find(p => p.id === item.profile_id);
+          return <span key={item.profile_id} style={{ ...control, fontSize: 12 }}>{person?.full_name || person?.email || item.profile_id} <button type="button" aria-label="Remove assignment" onClick={() => void removeAssignment(item.profile_id)} style={{ border: 0, color: '#fda29b', background: 'transparent', cursor: 'pointer' }}>×</button></span>;
+        })}
+        {!selectedAssignments.length && <span style={muted}>Not assigned yet.</span>}
+      </div>
+    </section>}
     <div className="telegram-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
       <aside className="telegram-conversation-list" style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
         <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('private')} aria-pressed={chatFilter==='private'}>CHATS <span>({privateChatCount})</span></button><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('group')} aria-pressed={chatFilter==='group'}>GROUPS <span>({groupChatCount})</span></button><button className="telegram-search-trigger" ref={searchTriggerRef} type="button" title="Search contacts / start a new chat" aria-label="Search contacts" onClick={() => {
@@ -609,23 +626,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
               }
               setContactSearchOpen(false); setParticipantsOpen(value => !value);
             }}>{selected.title}</button> : <strong>{selected.title}</strong>}<div style={muted}>Chat ID: {selected.chat_id} · Last synced: {selected.last_synced_at ? new Date(selected.last_synced_at).toLocaleString() : 'Not synced'}</div></div>
-            {isAdmin && <div className="telegram-chat-assignment" style={{ borderBottom: '1px solid #26272d', padding: '8px 14px 12px', marginBottom: 4 }}>
-              <strong>Assign to CRM employees</strong>
-              <div className="telegram-assignment-controls" style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
-                  <option value="">Choose employee…</option>
-                  {activeProfiles.map(person => <option key={person.id} value={person.id}>{person.full_name || person.email || person.id} · {person.role}</option>)}
-                </select>
-                <button type="button" style={action} disabled={!assignee} onClick={() => void assignChat()}>Assign</button>
-              </div>
-              <div className="telegram-assignment-chips" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                {selectedAssignments.map(item => {
-                  const person = profiles.find(p => p.id === item.profile_id);
-                  return <span key={item.profile_id} style={{ ...control, fontSize: 12 }}>{person?.full_name || person?.email || item.profile_id} <button type="button" aria-label="Remove assignment" onClick={() => void removeAssignment(item.profile_id)} style={{ border: 0, color: '#fda29b', background: 'transparent', cursor: 'pointer' }}>×</button></span>;
-                })}
-                {!selectedAssignments.length && <span style={muted}>Not assigned yet.</span>}
-              </div>
-            </div>}
+
           </div>
           <div className="telegram-messages" ref={messagesContainerRef} style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520, minHeight: 260, background: 'transparent' }}>
             {hasMoreMessages && <button type="button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()} style={{ ...action, alignSelf: 'center', fontSize: 12, marginBottom: 4, opacity: loadingOlderMessages ? 0.65 : 1 }}>{loadingOlderMessages ? 'Loading older messages…' : '↑ Load older messages'}</button>}
