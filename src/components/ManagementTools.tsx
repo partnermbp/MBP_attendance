@@ -1,5 +1,5 @@
 import TelegramHumanInbox from './TelegramHumanInbox';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -16,6 +16,7 @@ const input: CSSProperties = { display: 'block', width: '100%', marginTop: 6, pa
 const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, color: '#fff', background: 'var(--crm-accent-strong)', cursor: 'pointer', fontWeight: 600 };
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
 const cell: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top' };
+const GROUP_MESSAGE_PAGE_SIZE = 150;
 
 function friendlyInvitationError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? '');
@@ -64,6 +65,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [messages, setMessages] = useState<Message[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
+  const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
+  const [groupMessagesAtTop, setGroupMessagesAtTop] = useState(false);
+  const groupMessagesContainerRef = useRef<HTMLDivElement>(null);
+  const groupScrollRestoreRef = useRef<{ height: number; top: number } | null>(null);
+  const groupOlderCacheTimerRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -113,10 +120,19 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       if (chosen.length) {
         const messageResult = await supabase.from('telegram_messages')
           .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id,raw_update,message_kind')
-          .in('telegram_chat_id', chosen).order('message_date', { ascending: false }).limit(300);
+          .in('telegram_chat_id', chosen).order('message_date', { ascending: false }).limit(GROUP_MESSAGE_PAGE_SIZE);
         if (messageResult.error) setNotice((current) => current || 'Telegram messages: ' + messageResult.error.message);
-        else setMessages((messageResult.data ?? []) as Message[]);
-      } else setMessages([]);
+        else {
+          const rows = (messageResult.data ?? []) as Message[];
+          setMessages(rows);
+          setGroupMessagesHasMore(rows.length === GROUP_MESSAGE_PAGE_SIZE);
+          setGroupMessagesAtTop(false);
+        }
+      } else {
+        setMessages([]);
+        setGroupMessagesHasMore(false);
+        setGroupMessagesAtTop(false);
+      }
       if (isManager) {
         const mine = [...new Set(((treeResult.data ?? []) as TeamNode[]).map(person => person.id))];
         if (mine.length) {
@@ -135,6 +151,60 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   useEffect(() => { void load(); }, [supabase, profile?.id, profile?.role, selectedGroup]);
+  useEffect(() => {
+    const restore = groupScrollRestoreRef.current;
+    const container = groupMessagesContainerRef.current;
+    if (!restore || !container) return;
+    container.scrollTop = container.scrollHeight - restore.height + restore.top;
+    groupScrollRestoreRef.current = null;
+  }, [messages]);
+
+  useEffect(() => () => {
+    if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current);
+  }, []);
+
+  async function loadOlderGroupMessages() {
+    if (!supabase || !selectedGroup || groupMessagesLoadingOlder) return;
+    const current = messages.filter(message => String(message.telegram_chat_id) === selectedGroup);
+    const oldest = current.reduce<Message | null>((found, message) =>
+      !found || message.telegram_message_id < found.telegram_message_id ? message : found, null);
+    if (!oldest) return;
+    const container = groupMessagesContainerRef.current;
+    if (container) groupScrollRestoreRef.current = { height: container.scrollHeight, top: container.scrollTop };
+    setGroupMessagesLoadingOlder(true);
+    const result = await supabase.from('telegram_messages')
+      .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id,raw_update,message_kind')
+      .eq('telegram_chat_id', Number(selectedGroup))
+      .lt('telegram_message_id', oldest.telegram_message_id)
+      .order('message_date', { ascending: false })
+      .limit(GROUP_MESSAGE_PAGE_SIZE);
+    if (result.error) {
+      groupScrollRestoreRef.current = null;
+      setNotice('Could not load older group messages: ' + result.error.message);
+    } else {
+      const older = (result.data ?? []) as Message[];
+      setMessages(previous => {
+        const byId = new Map<number, Message>();
+        for (const message of previous) if (String(message.telegram_chat_id) === selectedGroup) byId.set(message.telegram_message_id, message);
+        for (const message of older) byId.set(message.telegram_message_id, message);
+        return [...byId.values()].sort((a, b) => b.telegram_message_id - a.telegram_message_id);
+      });
+      setGroupMessagesHasMore(older.length === GROUP_MESSAGE_PAGE_SIZE);
+      if (older.length) {
+        if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current);
+        groupOlderCacheTimerRef.current = window.setTimeout(() => {
+          setMessages(previous => previous
+            .filter(message => String(message.telegram_chat_id) === selectedGroup)
+            .sort((a, b) => b.telegram_message_id - a.telegram_message_id)
+            .slice(0, GROUP_MESSAGE_PAGE_SIZE));
+          setGroupMessagesHasMore(true);
+          groupOlderCacheTimerRef.current = null;
+        }, 60 * 60 * 1000);
+      }
+    }
+    setGroupMessagesLoadingOlder(false);
+  }
+
 
   useEffect(() => {
     return () => { if (activeMedia?.url) URL.revokeObjectURL(activeMedia.url); };
@@ -412,7 +482,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </ol>
       <p style={muted}>The bot cannot import older group history or read receipts. Avoid collecting private or unrelated conversations; tell group participants what is logged and obtain the required consent.</p>
     </div>
-    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
+    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
@@ -424,7 +494,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>Chat · {groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Selected group'}</h3>
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
         <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span></header>
-        <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>
+        <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtTop(event.currentTarget.scrollTop <= 24)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtTop && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', top:0, zIndex:2, alignSelf:'center', margin:'-6px 0 2px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↑ Load older messages'}</button>}
           {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => { const raw=m.raw_update || {}; const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>; const photo=Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length-1] : null; const doc=msg.document || msg.video || msg.animation || msg.audio || msg.voice || null; const media=photo || doc; const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null); return <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}><div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>{media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}<div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div><div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div></article> })}
           {!messages.some(m=>String(m.telegram_chat_id)===selectedGroup) && <p style={{ ...muted, textAlign:'center', padding:20 }}>No captured messages for this group yet. New messages appear after the analytics bot receives them.</p>}
         </div>
