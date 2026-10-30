@@ -196,6 +196,9 @@ async def main() -> None:
         # metadata updates and persist them together after message inserts.
         # New chats still get an initial row immediately to satisfy the message FK.
         chat_updates: list[dict[str, Any]] = []
+        # IDs seen in real Telegram dialogs during this run. Saved contacts
+        # must never overwrite a real conversation row with is_contact_only=True.
+        dialog_chat_ids: set[int] = set()
 
         async for dialog in client.iter_dialogs(limit=max_dialogs):
             entity = dialog.entity
@@ -219,6 +222,7 @@ async def main() -> None:
                 chat_type = "group"
             else:
                 continue
+            dialog_chat_ids.add(chat_id)
             last_id = watermarks.get(chat_id, 0)
             now = iso_datetime(datetime.now(timezone.utc))
 
@@ -370,7 +374,13 @@ async def main() -> None:
         contact_rows = []
         contacts_result = await client(functions.contacts.GetContactsRequest(hash=0))
         for contact in contacts_result.users:
-            if getattr(contact, "bot", False) or int(contact.id) == 777000 or (me and int(contact.id) == int(me.id)):
+            contact_id = int(contact.id)
+            # Never index a saved contact as a contact-only row if that person
+            # already has a real dialog. This prevents overwriting conversation
+            # metadata/history and keeps the inbox strictly dialog-based.
+            if contact_id in dialog_chat_ids:
+                continue
+            if getattr(contact, "bot", False) or contact_id == 777000 or (me and contact_id == int(me.id)):
                 continue
             contact_name = " ".join(part for part in [getattr(contact, "first_name", None), getattr(contact, "last_name", None)] if part).strip() or getattr(contact, "username", None) or str(contact.id)
             contact_rows.append({
