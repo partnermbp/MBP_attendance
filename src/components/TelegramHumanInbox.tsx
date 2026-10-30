@@ -484,7 +484,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     const handler = raw.replace(/^@/, '').trim();
     let query = supabase.from('telegram_inbox_chats')
       .select('chat_id,title,username,phone_number,chat_type,is_contact_only,last_message_id,last_message_at,last_synced_at,read_outbox_max_id')
-      .eq('chat_type', 'private').limit(30);
+      .eq('chat_type', 'private').eq('is_contact_only', false).limit(30);
     if (raw.startsWith('@')) {
       query = query.ilike('username', handler);
     } else if (/^[+\d][\d\s()+-]*$/.test(raw)) {
