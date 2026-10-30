@@ -612,7 +612,6 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     </section>}
     <div className="telegram-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
       <aside className="telegram-conversation-list" style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
-      <aside className="telegram-conversation-list" style={{ borderRight: '1px solid #26272d', maxHeight: 620, overflowY: 'auto', minWidth: 0, paddingRight: 8 }}>
         <div className="telegram-chat-strip-heading" style={{ padding: '10px 8px', borderBottom: '1px solid #26272d', color: '#858894', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('private')} aria-pressed={chatFilter==='private'}>CHATS <span>({privateChatCount})</span></button><button className="telegram-filter-link" type="button" onClick={() => setChatFilter('group')} aria-pressed={chatFilter==='group'}>GROUPS <span>({groupChatCount})</span></button><button className="telegram-search-trigger" ref={searchTriggerRef} type="button" title="Search contacts / start a new chat" aria-label="Search contacts" onClick={() => {
           const rect = searchTriggerRef.current?.getBoundingClientRect();
           if (rect) {
