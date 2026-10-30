@@ -402,7 +402,7 @@ export default function App() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setClockNow(Date.now());
-    }, 30000);
+    }, 1000);
 
     return () => window.clearInterval(interval);
   }, []);
