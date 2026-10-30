@@ -1153,3 +1153,73 @@ body::after { content:none; }
   .telegram-contact-search-popover.telegram-floating-popover { padding:9px; }
   .telegram-floating-popover .telegram-group-participant { padding:8px 9px; }
 }
+
+
+/* Human Telegram inbox: put assignment first and make the mobile controls a deliberate toolbar. */
+.telegram-page-assignment {
+  display:grid; grid-template-columns:minmax(180px, .8fr) minmax(220px, 1fr) minmax(180px, 1fr);
+  align-items:center; gap:12px; margin:12px 0 14px; padding:12px 14px;
+  border:1px solid var(--crm-border); border-radius:12px;
+  background:var(--crm-card-bg); color:var(--crm-text);
+}
+.telegram-page-assignment-heading { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.telegram-page-assignment-heading strong { font-size:13px; }
+.telegram-page-assignment-heading span { color:var(--crm-text-muted); font-size:11px; overflow-wrap:anywhere; }
+.telegram-page-assignment .telegram-assignment-controls { display:flex; align-items:center; gap:8px; min-width:0; }
+.telegram-page-assignment .telegram-assignment-controls select { flex:1 1 auto !important; width:100%; min-width:0; }
+.telegram-page-assignment .telegram-assignment-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
+.telegram-mobile-expand { display:none; }
+@media (max-width:760px) {
+  .telegram-page-assignment {
+    grid-template-columns:minmax(0,1fr); gap:9px; margin:10px 0 12px; padding:12px;
+  }
+  .telegram-page-assignment-heading { gap:2px; }
+  .telegram-page-assignment .telegram-assignment-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+  .telegram-page-assignment .telegram-assignment-controls button { min-width:78px; }
+  .telegram-page-assignment .telegram-assignment-chips { padding-top:1px; }
+  .telegram-chat-strip-heading {
+    position:relative !important; left:auto !important; z-index:2; flex:0 0 auto !important;
+    width:100%; min-width:0; height:auto; min-height:48px; box-sizing:border-box;
+    flex-direction:row !important; justify-content:flex-start !important; align-items:center !important;
+    gap:clamp(7px,2.2vw,14px) !important; padding:6px 9px !important;
+    border:1px solid var(--crm-border) !important; border-radius:11px;
+    background:var(--crm-card-bg) !important; overflow:visible;
+  }
+  .telegram-chat-strip-heading .telegram-filter-link {
+    flex:0 0 auto; min-height:34px !important; padding:5px 2px !important;
+    font-size:10px !important; letter-spacing:.02em; white-space:nowrap;
+  }
+  .telegram-chat-strip-heading .telegram-search-trigger,
+  .telegram-chat-strip-heading .telegram-mobile-sync,
+  .telegram-chat-strip-heading .telegram-mobile-expand {
+    flex:0 0 36px !important; width:36px !important; height:36px !important; min-width:36px !important;
+    min-height:36px !important; padding:0 !important; display:inline-flex !important;
+    align-items:center; justify-content:center; border:1px solid var(--crm-border) !important;
+    border-radius:9px !important; background:var(--crm-card-raised) !important;
+    color:var(--crm-text) !important; margin-left:auto;
+  }
+  .telegram-chat-strip-heading .telegram-mobile-sync,
+  .telegram-chat-strip-heading .telegram-mobile-expand { margin-left:0; }
+  .telegram-chat-strip-heading .telegram-search-trigger svg { width:21px; height:21px; }
+  .telegram-chat-strip-heading .telegram-mobile-sync svg,
+  .telegram-chat-strip-heading .telegram-mobile-expand svg { width:19px; height:19px; }
+  .telegram-conversation-list {
+    display:grid !important; grid-template-columns:minmax(0,1fr); gap:8px !important;
+    padding:0 0 10px !important; overflow:visible !important;
+    border-bottom:1px solid var(--crm-border); 
+  }
+  .telegram-conversation-list > .telegram-chat-choice {
+    min-width:0 !important; max-width:none !important; width:100% !important;
+    min-height:46px !important; align-self:stretch; padding:9px 11px !important;
+  }
+  .telegram-conversation-panel { width:100%; min-width:0; }
+  .telegram-chat-topbar { gap:0 !important; }
+  .telegram-selected-chat-header { padding:11px 12px !important; }
+}
+@media (max-width:420px) {
+  .telegram-chat-strip-heading { gap:7px !important; padding:6px 7px !important; }
+  .telegram-chat-strip-heading .telegram-filter-link { font-size:9px !important; }
+  .telegram-chat-strip-heading .telegram-search-trigger,
+  .telegram-chat-strip-heading .telegram-mobile-sync,
+  .telegram-chat-strip-heading .telegram-mobile-expand { flex-basis:34px !important; width:34px !important; min-width:34px !important; height:34px !important; min-height:34px !important; }
+}
