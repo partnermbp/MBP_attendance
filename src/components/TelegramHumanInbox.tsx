@@ -484,7 +484,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     const handler = raw.replace(/^@/, '').trim();
     let query = supabase.from('telegram_inbox_chats')
       .select('chat_id,title,username,phone_number,chat_type,is_contact_only,last_message_id,last_message_at,last_synced_at,read_outbox_max_id')
-      .eq('chat_type', 'private').eq('is_contact_only', false).limit(30);
+      .eq('chat_type', 'private').limit(30);
     if (raw.startsWith('@')) {
       query = query.ilike('username', handler);
     } else if (/^[+\d][\d\s()+-]*$/.test(raw)) {
@@ -504,10 +504,23 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
   }
 
   async function startContactSearch() {
-    if (!contactSearch.trim()) return;
+    if (!supabase || !profile?.id || !contactSearch.trim()) return;
     setContactSearchBusy(true);
     setContactSearchDone(false);
     setContactResults([]);
+    const raw = contactSearch.trim();
+    const username = raw.startsWith('@') ? raw.slice(1).trim() : (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(raw) ? raw : '');
+    if (username) {
+      const { error } = await supabase.from('telegram_inbox_search_requests').insert({
+        requested_by: profile.id, query: username, status: 'pending'
+      });
+      if (error) {
+        setContactSearchBusy(false);
+        setContactSearchDone(true);
+        setNotice('Could not queue Telegram username lookup: ' + error.message);
+        return;
+      }
+    }
     await requestSync(true);
   }
 
