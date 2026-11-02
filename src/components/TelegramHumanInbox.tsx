@@ -585,7 +585,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
     return () => document.removeEventListener('pointerdown', closeOnOutside);
   }, [contactSearchOpen, participantsOpen]);
   useEffect(() => { setParticipantsOpen(false); }, [selected?.chat_id]);
-  const activeProfiles = profiles.filter(person => person.active && person.role.toLowerCase() !== 'admin');
+  const activeProfiles = profiles.filter(person => person.active && person.role.trim().toLowerCase().replaceAll('_', ' ') === 'telemarketing');
 
   return <section className={"telegram-human-inbox" + (mobileExpanded ? " is-mobile-expanded" : "")} style={{ ...panel, overflow: 'hidden', color: '#e7e8ed' }}>
     <header className="telegram-inbox-header" style={{ padding: '8px 0 14px', borderBottom: '1px solid #26272d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
