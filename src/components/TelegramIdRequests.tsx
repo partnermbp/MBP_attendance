@@ -8,6 +8,8 @@ type RequestRow = {
   requester_email: string | null;
   old_telegram_user_id: number;
   new_telegram_user_id: number;
+  old_telegram_username: string | null;
+  new_telegram_username: string | null;
   comment: string;
   status: string;
   created_at: string;
@@ -25,7 +27,7 @@ export default function TelegramIdRequests() {
     if (!supabase) { setMessage('Database is not configured.'); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase.from('telegram_id_change_requests')
-      .select('id,requester_profile_id,requester_name,requester_email,old_telegram_user_id,new_telegram_user_id,comment,status,created_at,reviewed_at,admin_note')
+      .select('id,requester_profile_id,requester_name,requester_email,old_telegram_user_id,new_telegram_user_id,old_telegram_username,new_telegram_username,comment,status,created_at,reviewed_at,admin_note')
       .order('created_at', { ascending: false }).limit(500);
     if (error) setMessage('Could not load requests. Apply the Telegram ID requests migration first. ' + error.message);
     else { setRows((data ?? []) as RequestRow[]); setMessage(''); }
@@ -61,8 +63,8 @@ export default function TelegramIdRequests() {
         <tbody>{rows.map(row=><tr key={row.id}>
           <td style={cell}>#{row.id}<br/>{new Date(row.created_at).toLocaleString()}</td>
           <td style={cell}>{row.requester_name || 'Unknown'}<br/><small>{row.requester_email || ''}</small></td>
-          <td style={cell}>{row.old_telegram_user_id}</td>
-          <td style={cell}>{row.new_telegram_user_id}</td>
+          <td style={cell}>{row.old_telegram_username ? '@' + row.old_telegram_username : row.old_telegram_user_id}<br/><small>ID: {row.old_telegram_user_id}</small></td>
+          <td style={cell}>{row.new_telegram_username ? '@' + row.new_telegram_username : row.new_telegram_user_id}<br/><small>ID: {row.new_telegram_user_id}</small></td>
           <td style={{...cell,minWidth:180}}>{row.comment}</td>
           <td style={cell}>{row.status}</td>
           <td style={{...cell,minWidth:260}}>
