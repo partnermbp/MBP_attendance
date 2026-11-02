@@ -1408,3 +1408,62 @@ body::after { content:none; }
 :root[data-crm-theme="day"] .crm-layout [title="Absent"] * {
   color:inherit !important;
 }
+
+
+/* Theme consistency corrections: keep the selected branch active and use the
+   chosen accent across Day mode as well as Night mode. */
+:root[data-crm-theme="day"][data-crm-accent="blue"] {
+  --crm-accent: #2869a8;
+  --crm-accent-strong: #205b96;
+  --crm-accent-soft: #dceafa;
+  --crm-link: #205b96;
+}
+:root[data-crm-theme="day"][data-crm-accent="orange"] {
+  --crm-accent: #b95716;
+  --crm-accent-strong: #a94d12;
+  --crm-accent-soft: #ffead9;
+  --crm-link: #a94d12;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button[aria-current="page"],
+:root[data-crm-theme="day"] .crm-sidebar nav button[data-branch-active="true"] {
+  background:var(--crm-accent-soft) !important;
+  color:var(--crm-accent-strong) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button[aria-current="page"] svg,
+:root[data-crm-theme="day"] .crm-sidebar nav button[data-branch-active="true"] svg {
+  color:var(--crm-accent-strong) !important;
+}
+:root[data-crm-theme="day"] .crm-brand-header {
+  padding:0 0 0 12px;
+  margin-bottom:14px !important;
+  border-radius:0 0 8px 8px;
+  background:linear-gradient(100deg,#26364b 0%,#344960 72%,#40566d 100%);
+  box-shadow:none !important;
+}
+:root[data-crm-theme="day"] .crm-brand-title {
+  margin:0;
+  padding:13px 16px 13px 0;
+  color:#f4f7fb !important;
+  text-shadow:none !important;
+  letter-spacing:.14em;
+}
+:root[data-crm-theme="day"] .telegram-chat-strip-heading .telegram-filter-link[aria-pressed="true"] {
+  color:var(--crm-accent-strong) !important;
+  background:var(--crm-accent-soft) !important;
+}
+:root[data-crm-theme="day"] .telegram-group-title-toggle span { color:var(--crm-accent-strong) !important; }
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div {
+  background:var(--crm-panel-bg) !important;
+  border-color:var(--crm-border) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div button {
+  color:var(--crm-text-muted) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div button[aria-current="page"] {
+  color:var(--crm-accent-strong) !important;
+  background:var(--crm-accent-soft) !important;
+}
+:root[data-crm-theme="day"] {
+  background:var(--crm-bg) !important;
+  color:var(--crm-text);
+}
