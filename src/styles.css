@@ -1326,3 +1326,85 @@ body::after { content:none; }
     max-width: 148px !important;
   }
 }
+
+
+/* Day theme refinement: softer layered surfaces and explicit contrast for
+   sidebar controls, brand text, employee initials and semantic attendance states. */
+:root[data-crm-theme="day"] {
+  --crm-bg: #edf1f7;
+  --crm-sidebar-bg: linear-gradient(180deg,#f8faff 0%,#edf2f9 100%);
+  --crm-panel-bg: linear-gradient(145deg,#ffffff 0%,#f8faff 100%);
+  --crm-card-bg: #f1f4f9;
+  --crm-card-raised: #e8edf5;
+  --crm-text: #202b3b;
+  --crm-text-muted: #566579;
+  --crm-border: #d5deea;
+  --crm-control-bg: #fbfcfe;
+  --crm-control-border: #c5d0df;
+}
+:root[data-crm-theme="day"] body,
+:root[data-crm-theme="day"] .crm-layout {
+  background:linear-gradient(135deg,#edf1f7 0%,#f5f7fb 48%,#eaf0f7 100%) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar {
+  background:linear-gradient(180deg,#f8faff 0%,#eef3f9 55%,#e9eff7 100%) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar > div:first-child {
+  color:#263449 !important;
+  border-color:#d7e0eb !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar > div:first-child button {
+  background:linear-gradient(145deg,#ffffff 0%,#e9eff7 100%) !important;
+  color:#33445b !important;
+  border-color:#c7d2e1 !important;
+  box-shadow:0 1px 3px rgba(31,48,72,.08);
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button {
+  color:#46566d !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button[aria-current="page"] {
+  background:linear-gradient(110deg,#ffeddc 0%,#fff5e9 100%) !important;
+  color:#a94d12 !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button:hover {
+  background:linear-gradient(110deg,#e8eef7 0%,#f5f7fb 100%) !important;
+  color:#25364d !important;
+}
+:root[data-crm-theme="day"] .crm-brand-title {
+  color:#b95716 !important;
+  text-shadow:0 1px 0 rgba(255,255,255,.8);
+}
+:root[data-crm-theme="day"] .crm-layout main > section {
+  background:linear-gradient(145deg,#ffffff 0%,#fafcff 58%,#f5f8fc 100%) !important;
+}
+:root[data-crm-theme="day"] .crm-layout article,
+:root[data-crm-theme="day"] .crm-layout main section section {
+  background:linear-gradient(145deg,#f8faff 0%,#eef3f9 100%) !important;
+}
+/* The initials tile is intentionally warm, but its lettering must remain dark-visible. */
+:root[data-crm-theme="day"] .crm-layout th[scope="row"] span[aria-hidden="true"][style*="width: 30px"] {
+  background:linear-gradient(145deg,#ffead7 0%,#f8d7ba 100%) !important;
+  color:#793b13 !important;
+  border-color:#e5b58e !important;
+}
+/* Preserve the meaning of the three attendance states and give each readable text. */
+:root[data-crm-theme="day"] .crm-layout [title="Signed in and out"] {
+  background:linear-gradient(145deg,#d9f5e5 0%,#c8ecd9 100%) !important;
+  color:#145b36 !important;
+  border-color:#83cba1 !important;
+}
+:root[data-crm-theme="day"] .crm-layout [title="Signed in; not signed out"] {
+  background:linear-gradient(145deg,#fff0d8 0%,#ffe3b8 100%) !important;
+  color:#81420c !important;
+  border-color:#e7b56d !important;
+}
+:root[data-crm-theme="day"] .crm-layout [title="Absent"] {
+  background:linear-gradient(145deg,#ffe3e3 0%,#fbd1d2 100%) !important;
+  color:#8c2028 !important;
+  border-color:#e59a9f !important;
+}
+:root[data-crm-theme="day"] .crm-layout [title="Signed in and out"] *,
+:root[data-crm-theme="day"] .crm-layout [title="Signed in; not signed out"] *,
+:root[data-crm-theme="day"] .crm-layout [title="Absent"] * {
+  color:inherit !important;
+}
