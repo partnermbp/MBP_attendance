@@ -370,7 +370,6 @@ export default function App() {
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
   const [newTelegramIdInput, setNewTelegramIdInput] = useState('');
   const [telegramIdChangeComment, setTelegramIdChangeComment] = useState('');
-  const [telegramIdAttempts, setTelegramIdAttempts] = useState(0);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -781,17 +780,50 @@ export default function App() {
     try {
       sessionStorage.setItem('mbp_mfa_pending_email', normalizedEmail);
       localStorage.removeItem('mbp_mfa_verified_email');
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
 
-      if (error) {
+      if (error || !authData.session || !authData.user) {
         sessionStorage.removeItem('mbp_mfa_pending_email');
-        setMessage(error.message);
+        setMessage(error?.message || 'Unable to establish your login session. Please try again.');
+        return;
+      }
+
+      const { data: accountProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, active')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        sessionStorage.removeItem('mbp_mfa_pending_email');
+        setMessage('Could not verify your CRM account role: ' + profileError.message);
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (!accountProfile?.active) {
+        sessionStorage.removeItem('mbp_mfa_pending_email');
+        setMessage('This CRM account is inactive. Please contact your administrator.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setPassword('');
+      setPasswordFlow(null);
+      setSession(authData.session);
+
+      if (String(accountProfile.role || '').trim().toLowerCase() === 'admin') {
+        sessionStorage.removeItem('mbp_mfa_pending_email');
+        localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
+        setOtpRequested(false);
+        setTelegramOtp('');
+        setMessage('Password verified. You are signed in as Admin.');
+        setScreen('signed-in');
+        await loadDashboard(authData.user.id);
       } else {
-        setPassword('');
-        setPasswordFlow(null);
         setOtpRequested(true);
         setTelegramOtp('');
         setMessage('Password verified. Sending your second-step Telegram code…');
@@ -832,7 +864,6 @@ export default function App() {
         p_comment: telegramIdChangeComment,
       });
       if (error) { setMessage('Could not submit the request: ' + error.message); return; }
-      if (data?.attempts !== undefined) setTelegramIdAttempts(data.attempts);
       if (data?.ok) {
         setMessage(data.message || 'Request sent to Admin.');
         setShowTelegramIdRequest(false); setOldTelegramIdInput(''); setNewTelegramIdInput(''); setTelegramIdChangeComment('');
@@ -1192,7 +1223,7 @@ export default function App() {
       }
 
       sessionStorage.removeItem('mbp_mfa_pending_email');
-      sessionStorage.removeItem('mbp_mfa_verified_email');
+      localStorage.removeItem('mbp_mfa_verified_email');
       setSession(null);
       setPassword('');
       setConfirmPassword('');
@@ -1402,14 +1433,13 @@ export default function App() {
               <h3 style={{marginTop:0}}>Request Telegram ID change</h3>
               <p style={{color:'#b7c0d1',fontSize:13}}>Enter the Telegram ID currently registered to your CRM account, then your new Telegram ID. Admin approval is required.</p>
               <label htmlFor="old-telegram-id">Previously registered Telegram ID</label>
+              <p style={{fontSize:12,color:'#98a2b3',margin:'5px 0 8px'}}>If you don't remember this ID, please contact your manager personally to find out your previously registered Telegram ID.</p>
               <input id="old-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={oldTelegramIdInput} onChange={e=>setOldTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <label htmlFor="new-telegram-id" style={{display:'block',marginTop:12}}>New Telegram ID</label>
               <input id="new-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={newTelegramIdInput} onChange={e=>setNewTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <label htmlFor="telegram-id-comment" style={{display:'block',marginTop:12}}>Why do you want to change it?</label>
               <textarea id="telegram-id-comment" minLength={5} maxLength={1000} required value={telegramIdChangeComment} onChange={e=>setTelegramIdChangeComment(e.target.value)} style={{...inputStyle,minHeight:90,resize:'vertical'}}/>
-              {telegramIdAttempts>=3 && <p style={{color:'#fdbb74'}}>One incorrect ID attempt remains. After four incorrect attempts, contact your manager.</p>}
               <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?'Sending…':'Request to change'}</button>
-              <p style={{fontSize:12,color:'#98a2b3'}}>After four incorrect entries for your old Telegram ID, further attempts are blocked and you must contact your manager.</p>
             </form>}
           </>}
           </>}
