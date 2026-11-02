@@ -77,7 +77,7 @@ begin
       and r.completed_at >= pg_catalog.now() - interval '10 minutes';
     if not found
        or v_lookup.resolved_telegram_user_id is distinct from p_old_telegram_user_id
-       or pg_catalog.lower(pg_catalog.coalesce(v_lookup.resolved_username, '')) <> v_old_username then
+       or pg_catalog.lower(coalesce(v_lookup.resolved_username, '')) <> v_old_username then
       return pg_catalog.jsonb_build_object(
         'ok', false, 'contact_manager', true,
         'message', 'The previously registered Telegram handler could not be verified against your account. Please contact your manager personally to confirm it.'
@@ -101,7 +101,7 @@ begin
       and r.completed_at >= pg_catalog.now() - interval '10 minutes';
     if not found
        or v_lookup.resolved_telegram_user_id is distinct from p_new_telegram_user_id
-       or pg_catalog.lower(pg_catalog.coalesce(v_lookup.resolved_username, '')) <> v_new_username then
+       or pg_catalog.lower(coalesce(v_lookup.resolved_username, '')) <> v_new_username then
       return pg_catalog.jsonb_build_object(
         'ok', false, 'message', 'That Telegram handler does not exist or could not be verified. Please check it and try again.'
       );
@@ -124,8 +124,8 @@ begin
   if p_new_telegram_user_id = v_current_telegram_id then
     return pg_catalog.jsonb_build_object('ok', false, 'message', 'The new Telegram account must be different from the registered account.');
   end if;
-  if pg_catalog.length(pg_catalog.btrim(pg_catalog.coalesce(p_comment, ''))) < 5
-     or pg_catalog.length(pg_catalog.btrim(pg_catalog.coalesce(p_comment, ''))) > 1000 then
+  if pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) < 5
+     or pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) > 1000 then
     return pg_catalog.jsonb_build_object('ok', false, 'message', 'Add a comment of 5 to 1000 characters explaining the change.');
   end if;
   if exists (
