@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import ManagementTools from './components/ManagementTools';
 import TeamAttendanceReport from './components/TeamAttendanceReport';
+import TelegramIdRequests from './components/TelegramIdRequests';
 
 type Attendance = {
   id: string;
@@ -39,7 +40,7 @@ type Profile = {
 type ManagerAssignment = { manager_id: string; employee_id: string };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'attendance' | 'attendance-records' | 'team-attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'settings';
+type CrmPage = 'dashboard' | 'attendance' | 'attendance-records' | 'team-attendance' | 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'requests' | 'settings';
 type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
 const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
 function loadCrmPreferences(): CrmPreferences { try { const raw = localStorage.getItem('mbp_crm_preferences'); return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES; } catch { return DEFAULT_PREFERENCES; } }
@@ -365,6 +366,12 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [telegramOtp, setTelegramOtp] = useState('');
   const [otpRequested, setOtpRequested] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  const [showTelegramIdRequest, setShowTelegramIdRequest] = useState(false);
+  const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
+  const [newTelegramIdInput, setNewTelegramIdInput] = useState('');
+  const [telegramIdChangeComment, setTelegramIdChangeComment] = useState('');
+  const [telegramIdAttempts, setTelegramIdAttempts] = useState(0);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -594,8 +601,20 @@ export default function App() {
       if (nextSession && passwordFlow) {
         setScreen('set-password');
       } else if (nextSession) {
-        setScreen('signed-in');
-        void loadDashboard(nextSession.user.id);
+        const pendingEmail = sessionStorage.getItem('mbp_mfa_pending_email');
+        const verifiedEmail = sessionStorage.getItem('mbp_mfa_verified_email');
+        const currentEmail = (nextSession.user.email || '').trim().toLowerCase();
+        if (pendingEmail === currentEmail) {
+          setOtpRequested(true);
+          setScreen('login');
+        } else if (verifiedEmail === currentEmail) {
+          setScreen('signed-in');
+          void loadDashboard(nextSession.user.id);
+        } else {
+          setProfileReady(false);
+          setScreen('login');
+          void supabase.auth.signOut();
+        }
       } else {
         setScreen('login');
       }
@@ -761,17 +780,23 @@ export default function App() {
     setMessage('');
 
     try {
+      sessionStorage.setItem('mbp_mfa_pending_email', normalizedEmail);
+      sessionStorage.removeItem('mbp_mfa_verified_email');
       const { error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
 
       if (error) {
+        sessionStorage.removeItem('mbp_mfa_pending_email');
         setMessage(error.message);
       } else {
         setPassword('');
         setPasswordFlow(null);
-        setMessage('Signed in successfully.');
+        setOtpRequested(true);
+        setTelegramOtp('');
+        setMessage('Password verified. Sending your second-step Telegram code…');
+        await handleRequestTelegramCode();
       }
     } catch {
       setMessage('Unable to sign in. Please try again.');
@@ -780,10 +805,52 @@ export default function App() {
     }
   }
 
+  async function handleForgotPassword() {
+    if (!supabase) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isApprovedEmail(normalizedEmail)) { setMessage('Enter your approved work email address first.'); return; }
+    setBusy(true); setMessage(''); setForgotPasswordSent(false);
+    try {
+      const redirectTo = window.location.origin + window.location.pathname;
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+      if (error) setMessage('Could not send the password reset email: ' + error.message);
+      else { setForgotPasswordSent(true); setMessage('Password reset instructions have been sent to your registered email address.'); }
+    } catch (error) { setMessage('Could not request a password reset: ' + getErrorMessage(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function submitTelegramIdChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    const oldId = Number(oldTelegramIdInput.trim());
+    const newId = Number(newTelegramIdInput.trim());
+    if (!Number.isSafeInteger(oldId) || oldId <= 0 || !Number.isSafeInteger(newId) || newId <= 0) { setMessage('Enter valid numeric Telegram IDs.'); return; }
+    setBusy(true); setMessage('');
+    try {
+      const { data, error } = await supabase.rpc('submit_telegram_id_change_request', {
+        p_old_telegram_user_id: oldId,
+        p_new_telegram_user_id: newId,
+        p_comment: telegramIdChangeComment,
+      });
+      if (error) { setMessage('Could not submit the request: ' + error.message); return; }
+      if (data?.attempts !== undefined) setTelegramIdAttempts(data.attempts);
+      if (data?.ok) {
+        setMessage(data.message || 'Request sent to Admin.');
+        setShowTelegramIdRequest(false); setOldTelegramIdInput(''); setNewTelegramIdInput(''); setTelegramIdChangeComment('');
+      } else setMessage(data?.message || 'Unable to submit the request.');
+    } catch (error) { setMessage('Could not submit the request: ' + getErrorMessage(error)); }
+    finally { setBusy(false); }
+  }
+
   async function handleRequestTelegramCode() {
     if (!supabase) return;
 
     const normalizedEmail = email.trim().toLowerCase();
+    const { data: currentAuth } = await supabase.auth.getSession();
+    if (!currentAuth.session || currentAuth.session.user.email?.trim().toLowerCase() !== normalizedEmail || sessionStorage.getItem('mbp_mfa_pending_email') !== normalizedEmail) {
+      setMessage('Enter your work email and password first.');
+      return;
+    }
 
     if (!isApprovedEmail(normalizedEmail)) {
       setMessage('Enter an approved work email address first.');
@@ -855,6 +922,8 @@ export default function App() {
         return;
       }
 
+      sessionStorage.removeItem('mbp_mfa_pending_email');
+      sessionStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
       setSession(data.session);
       setPasswordFlow(null);
       setTelegramOtp('');
@@ -1123,6 +1192,8 @@ export default function App() {
         return;
       }
 
+      sessionStorage.removeItem('mbp_mfa_pending_email');
+      sessionStorage.removeItem('mbp_mfa_verified_email');
       setSession(null);
       setPassword('');
       setConfirmPassword('');
@@ -1313,85 +1384,35 @@ export default function App() {
             Sign in with your approved account.
           </p>
 
-          <label htmlFor="email">Email address</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            style={inputStyle}
-          />
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void handleRequestTelegramCode()}
-            style={{ ...buttonStyle, width: '100%', marginTop: 16 }}
-          >
-            {busy ? 'Please wait…' : 'Send login code to Telegram'}
-          </button>
-
-          {otpRequested && (
+          {!otpRequested ? <form onSubmit={handleLogin}>
+            <label htmlFor="email">Login ID / work email</label>
+            <input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} style={inputStyle}/>
+            <label htmlFor="login-password" style={{display:'block',marginTop:14}}>Password</label>
+            <input id="login-password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle}/>
+            <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:16}}>{busy ? 'Verifying password…' : 'Continue'}</button>
+            <button type="button" disabled={busy} onClick={()=>void handleForgotPassword()} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Forgot password?</button>
+          </form> : <>
+            <p style={{color:'#b7c0d1'}}>Step 2 of 2 · Enter the Telegram code sent to your registered Telegram account.</p>
             <form onSubmit={handleVerifyTelegramCode}>
-              <label
-                htmlFor="telegram-otp"
-                style={{ display: 'block', marginTop: 18 }}
-              >
-                Telegram login code
-              </label>
-              <input
-                id="telegram-otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6,10}"
-                maxLength={10}
-                required
-                value={telegramOtp}
-                onChange={(event) => setTelegramOtp(event.target.value.replace(/\D/g, ''))}
-                style={inputStyle}
-              />
-              <button
-                type="submit"
-                disabled={busy}
-                style={{ ...buttonStyle, width: '100%', marginTop: 12 }}
-              >
-                {busy ? 'Verifying…' : 'Verify code and sign in'}
-              </button>
+              <label htmlFor="telegram-otp" style={{display:'block',marginTop:18}}>Telegram OTP</label>
+              <input id="telegram-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={telegramOtp} onChange={(event)=>setTelegramOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying…' : 'Verify code and sign in'}</button>
             </form>
-          )}
-
-          <details style={{ marginTop: 24 }}>
-            <summary style={{ cursor: 'pointer', color: '#b7c0d1' }}>
-              Use password instead
-            </summary>
-            <form onSubmit={handleLogin}>
-              <label
-                htmlFor="login-password"
-                style={{ display: 'block', marginTop: 16 }}
-              >
-                Password
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                style={inputStyle}
-              />
-              <button
-                type="submit"
-                disabled={busy}
-                style={{ ...buttonStyle, width: '100%', marginTop: 16 }}
-              >
-                {busy ? 'Signing in…' : 'Sign in with password'}
-              </button>
-            </form>
-          </details>
+            <button type="button" disabled={busy} onClick={()=>{setShowTelegramIdRequest(v=>!v);setMessage('');}} style={{display:'block',margin:'14px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Update Telegram ID</button>
+            {showTelegramIdRequest && <form onSubmit={submitTelegramIdChange} style={{marginTop:16,padding:14,border:'1px solid var(--crm-border)',borderRadius:8}}>
+              <h3 style={{marginTop:0}}>Request Telegram ID change</h3>
+              <p style={{color:'#b7c0d1',fontSize:13}}>Enter the Telegram ID currently registered to your CRM account, then your new Telegram ID. Admin approval is required.</p>
+              <label htmlFor="old-telegram-id">Previously registered Telegram ID</label>
+              <input id="old-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={oldTelegramIdInput} onChange={e=>setOldTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <label htmlFor="new-telegram-id" style={{display:'block',marginTop:12}}>New Telegram ID</label>
+              <input id="new-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={newTelegramIdInput} onChange={e=>setNewTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <label htmlFor="telegram-id-comment" style={{display:'block',marginTop:12}}>Why do you want to change it?</label>
+              <textarea id="telegram-id-comment" minLength={5} maxLength={1000} required value={telegramIdChangeComment} onChange={e=>setTelegramIdChangeComment(e.target.value)} style={{...inputStyle,minHeight:90,resize:'vertical'}}/>
+              {telegramIdAttempts>=3 && <p style={{color:'#fdbb74'}}>One incorrect ID attempt remains. After four incorrect attempts, contact your manager.</p>}
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?'Sending…':'Request to change'}</button>
+              <p style={{fontSize:12,color:'#98a2b3'}}>After four incorrect entries for your old Telegram ID, further attempts are blocked and you must contact your manager.</p>
+            </form>}
+          </>}
           </>}
           {inviteToken && <div style={{marginTop:4}}>
             <h1 style={{fontSize:26,marginBottom:8}}>Complete your invitation</h1>
@@ -1500,7 +1521,7 @@ export default function App() {
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||(item.id==='security'&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Requests',icon:<MessageCircle size={18}/>,id:'requests' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='attendance'||((item.id==='security'||item.id==='requests')&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
                 <button type="button" title={item.label} aria-current={activePage===item.id || (item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance')) || (item.id==='team' && ['team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage))?'page':undefined} aria-expanded={item.id==='attendance'?attendanceMenuOpen:item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:undefined} data-branch-active={(item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance')) || (item.id==='team' && ['team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage)) ? 'true' : undefined} onClick={()=>{if(item.id==='team'){if(!navOpen){setNavOpen(true);setTeamMenuOpen(true);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}else{setTeamMenuOpen(!teamMenuOpen);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='telegram'){if(!navOpen){setNavOpen(true);setTelegramMenuOpen(true);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}else{setTelegramMenuOpen(!telegramMenuOpen);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='attendance'){if(!navOpen){setNavOpen(true);setAttendanceMenuOpen(true);setTeamMenuOpen(false);setTelegramMenuOpen(false);}else{setAttendanceMenuOpen(!attendanceMenuOpen);setTeamMenuOpen(false);setTelegramMenuOpen(false);}}else{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(item.id);}setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:activePage===item.id?'var(--crm-accent-soft)':'transparent',color:activePage===item.id?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{(item.id==='team'||item.id==='telegram'||item.id==='attendance')&&((item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:attendanceMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
                 {item.id==='attendance'&&navOpen&&attendanceMenuOpen&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid var(--crm-border)',display:'grid',gap:2}}>
                   {[{label:'Attendance records',id:'attendance-records' as CrmPage,icon:<CalendarDays size={15}/>},...(isAdmin?[{label:'Team attendance report',id:'team-attendance' as CrmPage,icon:<Users size={15}/>}]:[])].map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{const isMobile=window.matchMedia('(max-width: 760px)').matches;setAttendanceMenuOpen(!isMobile);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
@@ -1518,8 +1539,9 @@ export default function App() {
           </aside>
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance', 'attendance-records':'Attendance records','team-attendance':'Team attendance report',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',settings:'Settings'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance', 'attendance-records':'Attendance records','team-attendance':'Team attendance report',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
 
+          {activePage === 'requests' && isAdmin && <TelegramIdRequests/>}
           {activePage === 'settings' && <>
             <h1>CRM Settings</h1>
             <p style={{color:'#98a2b3',maxWidth:760,lineHeight:1.6}}>Personalize the appearance and everyday behaviour of this CRM. Preferences are saved in this browser and apply immediately.</p>
