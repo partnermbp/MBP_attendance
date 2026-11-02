@@ -366,7 +366,6 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [telegramOtp, setTelegramOtp] = useState('');
   const [otpRequested, setOtpRequested] = useState(false);
-  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [showTelegramIdRequest, setShowTelegramIdRequest] = useState(false);
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
   const [newTelegramIdInput, setNewTelegramIdInput] = useState('');
@@ -613,7 +612,7 @@ export default function App() {
         } else {
           setProfileReady(false);
           setScreen('login');
-          void supabase.auth.signOut();
+          void supabase?.auth.signOut();
         }
       } else {
         setScreen('login');
@@ -809,12 +808,12 @@ export default function App() {
     if (!supabase) return;
     const normalizedEmail = email.trim().toLowerCase();
     if (!isApprovedEmail(normalizedEmail)) { setMessage('Enter your approved work email address first.'); return; }
-    setBusy(true); setMessage(''); setForgotPasswordSent(false);
+    setBusy(true); setMessage('');
     try {
       const redirectTo = window.location.origin + window.location.pathname;
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
       if (error) setMessage('Could not send the password reset email: ' + error.message);
-      else { setForgotPasswordSent(true); setMessage('Password reset instructions have been sent to your registered email address.'); }
+      else { setMessage('Password reset instructions have been sent to your registered email address.'); }
     } catch (error) { setMessage('Could not request a password reset: ' + getErrorMessage(error)); }
     finally { setBusy(false); }
   }
