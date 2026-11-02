@@ -403,7 +403,7 @@ async def main() -> None:
         # conversation, but never displayed in the ordinary inbox list.
         search_requests = supabase.select(
             "telegram_inbox_search_requests",
-            {"select": "id,requested_by,query", "status": "eq.pending", "order": "created_at.asc", "limit": "10"},
+            {"select": "id,requested_by,query,purpose", "status": "eq.pending", "order": "created_at.asc", "limit": "10"},
         )
         for search_request in search_requests:
             request_id = str(search_request["id"])
@@ -417,10 +417,26 @@ async def main() -> None:
                     if not isinstance(found_user, User) or found_user.bot or (me and int(found_user.id) == int(me.id)):
                         continue
                     found_users.append(found_user)
+                is_id_change_lookup = str(search_request.get("purpose") or "") in ("id_change_old", "id_change_new")
+                if is_id_change_lookup:
+                    exact_users = [
+                        item for item in found_users
+                        if str(getattr(item, "username", "") or "").lower() == requested_username.lower()
+                    ]
+                    if not exact_users:
+                        supabase.patch("telegram_inbox_search_requests",
+                            {"id": f"eq.{request_id}", "status": "eq.pending"},
+                            {"status": "completed", "result_count": 0, "resolved_telegram_user_id": None,
+                             "resolved_username": None, "error_message": None,
+                             "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                        continue
+                    found_users = exact_users[:1]
                 if not found_users:
                     supabase.patch("telegram_inbox_search_requests",
                         {"id": f"eq.{request_id}", "status": "eq.pending"},
-                        {"status": "completed", "result_count": 0, "error_message": None, "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                        {"status": "completed", "result_count": 0, "resolved_telegram_user_id": None,
+                         "resolved_username": None, "error_message": None,
+                         "completed_at": iso_datetime(datetime.now(timezone.utc))})
                     continue
                 found_users.sort(key=lambda item: (str(getattr(item, "username", "") or "").lower() != requested_username.lower(),
                                                    str(getattr(item, "username", "") or "").lower()))
@@ -441,7 +457,14 @@ async def main() -> None:
                 supabase.upsert("telegram_inbox_chats", resolved_rows, "chat_id")
                 supabase.patch("telegram_inbox_search_requests",
                     {"id": f"eq.{request_id}", "status": "eq.pending"},
-                    {"status": "completed", "result_count": len(resolved_rows), "error_message": None, "completed_at": iso_datetime(datetime.now(timezone.utc))})
+                    {
+                        "status": "completed",
+                        "result_count": len(resolved_rows),
+                        "resolved_telegram_user_id": int(found_users[0].id) if is_id_change_lookup else None,
+                        "resolved_username": str(getattr(found_users[0], "username", "") or "") if is_id_change_lookup else None,
+                        "error_message": None,
+                        "completed_at": iso_datetime(datetime.now(timezone.utc))
+                    })
                 print(f"Telegram username search resolved: query={requested_username}, matches={len(resolved_rows)}")
             except Exception as exc:
                 supabase.patch("telegram_inbox_search_requests",
