@@ -1142,8 +1142,8 @@ export default function App() {
     minHeight: '100vh',
     padding: 20,
     boxSizing: 'border-box',
-    background: '#0b0b0c',
-    color: '#f7f7f5',
+    background: preferences.theme === 'day' ? 'var(--crm-bg)' : '#0b0b0c',
+    color: preferences.theme === 'day' ? 'var(--crm-text)' : '#f7f7f5',
     fontFamily: 'Arial, Helvetica, sans-serif',
   };
 
