@@ -117,7 +117,7 @@ begin
 
   if p_old_telegram_user_id is null or p_old_telegram_user_id <> v_current_telegram_id then
     update public.telegram_id_change_attempts
-    set failed_attempts = pg_catalog.least(failed_attempts + 1, 4),
+    set failed_attempts = least(failed_attempts + 1, 4),
         blocked_at = case when failed_attempts + 1 >= 4 then pg_catalog.now() else blocked_at end,
         updated_at = pg_catalog.now()
     where profile_id = v_user_id
@@ -153,8 +153,8 @@ begin
   if p_new_telegram_user_id = v_current_telegram_id then
     return pg_catalog.jsonb_build_object('ok', false, 'message', 'The new Telegram ID must be different from the registered ID.');
   end if;
-  if pg_catalog.length(pg_catalog.btrim(pg_catalog.coalesce(p_comment, ''))) < 5
-     or pg_catalog.length(pg_catalog.btrim(pg_catalog.coalesce(p_comment, ''))) > 1000 then
+  if pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) < 5
+     or pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) > 1000 then
     return pg_catalog.jsonb_build_object('ok', false, 'message', 'Add a comment of 5 to 1000 characters explaining the change.');
   end if;
   if exists (
@@ -242,14 +242,14 @@ begin
 
     update public.telegram_id_change_requests
     set status = 'approved', reviewed_by = auth.uid(), reviewed_at = pg_catalog.now(),
-        admin_note = pg_catalog.nullif(pg_catalog.btrim(pg_catalog.coalesce(p_admin_note, '')), '')
+        admin_note = nullif(pg_catalog.btrim(coalesce(p_admin_note, '')), '')
     where id = p_request_id;
 
     return pg_catalog.jsonb_build_object('ok', true, 'message', 'Request approved. The registered Telegram ID has been updated.');
   elsif p_action = 'reject' then
     update public.telegram_id_change_requests
     set status = 'rejected', reviewed_by = auth.uid(), reviewed_at = pg_catalog.now(),
-        admin_note = pg_catalog.nullif(pg_catalog.btrim(pg_catalog.coalesce(p_admin_note, '')), '')
+        admin_note = nullif(pg_catalog.btrim(coalesce(p_admin_note, '')), '')
     where id = p_request_id;
 
     return pg_catalog.jsonb_build_object('ok', true, 'message', 'Request rejected.');
@@ -266,7 +266,7 @@ begin
 
     update public.telegram_id_change_requests
     set status = 'restricted', reviewed_by = auth.uid(), reviewed_at = pg_catalog.now(),
-        admin_note = pg_catalog.nullif(pg_catalog.btrim(pg_catalog.coalesce(p_admin_note, '')), '')
+        admin_note = nullif(pg_catalog.btrim(coalesce(p_admin_note, '')), '')
     where id = p_request_id;
 
     return pg_catalog.jsonb_build_object('ok', true, 'message', 'Further requests from this previously registered Telegram ID are now restricted.');
