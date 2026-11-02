@@ -1467,3 +1467,22 @@ body::after { content:none; }
   background:var(--crm-bg) !important;
   color:var(--crm-text);
 }
+
+
+/* Final Day-mode polish: the outer page wrapper also follows the saved palette.
+   The header keeps its deliberate dark edge treatment without a white shadow. */
+:root[data-crm-theme="day"] body #root > main {
+  background:var(--crm-bg) !important;
+  color:var(--crm-text) !important;
+}
+:root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background: rgb(255"],
+:root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background: #ff"],
+:root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background:#ff"] {
+  background:var(--crm-accent-strong) !important;
+  color:#fff !important;
+  border-color:var(--crm-accent-strong) !important;
+}
+:root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background: rgb(255"]:disabled,
+:root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background: #ff"]:disabled {
+  opacity:.58;
+}
