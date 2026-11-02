@@ -1486,3 +1486,48 @@ body::after { content:none; }
 :root[data-crm-theme="day"][data-crm-accent="blue"] .crm-layout button[style*="background: #ff"]:disabled {
   opacity:.58;
 }
+
+/* Sidebar branch consistency: all expandable parents stay selected with their
+   child page, and dropdown surfaces follow the active theme instead of white. */
+.crm-sidebar nav button[data-branch-active="true"] {
+  background:var(--crm-accent-soft) !important;
+  color:var(--crm-accent) !important;
+  box-shadow:inset 2px 0 0 var(--crm-accent);
+}
+.crm-sidebar nav button[data-branch-active="true"] svg {
+  color:var(--crm-accent) !important;
+}
+.crm-sidebar nav > div > div {
+  background:var(--crm-card-bg) !important;
+  border:1px solid var(--crm-border) !important;
+  border-radius:7px;
+  box-shadow:0 5px 16px rgba(0,0,0,.14);
+}
+.crm-sidebar nav > div > div button {
+  background:transparent !important;
+  color:var(--crm-text-muted) !important;
+}
+.crm-sidebar nav > div > div button[aria-current="page"] {
+  background:var(--crm-accent-soft) !important;
+  color:var(--crm-accent-strong) !important;
+}
+.crm-sidebar nav > div > div button:hover {
+  background:var(--crm-card-raised) !important;
+  color:var(--crm-text) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav button[data-branch-active="true"] {
+  color:var(--crm-accent-strong) !important;
+  background:var(--crm-accent-soft) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div {
+  background:linear-gradient(145deg,#e9eff7 0%,#e2eaf4 100%) !important;
+  border-color:var(--crm-border) !important;
+  box-shadow:0 5px 16px rgba(31,48,72,.10);
+}
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div button {
+  color:var(--crm-text-muted) !important;
+}
+:root[data-crm-theme="day"] .crm-sidebar nav > div > div button[aria-current="page"] {
+  background:var(--crm-accent-soft) !important;
+  color:var(--crm-accent-strong) !important;
+}
