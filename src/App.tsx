@@ -601,7 +601,7 @@ export default function App() {
         setScreen('set-password');
       } else if (nextSession) {
         const pendingEmail = sessionStorage.getItem('mbp_mfa_pending_email');
-        const verifiedEmail = sessionStorage.getItem('mbp_mfa_verified_email');
+        const verifiedEmail = localStorage.getItem('mbp_mfa_verified_email');
         const currentEmail = (nextSession.user.email || '').trim().toLowerCase();
         if (pendingEmail === currentEmail) {
           setOtpRequested(true);
@@ -780,7 +780,7 @@ export default function App() {
 
     try {
       sessionStorage.setItem('mbp_mfa_pending_email', normalizedEmail);
-      sessionStorage.removeItem('mbp_mfa_verified_email');
+      localStorage.removeItem('mbp_mfa_verified_email');
       const { error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -922,7 +922,7 @@ export default function App() {
       }
 
       sessionStorage.removeItem('mbp_mfa_pending_email');
-      sessionStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
+      localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
       setSession(data.session);
       setPasswordFlow(null);
       setTelegramOtp('');
