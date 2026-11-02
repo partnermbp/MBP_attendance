@@ -3,7 +3,8 @@
 
 alter table public.telegram_inbox_search_requests
   add column if not exists resolved_telegram_user_id bigint,
-  add column if not exists resolved_username text;
+  add column if not exists resolved_username text,
+  add column if not exists purpose text not null default 'inbox';
 
 alter table public.telegram_id_change_requests
   add column if not exists old_telegram_username text,
