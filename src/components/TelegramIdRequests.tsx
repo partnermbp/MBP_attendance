@@ -10,8 +10,6 @@ type RequestRow = {
   new_telegram_user_id: number;
   old_telegram_username: string | null;
   new_telegram_username: string | null;
-  old_telegram_username: string | null;
-  new_telegram_username: string | null;
   comment: string;
   status: string;
   created_at: string;
