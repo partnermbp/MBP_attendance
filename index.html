@@ -7,6 +7,24 @@
     <meta name="theme-color" content="#111827" />
     <meta name="description" content="Employee attendance and team management CRM" />
     <title>Attendance CRM</title>
+    <script>
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('mbp_crm_preferences') || '{}');
+          var theme = saved.theme === 'day' ? 'day' : 'night';
+          var accent = saved.accent === 'blue' ? 'blue' : 'orange';
+          var root = document.documentElement;
+          root.dataset.crmTheme = theme;
+          root.dataset.crmAccent = accent;
+          if (saved.compact) root.classList.add('crm-compact');
+          if (saved.reducedMotion) root.classList.add('crm-reduced-motion');
+          if (saved.nightLight) root.classList.add('crm-night-light');
+          root.style.backgroundColor = theme === 'day' ? '#edf1f7' : '#0c0d10';
+          root.style.colorScheme = theme === 'day' ? 'light' : 'dark';
+        } catch (_) {}
+      })();
+    </script>
+
   </head>
   <body>
     <div id="root"></div>
