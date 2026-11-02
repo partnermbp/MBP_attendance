@@ -359,6 +359,7 @@ export default function App() {
   const [invitePasswordStep, setInvitePasswordStep] = useState(false);
   const [registrationTicket, setRegistrationTicket] = useState('');
   const [screen, setScreen] = useState<Screen>('loading');
+  const [profileReady, setProfileReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -437,6 +438,10 @@ export default function App() {
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
+    // Do not render any signed-in navigation or page content until the role
+    // and all role-scoped dashboard data have finished loading.
+    setProfileReady(false);
+    setProfile(null);
     setLoadingDashboard(true);
 
     try {
@@ -565,6 +570,7 @@ export default function App() {
       setMessage('Unable to load dashboard data. Please refresh.');
     } finally {
       setLoadingDashboard(false);
+      setProfileReady(true);
     }
   }, [inviteToken, inviteRedeemed]);
 
@@ -1485,7 +1491,11 @@ export default function App() {
         </section>
       )}
 
-      {screen === 'signed-in' && session && (
+      {screen === 'signed-in' && session && !profileReady && (
+        <section style={panelStyle} role="status">Loading your account permissions…</section>
+      )}
+
+      {screen === 'signed-in' && session && profileReady && (
         <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'232px minmax(0,1fr)':'58px minmax(0,1fr)',gap:0,alignItems:'stretch',width:'100%',maxWidth:'none',margin:0,minHeight:'100vh'}}>
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
