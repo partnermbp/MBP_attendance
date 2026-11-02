@@ -1609,7 +1609,7 @@ export default function App() {
             </section>
           )}
 
-          {!isAdmin && <section
+          {!isAdmin && telegramLinked !== true && <section
             style={{
               padding: 18,
               margin: '20px 0',
@@ -1618,21 +1618,19 @@ export default function App() {
             }}
           >
             <h2 style={{ marginTop: 0 }}>Telegram account</h2>
-            <p style={{ color: telegramLinked === true ? '#86efac' : '#d1cbc5' }}>
-              {telegramLinked === true
-                ? '✓ Telegram is linked to your account. You can use Telegram login from the sign-in screen.'
-                : telegramLinked === false
-                  ? 'Telegram is not linked to your account yet. Create a link below to connect it.'
-                  : 'Unable to verify Telegram link status right now. You can refresh the page or create a link if you have not linked Telegram yet.'}
+            <p style={{ color: '#d1cbc5' }}>
+              {telegramLinked === false
+                ? 'Telegram is not linked to your account yet. Create a link below to connect it.'
+                : 'Unable to verify Telegram link status right now. You can refresh the page or create a link if you have not linked Telegram yet.'}
             </p>
-            {telegramLinked !== true && <button
+            <button
               type="button"
               disabled={busy || loadingDashboard}
               onClick={() => void handleCreateTelegramLink()}
               style={buttonStyle}
             >
               {busy ? 'Please wait…' : 'Create Telegram linking link'}
-            </button>}
+            </button>
             {telegramLinkUrl && (
               <div style={{ marginTop: 14 }}>
                 <a
