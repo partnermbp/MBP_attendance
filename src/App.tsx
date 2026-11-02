@@ -370,6 +370,7 @@ export default function App() {
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
   const [newTelegramIdInput, setNewTelegramIdInput] = useState('');
   const [telegramIdChangeComment, setTelegramIdChangeComment] = useState('');
+  const [telegramIdLookupBusy, setTelegramIdLookupBusy] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -850,26 +851,82 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function resolveTelegramHandlerInput(rawValue: string, purpose: 'id_change_old' | 'id_change_new') {
+    const raw = rawValue.trim();
+    if (/^\d+$/.test(raw)) {
+      const id = Number(raw);
+      if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Enter a valid Telegram ID or @username.');
+      return { telegramId: id, username: null as string | null, lookupRequestId: null as string | null };
+    }
+
+    const username = raw.replace(/^@/, '').trim();
+    if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username)) {
+      throw new Error('Enter a valid Telegram handler, for example @username (5–32 characters), or a numeric Telegram ID.');
+    }
+
+    const { data: queued, error: queueError } = await supabase!
+      .from('telegram_inbox_search_requests')
+      .insert({ requested_by: profile?.id, query: username, purpose, status: 'pending' })
+      .select('id')
+      .single();
+    if (queueError || !queued?.id) throw new Error('Could not start Telegram handler verification. Please try again.');
+
+    await supabase!.functions.invoke('telegram-inbox-refresh', { body: {} });
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise(resolve => window.setTimeout(resolve, 2000));
+      const { data: result, error: resultError } = await supabase!
+        .from('telegram_inbox_search_requests')
+        .select('id,status,result_count,resolved_telegram_user_id,resolved_username,error_message')
+        .eq('id', queued.id)
+        .maybeSingle();
+      if (resultError) throw new Error('Could not check Telegram handler verification. Please try again.');
+      if (result?.status === 'failed') throw new Error('Telegram handler verification failed. Please check the handler and try again.');
+      if (result?.status === 'completed') {
+        if (
+          result.result_count !== 1 ||
+          !result.resolved_telegram_user_id ||
+          String(result.resolved_username || '').toLowerCase() !== username.toLowerCase()
+        ) {
+          throw new Error('That Telegram handler does not exist. Please check it and try again.');
+        }
+        return {
+          telegramId: Number(result.resolved_telegram_user_id),
+          username: String(result.resolved_username),
+          lookupRequestId: String(result.id),
+        };
+      }
+    }
+    throw new Error('Telegram is taking longer than expected to verify this handler. Please try again in a moment.');
+  }
+
   async function submitTelegramIdChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
-    const oldId = Number(oldTelegramIdInput.trim());
-    const newId = Number(newTelegramIdInput.trim());
-    if (!Number.isSafeInteger(oldId) || oldId <= 0 || !Number.isSafeInteger(newId) || newId <= 0) { setMessage('Enter valid numeric Telegram IDs.'); return; }
-    setBusy(true); setMessage('');
+    setBusy(true); setTelegramIdLookupBusy(true); setMessage('');
     try {
+      const oldIdentity = await resolveTelegramHandlerInput(oldTelegramIdInput, 'id_change_old');
+      const newIdentity = await resolveTelegramHandlerInput(newTelegramIdInput, 'id_change_new');
       const { data, error } = await supabase.rpc('submit_telegram_id_change_request', {
-        p_old_telegram_user_id: oldId,
-        p_new_telegram_user_id: newId,
+        p_old_telegram_user_id: oldIdentity.telegramId,
+        p_new_telegram_user_id: newIdentity.telegramId,
         p_comment: telegramIdChangeComment,
+        p_old_telegram_username: oldIdentity.username,
+        p_new_telegram_username: newIdentity.username,
+        p_old_lookup_request_id: oldIdentity.lookupRequestId,
+        p_new_lookup_request_id: newIdentity.lookupRequestId,
       });
       if (error) { setMessage('Could not submit the request: ' + error.message); return; }
       if (data?.ok) {
         setMessage(data.message || 'Request sent to Admin.');
         setShowTelegramIdRequest(false); setOldTelegramIdInput(''); setNewTelegramIdInput(''); setTelegramIdChangeComment('');
       } else setMessage(data?.message || 'Unable to submit the request.');
-    } catch (error) { setMessage('Could not submit the request: ' + getErrorMessage(error)); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setTelegramIdLookupBusy(false);
+      setBusy(false);
+    }
   }
 
   async function handleRequestTelegramCode() {
@@ -1431,15 +1488,15 @@ export default function App() {
             <button type="button" disabled={busy} onClick={()=>{setShowTelegramIdRequest(v=>!v);setMessage('');}} style={{display:'block',margin:'14px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Update Telegram ID</button>
             {showTelegramIdRequest && <form onSubmit={submitTelegramIdChange} style={{marginTop:16,padding:14,border:'1px solid var(--crm-border)',borderRadius:8}}>
               <h3 style={{marginTop:0}}>Request Telegram ID change</h3>
-              <p style={{color:'#b7c0d1',fontSize:13}}>Enter the Telegram ID currently registered to your CRM account, then your new Telegram ID. Admin approval is required.</p>
+              <p style={{color:'#b7c0d1',fontSize:13}}>Enter the previously registered Telegram ID or @handler, then your new Telegram ID or @handler. Telegram will verify any @handler before the request is sent. Admin approval is required.</p>
               <label htmlFor="old-telegram-id">Previously registered Telegram ID</label>
               <p style={{fontSize:12,color:'#98a2b3',margin:'5px 0 8px'}}>If you don't remember this ID, please contact your manager personally to find out your previously registered Telegram ID.</p>
-              <input id="old-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={oldTelegramIdInput} onChange={e=>setOldTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <input id="old-telegram-id" type="text" autoComplete="off" required value={oldTelegramIdInput} onChange={e=>setOldTelegramIdInput(e.target.value)} placeholder="Telegram ID or @username" style={inputStyle}/>
               <label htmlFor="new-telegram-id" style={{display:'block',marginTop:12}}>New Telegram ID</label>
-              <input id="new-telegram-id" type="text" inputMode="numeric" pattern="[0-9]+" required value={newTelegramIdInput} onChange={e=>setNewTelegramIdInput(e.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <input id="new-telegram-id" type="text" autoComplete="off" required value={newTelegramIdInput} onChange={e=>setNewTelegramIdInput(e.target.value)} placeholder="Telegram ID or @username" style={inputStyle}/>
               <label htmlFor="telegram-id-comment" style={{display:'block',marginTop:12}}>Why do you want to change it?</label>
               <textarea id="telegram-id-comment" minLength={5} maxLength={1000} required value={telegramIdChangeComment} onChange={e=>setTelegramIdChangeComment(e.target.value)} style={{...inputStyle,minHeight:90,resize:'vertical'}}/>
-              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?'Sending…':'Request to change'}</button>
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?(telegramIdLookupBusy?'Verifying Telegram handler…':'Sending…'):'Request to change'}</button>
             </form>}
           </>}
           </>}
