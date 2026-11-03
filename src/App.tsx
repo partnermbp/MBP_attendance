@@ -2041,7 +2041,7 @@ export default function App() {
                               </span>
                             </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2,overflowWrap:'anywhere'}}>
                               <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_in_region,record.check_in_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span></span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span></span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} {record.check_out && <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span>}</span>
                             </span>}
                           </>}
                         </div>
