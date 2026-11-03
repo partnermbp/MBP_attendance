@@ -9,6 +9,10 @@ type TeamNode = { id: string; email: string | null; full_name: string | null; ro
 type Message = { telegram_chat_id: number; telegram_message_id: number; display_name: string | null; username: string | null; message_text: string | null; message_date: string; reply_to_message_id: number | null; raw_update?: Record<string, any> | null; message_kind?: string | null };
 type Metric = { telegram_chat_id: number; question_message_id: number; question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null; calculated_at: string };
 type GroupActivity = { telegram_user_id: number; display_name: string | null; username: string | null; message_count: number; last_message_at: string };
+type DailyActivity = { telegram_user_id: number; display_name: string | null; username: string | null; activity_date: string; message_count: number };
+type ParticipantResponse = { telegram_user_id: number; display_name: string | null; username: string | null; reply_count: number; avg_reply_seconds: number | null; reaction_count: number; avg_reaction_seconds: number | null };
+type MessageReaction = { telegram_chat_id: number; telegram_message_id: number; telegram_user_id: number; display_name: string | null; username: string | null; reactions: any[] };
+type MessageReactionCount = { telegram_chat_id: number; telegram_message_id: number; reactions: any[] };
 type Group = { telegram_chat_id: number; title: string; enabled: boolean };
 type TelegramMember = { id: number; telegram_chat_id: number; telegram_user_id: number; username: string | null; display_name: string | null; profile_id: string | null };
 
@@ -18,6 +22,22 @@ const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8,
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
 const cell: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top' };
 const GROUP_MESSAGE_PAGE_SIZE = 150;
+
+function reactionIdentity(reaction: any): string {
+  const type = reaction?.type?.type ?? reaction?.type ?? 'unknown';
+  if (type === 'emoji') return 'emoji:' + String(reaction?.type?.emoji ?? reaction?.emoji ?? '');
+  if (type === 'custom_emoji') return 'custom_emoji:' + String(reaction?.type?.custom_emoji_id ?? reaction?.custom_emoji_id ?? '');
+  if (type === 'paid') return 'paid';
+  return String(type);
+}
+
+function reactionText(reaction: any): string {
+  const type = reaction?.type?.type ?? reaction?.type ?? 'unknown';
+  if (type === 'emoji') return String(reaction?.type?.emoji ?? reaction?.emoji ?? 'Reaction');
+  if (type === 'custom_emoji') return 'Custom emoji';
+  if (type === 'paid') return '⭐';
+  return 'Reaction';
+}
 
 function friendlyInvitationError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? '');
@@ -66,6 +86,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [messages, setMessages] = useState<Message[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [groupActivity, setGroupActivity] = useState<GroupActivity[]>([]);
+  const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
+  const [participantResponses, setParticipantResponses] = useState<ParticipantResponse[]>([]);
+  const [messageReactions, setMessageReactions] = useState<MessageReaction[]>([]);
+  const [messageReactionCounts, setMessageReactionCounts] = useState<MessageReactionCount[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
   const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
@@ -121,7 +145,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       else setMetrics((metricResult.data ?? []) as Metric[]);
       const chosen = selectedGroup ? [Number(selectedGroup)] : [];
       if (chosen.length) {
-        const [messageResult, activityResult] = await Promise.all([
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const [messageResult, activityResult, dailyResult, responseResult] = await Promise.all([
           supabase.from('telegram_messages')
             .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id,raw_update,message_kind')
             .in('telegram_chat_id', chosen).order('message_date', { ascending: false }).limit(GROUP_MESSAGE_PAGE_SIZE),
@@ -129,21 +154,63 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             p_chat_id: Number(selectedGroup),
             p_days: 7,
           }),
+          supabase.rpc('get_telegram_group_daily_user_activity', {
+            p_chat_id: Number(selectedGroup),
+            p_days: 7,
+            p_timezone: timeZone,
+          }),
+          supabase.rpc('get_telegram_group_response_summary', {
+            p_chat_id: Number(selectedGroup),
+            p_days: 7,
+          }),
         ]);
-        if (messageResult.error) setNotice((current) => current || 'Telegram messages: ' + messageResult.error.message);
-        else {
+        if (messageResult.error) {
+          setNotice((current) => current || 'Telegram messages: ' + messageResult.error.message);
+          setMessageReactions([]);
+          setMessageReactionCounts([]);
+        } else {
           const rows = (messageResult.data ?? []) as Message[];
           setMessages(rows);
           setGroupMessagesHasMore(rows.length === GROUP_MESSAGE_PAGE_SIZE);
           setGroupMessagesAtTop(false);
+          const messageIds = rows.map(message => message.telegram_message_id);
+          if (messageIds.length) {
+            const [reactionResult, reactionCountResult] = await Promise.all([
+              supabase.from('telegram_message_reactions')
+                .select('telegram_chat_id,telegram_message_id,telegram_user_id,display_name,username,reactions')
+                .eq('telegram_chat_id', Number(selectedGroup)).in('telegram_message_id', messageIds),
+              supabase.from('telegram_message_reaction_counts')
+                .select('telegram_chat_id,telegram_message_id,reactions')
+                .eq('telegram_chat_id', Number(selectedGroup)).in('telegram_message_id', messageIds),
+            ]);
+            if (reactionResult.error) setNotice(current => current || 'Could not load message reactions: ' + reactionResult.error.message);
+            setMessageReactions((reactionResult.data ?? []) as MessageReaction[]);
+            if (reactionCountResult.error) setNotice(current => current || 'Could not load anonymous reaction counts: ' + reactionCountResult.error.message);
+            setMessageReactionCounts((reactionCountResult.data ?? []) as MessageReactionCount[]);
+          } else {
+            setMessageReactions([]);
+            setMessageReactionCounts([]);
+          }
         }
         if (activityResult.error) {
           setGroupActivity([]);
           setNotice((current) => current || 'Could not load participant activity. Apply the Telegram group activity migration. ' + activityResult.error.message);
         } else setGroupActivity((activityResult.data ?? []) as GroupActivity[]);
+        if (dailyResult.error) {
+          setDailyActivity([]);
+          setNotice(current => current || 'Could not load daily participant activity. Apply the daily and reaction analytics migration. ' + dailyResult.error.message);
+        } else setDailyActivity((dailyResult.data ?? []) as DailyActivity[]);
+        if (responseResult.error) {
+          setParticipantResponses([]);
+          setNotice(current => current || 'Could not load response-time analytics. Apply the daily and reaction analytics migration. ' + responseResult.error.message);
+        } else setParticipantResponses((responseResult.data ?? []) as ParticipantResponse[]);
       } else {
         setMessages([]);
         setGroupActivity([]);
+        setDailyActivity([]);
+        setParticipantResponses([]);
+        setMessageReactions([]);
+        setMessageReactionCounts([]);
         setGroupMessagesHasMore(false);
         setGroupMessagesAtTop(false);
       }
@@ -352,6 +419,18 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const answered = selectedMetrics.filter(m => m.response_seconds != null);
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
   const maxActivity = Math.max(1, ...groupActivity.map(person => person.message_count));
+  const maxDailyActivity = Math.max(1, ...dailyActivity.map(person => person.message_count));
+  const activityDayKeys = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  });
+  const dailyActivityByUser = new Map<number, Map<string, number>>();
+  for (const row of dailyActivity) {
+    if (!dailyActivityByUser.has(row.telegram_user_id)) dailyActivityByUser.set(row.telegram_user_id, new Map());
+    dailyActivityByUser.get(row.telegram_user_id)!.set(String(row.activity_date).slice(0, 10), row.message_count);
+  }
 
   return <section style={panel}>
     {page !== 'telegram-human' && page !== 'telegram-analytics' && <>
@@ -540,7 +619,39 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
         <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span></header>
         <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtTop(event.currentTarget.scrollTop <= 24)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtTop && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', top:0, zIndex:2, alignSelf:'center', margin:'-6px 0 2px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↑ Load older messages'}</button>}
-          {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => { const raw=m.raw_update || {}; const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>; const photo=Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length-1] : null; const doc=msg.document || msg.video || msg.animation || msg.audio || msg.voice || null; const media=photo || doc; const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null); return <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}><div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>{media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}<div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div><div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div></article> })}
+          {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => {
+            const raw=m.raw_update || {};
+            const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>;
+            const photo=Array.isArray(msg.photo) && msg.photo.length ? msg.photo[msg.photo.length-1] : null;
+            const doc=msg.document || msg.video || msg.animation || msg.audio || msg.voice || null;
+            const media=photo || doc;
+            const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null);
+            const reactionSummary = new Map<string, { label: string; count: number }>();
+            for (const row of messageReactions.filter(reaction => reaction.telegram_chat_id === m.telegram_chat_id && reaction.telegram_message_id === m.telegram_message_id)) {
+              for (const reaction of row.reactions || []) {
+                const key = reactionIdentity(reaction);
+                const current = reactionSummary.get(key) || { label: reactionText(reaction), count: 0 };
+                current.count += 1;
+                reactionSummary.set(key, current);
+              }
+            }
+            const anonymousCounts = messageReactionCounts.find(row => row.telegram_chat_id === m.telegram_chat_id && row.telegram_message_id === m.telegram_message_id);
+            for (const item of anonymousCounts?.reactions || []) {
+              const key = reactionIdentity(item);
+              const current = reactionSummary.get(key) || { label: reactionText(item), count: 0 };
+              current.count += Number(item.total_count || 0);
+              reactionSummary.set(key, current);
+            }
+            return <article key={m.telegram_chat_id+':'+m.telegram_message_id} style={{ alignSelf:'flex-start', width:'fit-content', maxWidth:'min(620px, 92%)', padding:'9px 12px 7px', border:'1px solid #30445b', borderRadius:'4px 13px 13px 13px', background:'#1b2b40', color:'#edf4ff', boxShadow:'0 1px 2px #0002' }}>
+              <div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>
+              {media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}
+              <div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div>
+              {reactionSummary.size > 0 && <div aria-label="Message reactions" style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:7 }}>
+                {[...reactionSummary.entries()].map(([key, reaction]) => <span key={key} title="Current reaction count" style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 7px', borderRadius:999, background:'#2a3d55', border:'1px solid #45607c', color:'#f0f6ff', fontSize:12 }}>{reaction.label} <strong>{reaction.count}</strong></span>)}
+              </div>}
+              <div style={{ textAlign:'right', color:'#91a2b8', fontSize:10, marginTop:5 }}>{new Date(m.message_date).toLocaleString()}{m.reply_to_message_id ? ' · ↩ '+m.reply_to_message_id : ''}</div>
+            </article>;
+          })}
           {!messages.some(m=>String(m.telegram_chat_id)===selectedGroup) && <p style={{ ...muted, textAlign:'center', padding:20 }}>No captured messages for this group yet. New messages appear after the analytics bot receives them.</p>}
         </div>
         {activeMedia && <div role="dialog" aria-modal="true" aria-label="Telegram attachment preview" style={{position:'fixed',inset:0,zIndex:1000,background:'#020617eF',display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={() => setActiveMedia(null)}><div style={{width:'min(900px,100%)',maxHeight:'90vh',overflow:'auto',background:'#101828',border:'1px solid #475467',borderRadius:14,padding:16}} onClick={e => e.stopPropagation()}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:12}}><strong style={{overflowWrap:'anywhere'}}>{activeMedia.name}</strong><button type="button" style={button} onClick={() => setActiveMedia(null)}>Close</button></div>{activeMedia.mime.startsWith('image/') ? <img src={activeMedia.url} alt={activeMedia.name} style={{display:'block',maxWidth:'100%',maxHeight:'70vh',margin:'0 auto',objectFit:'contain'}}/> : activeMedia.mime.startsWith('video/') ? <video src={activeMedia.url} controls playsInline style={{display:'block',width:'100%',maxHeight:'70vh'}}/> : activeMedia.mime.startsWith('audio/') ? <audio src={activeMedia.url} controls style={{width:'100%'}}/> : <p style={muted}>This file type is not previewable in the browser. Use the button below to open or save it.</p>}<div style={{marginTop:14}}><a href={activeMedia.url} download={activeMedia.name} target="_blank" rel="noreferrer" style={{...button,display:'inline-block',textDecoration:'none'}}>Download / open file</a></div><p style={muted}>This temporary preview stays in memory and is cleared when closed or when you change groups.</p></div></div>}
@@ -566,6 +677,46 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       })}
       <div style={{ ...muted, fontSize: 11, borderTop: '1px solid var(--crm-border)', paddingTop: 9 }}>Total captured messages: {groupActivity.reduce((sum, person) => sum + person.message_count, 0).toLocaleString()}</div>
     </div> : <div style={{ padding: 18, border: '1px dashed #475467', borderRadius: 12, color: 'var(--crm-muted, #98a2b3)', textAlign: 'center' }}>No participant activity captured for this group in the last 7 days.</div>}
+    <h3 style={{ marginBottom: 4 }}>Daily participant activity</h3>
+    <p style={{ ...muted, marginTop: 0 }}>Messages per participant by day, based on Telegram message timestamps and your local time zone.</p>
+    {groupActivity.length > 0 ? <div style={{ overflowX: 'auto', border: '1px solid #344054', borderRadius: 12, padding: 12, background: 'var(--crm-card-bg)' }}>
+      <div style={{ minWidth: 660 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 210px) repeat(7, minmax(48px, 1fr)) minmax(58px, auto)', gap: 8, alignItems: 'end', paddingBottom: 8, borderBottom: '1px solid var(--crm-border)' }}>
+          <span style={{ ...muted, fontSize: 11 }}>Participant</span>
+          {activityDayKeys.map(day => <span key={day} style={{ ...muted, fontSize: 10, textAlign: 'center' }}>{new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</span>)}
+          <span style={{ ...muted, fontSize: 11, textAlign: 'right' }}>7-day total</span>
+        </div>
+        {groupActivity.map(person => {
+          const perDay = dailyActivityByUser.get(person.telegram_user_id);
+          const dailyValues = activityDayKeys.map(day => perDay?.get(day) ?? 0);
+          const total = dailyValues.reduce((sum, value) => sum + value, 0);
+          return <div key={person.telegram_user_id} style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 210px) repeat(7, minmax(48px, 1fr)) minmax(58px, auto)', gap: 8, alignItems: 'end', padding: '11px 0', borderBottom: '1px solid var(--crm-border)' }}>
+            <span style={{ color: 'var(--crm-text)', fontSize: 12, fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.display_name || (person.username ? '@' + person.username : 'Telegram user ' + person.telegram_user_id)}</span>
+            {dailyValues.map((count, index) => <div key={activityDayKeys[index]} title={activityDayKeys[index] + ': ' + count + ' messages'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: 'var(--crm-muted, #98a2b3)' }}>{count || ''}</span>
+              <div style={{ width: '70%', height: 42, display: 'flex', alignItems: 'flex-end', background: 'var(--crm-card-raised, #253247)', borderRadius: 5, overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: count ? Math.max(5, Math.round((count / maxDailyActivity) * 42)) : 0, background: 'var(--crm-accent-strong, var(--crm-accent))', borderRadius: 5 }} />
+              </div>
+            </div>)}
+            <strong style={{ color: 'var(--crm-text)', fontSize: 12, textAlign: 'right' }}>{total.toLocaleString()}</strong>
+          </div>;
+        })}
+      </div>
+    </div> : <p style={muted}>Daily analytics will appear after messages are collected.</p>}
+    <h3 style={{ marginBottom: 4 }}>Average response time · last 7 days</h3>
+    <p style={{ ...muted, marginTop: 0 }}>Reply time measures the delay between a message and another participant's reply. Reaction time measures the delay between the original message and a participant's first recorded reaction.</p>
+    {participantResponses.length > 0 ? <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
+        <thead><tr>{['Participant', 'Replies', 'Average reply time', 'Reactions', 'Average time to react'].map(label => <th key={label} style={cell}>{label}</th>)}</tr></thead>
+        <tbody>{participantResponses.map(person => <tr key={person.telegram_user_id}>
+          <td style={cell}>{person.display_name || (person.username ? '@' + person.username : 'Telegram user ' + person.telegram_user_id)}</td>
+          <td style={cell}>{person.reply_count.toLocaleString()}</td>
+          <td style={cell}>{person.avg_reply_seconds == null ? '—' : prettyDuration(Math.round(person.avg_reply_seconds))}</td>
+          <td style={cell}>{person.reaction_count.toLocaleString()}</td>
+          <td style={cell}>{person.avg_reaction_seconds == null ? '—' : prettyDuration(Math.round(person.avg_reaction_seconds))}</td>
+        </tr>)}</tbody>
+      </table>
+    </div> : <p style={muted}>Response-time statistics will appear when replies and reaction updates are captured for this group.</p>}
     </>}
   </section>;
 }
