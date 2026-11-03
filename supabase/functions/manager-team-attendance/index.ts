@@ -31,12 +31,12 @@ async function rest(path: string, method = "GET") {
 function coordinateKey(lat: number | null, lng: number | null) {
   return lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)
     ? null
-    : `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    : `${lat.toFixed(1)},${lng.toFixed(1)}`;
 }
 
 async function regionCountry(lat: number, lng: number): Promise<{ region: string | null; country: string | null }> {
-  const roundedLat = Number(lat.toFixed(2));
-  const roundedLng = Number(lng.toFixed(2));
+  const roundedLat = Number(lat.toFixed(1));
+  const roundedLng = Number(lng.toFixed(1));
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("lat", String(roundedLat));
@@ -48,7 +48,7 @@ async function regionCountry(lat: number, lng: number): Promise<{ region: string
   // should not permanently turn an otherwise valid GPS point into "Location unavailable".
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse city-country labels)" } });
+      const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse region-country labels)" } });
       if (!response.ok) {
         if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
       if (outKey) keys.add(outKey);
     }
 
-    // Public Nominatim usage is limited to one request per second. Round before
+    // Public Nominatim usage is limited to one request per second. Round to a coarse grid before
     // geocoding and cache duplicate rounded points for this response.
     for (const key of keys) {
       const [lat, lng] = key.split(",").map(Number);
