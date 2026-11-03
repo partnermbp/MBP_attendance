@@ -15,6 +15,8 @@ The function also uses the existing `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KE
 
 Review and apply `supabase/migrations/202610270001_manager_assignments_telegram_analytics.sql` in the Supabase SQL Editor. First inspect existing RLS policies on `profiles` and `attendance`: PostgreSQL permissive policies combine with OR, so an existing broad SELECT policy can defeat a restrictive manager policy. Do not use this migration as a substitute for auditing the current policy set.
 
+For the participant analytics and reaction features, also apply `supabase/migrations/202611030002_telegram_daily_and_reaction_analytics.sql`. It adds daily participant activity, reply/reaction timing summaries, per-user reaction state, anonymous reaction totals, and reaction event records. The earlier `202611030001_telegram_group_user_activity.sql` migration provides the existing overall activity query.
+
 ## 3. Deploy the Edge Function
 
 Deploy `supabase/functions/telegram-group-webhook/index.ts` to the same Supabase project as the CRM. Configure the function so Telegram can call it without a Supabase user JWT; the handler itself validates Telegram's `X-Telegram-Bot-Api-Secret-Token` header. Confirm this function's deployment URL from Supabase.
