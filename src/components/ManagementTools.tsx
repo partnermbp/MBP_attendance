@@ -8,6 +8,7 @@ type Assignment = { manager_id: string; employee_id: string; created_at: string 
 type TeamNode = { id: string; email: string | null; full_name: string | null; role: string; active: boolean; manager_id: string; depth: number };
 type Message = { telegram_chat_id: number; telegram_message_id: number; display_name: string | null; username: string | null; message_text: string | null; message_date: string; reply_to_message_id: number | null; raw_update?: Record<string, any> | null; message_kind?: string | null };
 type Metric = { telegram_chat_id: number; question_message_id: number; question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null; calculated_at: string };
+type GroupActivity = { telegram_user_id: number; display_name: string | null; username: string | null; message_count: number; last_message_at: string };
 type Group = { telegram_chat_id: number; title: string; enabled: boolean };
 type TelegramMember = { id: number; telegram_chat_id: number; telegram_user_id: number; username: string | null; display_name: string | null; profile_id: string | null };
 
@@ -64,6 +65,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [memberProfileSelections, setMemberProfileSelections] = useState<Record<number, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [groupActivity, setGroupActivity] = useState<GroupActivity[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
   const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
@@ -119,9 +121,15 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       else setMetrics((metricResult.data ?? []) as Metric[]);
       const chosen = selectedGroup ? [Number(selectedGroup)] : [];
       if (chosen.length) {
-        const messageResult = await supabase.from('telegram_messages')
-          .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id,raw_update,message_kind')
-          .in('telegram_chat_id', chosen).order('message_date', { ascending: false }).limit(GROUP_MESSAGE_PAGE_SIZE);
+        const [messageResult, activityResult] = await Promise.all([
+          supabase.from('telegram_messages')
+            .select('telegram_chat_id,telegram_message_id,display_name,username,message_text,message_date,reply_to_message_id,raw_update,message_kind')
+            .in('telegram_chat_id', chosen).order('message_date', { ascending: false }).limit(GROUP_MESSAGE_PAGE_SIZE),
+          supabase.rpc('get_telegram_group_user_activity', {
+            p_chat_id: Number(selectedGroup),
+            p_days: 7,
+          }),
+        ]);
         if (messageResult.error) setNotice((current) => current || 'Telegram messages: ' + messageResult.error.message);
         else {
           const rows = (messageResult.data ?? []) as Message[];
@@ -129,8 +137,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           setGroupMessagesHasMore(rows.length === GROUP_MESSAGE_PAGE_SIZE);
           setGroupMessagesAtTop(false);
         }
+        if (activityResult.error) {
+          setGroupActivity([]);
+          setNotice((current) => current || 'Could not load participant activity. Apply the Telegram group activity migration. ' + activityResult.error.message);
+        } else setGroupActivity((activityResult.data ?? []) as GroupActivity[]);
       } else {
         setMessages([]);
+        setGroupActivity([]);
         setGroupMessagesHasMore(false);
         setGroupMessagesAtTop(false);
       }
@@ -338,6 +351,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   };
   const answered = selectedMetrics.filter(m => m.response_seconds != null);
   const avgSeconds = answered.length ? Math.round(answered.reduce((sum, m) => sum + (m.response_seconds ?? 0), 0) / answered.length) : null;
+  const maxActivity = Math.max(1, ...groupActivity.map(person => person.message_count));
 
   return <section style={panel}>
     {page !== 'telegram-human' && page !== 'telegram-analytics' && <>
@@ -493,43 +507,25 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {page === 'telegram-analytics' && <>
     <h2 style={{marginTop:0}}>Telegram group analytics</h2>
     <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
-    <div style={{ padding: 16, margin: '12px 0 18px', border: '1px solid #344054', borderRadius: 12, background: 'var(--crm-card-bg)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 220, flex: '1 1 280px' }}>
-          <div style={{ color: 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Group connection</div>
-          <strong style={{ display: 'block', marginTop: 5, fontSize: 16 }}>Connect your work groups with @md_shobbot</strong>
-          <p style={{ ...muted, margin: '6px 0 0' }}>Use the existing CRM Telegram bot. Each manager can choose the work group they manage; once the bot receives a new message from that group, it will appear in the analytics list below.</p>
+    <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #344054', borderRadius: 12, background: 'var(--crm-card-bg)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 220, flex: '1 1 260px' }}>
+          <strong style={{ display: 'block', fontSize: 15 }}>Connect your work groups</strong>
+          <p style={{ ...muted, margin: '5px 0 0' }}>Add the CRM analytics bot to the Telegram chats you manage. Once it receives new messages, those groups will appear in the selector below.</p>
         </div>
         <a href="https://t.me/md_shobbot?startgroup=crm_group_analytics" target="_blank" rel="noreferrer" style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-          <span aria-hidden="true">＋</span> Add @md_shobbot to a group
+          <span aria-hidden="true">＋</span> Add the bot to your chats
         </a>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, marginTop: 16 }}>
-        <div style={{ padding: 12, borderRadius: 8, background: 'var(--crm-card-raised)' }}>
-          <div style={{ ...muted, fontSize: 11 }}>Groups detected by CRM</div>
-          <strong style={{ display: 'block', fontSize: 23, marginTop: 3 }}>{groups.filter(g => g.enabled).length}</strong>
-        </div>
-        <div style={{ padding: 12, borderRadius: 8, background: 'var(--crm-card-raised)' }}>
-          <div style={{ ...muted, fontSize: 11 }}>Next step</div>
-          <strong style={{ display: 'block', fontSize: 13, marginTop: 6 }}>Send a test message</strong>
-          <span style={{ ...muted, fontSize: 11 }}>The group is detected after the bot receives activity.</span>
-        </div>
-      </div>
-      <ol style={{ paddingLeft: 21, margin: '14px 0 0', lineHeight: 1.75, color: 'var(--crm-text)', fontSize: 13 }}>
-        <li>Click <strong>Add @md_shobbot to a group</strong> and choose the relevant work group in Telegram.</li>
-        <li>Confirm adding the bot. It does not need broad admin permissions just for message collection.</li>
-        <li>For full group-message analytics, the bot must have message access. Check that Telegram shows it <strong>has access to messages</strong>; if not, the bot owner must disable Group Privacy in <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>@BotFather</a>, then remove and re-add the bot to that group.</li>
-        <li>Send a new test message in the group. Once captured by the CRM webhook, the group will appear in the selector below.</li>
-      </ol>
-      {groups.filter(g => g.enabled).length > 0 && <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--crm-border)' }}>
-        <strong style={{ fontSize: 12 }}>Groups already detected</strong>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>
-          {groups.filter(g => g.enabled).map(g => <span key={g.telegram_chat_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 9px', borderRadius: 6, background: 'var(--crm-card-raised)', color: 'var(--crm-text)', fontSize: 12 }}>
-            <span aria-hidden="true" style={{ color: '#22c55e' }}>●</span>{g.title}
-          </span>)}
-        </div>
-      </div>}
-      <p style={{ ...muted, margin: '13px 0 0', fontSize: 11 }}>Only new messages received after connection can be collected; Telegram bots cannot retrieve earlier group history or read receipts. Make sure group participants know that messages are being processed for CRM analytics.</p>
+      {isAdmin && <details style={{ marginTop: 12, borderTop: '1px solid var(--crm-border)', paddingTop: 10, color: 'var(--crm-text)' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Admin setup details</summary>
+        <ol style={{ paddingLeft: 21, margin: '10px 0 0', lineHeight: 1.7, fontSize: 12 }}>
+          <li>Open the add-bot option and select the company work group.</li>
+          <li>Confirm that the bot is allowed to receive group messages.</li>
+          <li>For full message analytics, the configured bot (@md_shobbot) must have message access. If Telegram privacy settings prevent this, the Admin must disable Group Privacy through <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>BotFather</a>, then remove and add the bot again.</li>
+        </ol>
+        <p style={{ ...muted, margin: '8px 0 0', fontSize: 11 }}>Only newly received messages are collected; earlier group history and read receipts are not available to Telegram bots. Ensure participants know that messages are processed for CRM analytics.</p>
+      </details>}
     </div>
     <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
@@ -551,8 +547,25 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <footer style={{ padding:'10px 14px', borderTop:'1px solid #344054', color:'#8291a8', fontSize:11 }}>Read-only view of messages captured by the CRM analytics bot. Sending messages from this window is not supported.</footer>
       </div>
     </>}
-    <h3>Response-time samples</h3>
-    <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr>{['Group','Question message','Response time','Measured'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead><tbody>{selectedMetrics.slice(0,100).map(m => <tr key={m.telegram_chat_id + ':' + m.question_message_id}><td style={cell}>{groups.find(g => g.telegram_chat_id === m.telegram_chat_id)?.title || m.telegram_chat_id}</td><td style={cell}>{m.question_message_id}</td><td style={cell}>{prettyDuration(m.response_seconds)}</td><td style={cell}>{new Date(m.calculated_at).toLocaleString()}</td></tr>)}</tbody></table></div>
+    <h3>Participant activity · last 7 days</h3>
+    <p style={{ ...muted, marginTop: -4 }}>Messages sent by each user in the selected group. Bars show each participant’s share relative to the most active user.</p>
+    {groupActivity.length > 0 ? <div style={{ display: 'grid', gap: 12, padding: 14, border: '1px solid #344054', borderRadius: 12, background: 'var(--crm-card-bg)' }}>
+      {groupActivity.map(person => {
+        const name = person.display_name || (person.username ? '@' + person.username : 'Telegram user ' + person.telegram_user_id);
+        const width = Math.max(3, Math.round((person.message_count / maxActivity) * 100));
+        return <div key={person.telegram_user_id} style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, 190px) minmax(90px, 1fr) auto', alignItems: 'center', gap: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: 'var(--crm-text)', fontWeight: 650, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={name}>{name}</div>
+            <div style={{ ...muted, fontSize: 10 }}>Last active {new Date(person.last_message_at).toLocaleString()}</div>
+          </div>
+          <div role="img" aria-label={name + ': ' + person.message_count + ' messages'} style={{ height: 13, borderRadius: 999, overflow: 'hidden', background: 'var(--crm-card-raised, #253247)' }}>
+            <div style={{ height: '100%', width: width + '%', borderRadius: 999, background: 'var(--crm-accent-strong, var(--crm-accent))', transition: 'width .25s ease' }} />
+          </div>
+          <strong style={{ color: 'var(--crm-text)', fontSize: 13, minWidth: 64, textAlign: 'right' }}>{person.message_count.toLocaleString()} <span style={{ ...muted, fontSize: 10, fontWeight: 500 }}>msgs</span></strong>
+        </div>;
+      })}
+      <div style={{ ...muted, fontSize: 11, borderTop: '1px solid var(--crm-border)', paddingTop: 9 }}>Total captured messages: {groupActivity.reduce((sum, person) => sum + person.message_count, 0).toLocaleString()}</div>
+    </div> : <div style={{ padding: 18, border: '1px dashed #475467', borderRadius: 12, color: 'var(--crm-muted, #98a2b3)', textAlign: 'center' }}>No participant activity captured for this group in the last 7 days.</div>}
     </>}
   </section>;
 }
