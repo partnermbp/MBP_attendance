@@ -7,7 +7,7 @@ This is a separate bot from `@mbpauthbot`. Do not reuse the authentication bot t
 In the Supabase Dashboard for the CRM project, open **Edge Functions → Secrets** and set:
 
 - `TELEGRAM_BOT_TOKEN`: token for the new analytics bot from BotFather.
-- `TELEGRAM_WEBHOOK_SECRET`: a new random secret of 1–256 characters using only letters, digits, underscores, or hyphens.
+- `MBP_ANALYTICS_TELEGRAM_WEBHOOK_SECRET`: a new random secret of 1–256 characters using only letters, digits, underscores, or hyphens.
 
 The function also uses the existing `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` environment values. Never put the bot token or service-role key in frontend environment variables, source code, or a public issue.
 
@@ -26,8 +26,8 @@ Use Telegram's Bot API `setWebhook` endpoint from a secure terminal (not the bro
 ```bash
 curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
   -d "url=${SUPABASE_FUNCTION_URL}" \
-  -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
-  --data-urlencode 'allowed_updates=["message","edited_message","channel_post","edited_channel_post","message_reaction"]'
+  -d "secret_token=${MBP_ANALYTICS_TELEGRAM_WEBHOOK_SECRET}" \
+  --data-urlencode 'allowed_updates=["message","edited_message","channel_post","edited_channel_post","message_reaction","message_reaction_count"]'
 ```
 
 Keep these values in local shell environment variables; do not paste the token into chat. Check Telegram's response says `"ok": true`. Then call `getWebhookInfo` securely to verify the URL and inspect any pending webhook errors.
@@ -35,9 +35,11 @@ Keep these values in local shell environment variables; do not paste the token i
 ## 5. Add the bot to a test group
 
 1. Add the dedicated analytics bot to an authorized work group.
-2. In BotFather, disable group privacy if the bot must receive ordinary group messages. Grant admin rights only if needed for your selected updates.
-3. Send a new message and a reply after the bot joins. Bots cannot backfill group history from before joining.
-4. Check `telegram_groups`, `telegram_group_members`, `telegram_messages`, and `telegram_response_metrics` in Supabase.
+2. For message/reply collection, disable group privacy in BotFather if required so the bot can receive ordinary group messages.
+3. To collect individual reactions and anonymous reaction totals, make the bot an administrator in the group. Telegram requires administrator status for both reaction update types; do not grant unrelated administrator rights beyond what your group policy permits.
+4. Re-register the webhook with both `message_reaction` and `message_reaction_count` in `allowed_updates` (the command above includes both). Existing webhook configurations do not automatically start receiving these update types.
+5. Send new messages, replies, and reactions after setup. Bots cannot backfill group history or old reaction events.
+6. Check `telegram_groups`, `telegram_group_members`, `telegram_messages`, `telegram_response_metrics`, `telegram_message_reactions`, and `telegram_message_reaction_counts` in Supabase.
 
 ## 6. Link Telegram users to CRM profiles
 
@@ -45,7 +47,7 @@ A Telegram user is not automatically identifiable as a CRM employee. Link identi
 
 ## Limitations and privacy
 
-The Bot API does not expose general group read receipts, online/last-seen status, or arbitrary historic messages. Reactions require the corresponding update type and Telegram permissions. Inform group participants what data is logged and follow company policy and applicable privacy rules. Avoid collecting unrelated/private group conversations.
+The Bot API does not expose general group read receipts, online/last-seen status, or arbitrary historic messages. Reactions require the corresponding update types, an administrator bot in the group, and webhook registration for both `message_reaction` and `message_reaction_count`. Individual reaction attribution is available only when Telegram sends a user identity. Anonymous reaction counts have no participant identity. Inform group participants what data is logged and follow company policy and applicable privacy rules. Avoid collecting unrelated/private group conversations.
 
 ## Rollback
 
