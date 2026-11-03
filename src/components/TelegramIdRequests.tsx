@@ -26,14 +26,16 @@ export default function TelegramIdRequests() {
   const load = useCallback(async () => {
     if (!supabase) { setMessage('Database is not configured.'); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from('telegram_id_change_requests')
-      .select('id,requester_profile_id,requester_name,requester_email,old_telegram_user_id,new_telegram_user_id,old_telegram_username,new_telegram_username,comment,status,created_at,reviewed_at,admin_note')
-      .order('created_at', { ascending: false }).limit(500);
-    if (error) setMessage('Could not load requests. Apply the Telegram ID requests migration first. ' + error.message);
+    const { data, error } = await supabase.rpc('get_telegram_id_change_requests');
+    if (error) setMessage('Could not load requests. Apply the Admin Telegram request visibility migration first. ' + error.message);
     else { setRows((data ?? []) as RequestRow[]); setMessage(''); }
     setLoading(false);
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 15000);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   async function review(row: RequestRow, action: 'approve' | 'reject' | 'restrict') {
     if (!supabase) return;
