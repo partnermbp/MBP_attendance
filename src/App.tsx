@@ -21,6 +21,10 @@ type Attendance = {
   check_out_lng: number | null;
   work_date: string | null;
   work_timezone: string | null;
+  check_in_region?: string | null;
+  check_in_country?: string | null;
+  check_out_region?: string | null;
+  check_out_country?: string | null;
 };
 
 type Shift = {
@@ -576,27 +580,38 @@ export default function App() {
         setShifts((shiftsResult.data ?? []) as Shift[]);
         setTelegramMembers((membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null}>);
         setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
+      } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
+        setTelegramMembers([]); setTelegramResponseMetrics([]);
+        const [hierarchyResult, teamAttendanceResult, shiftsResult] = await Promise.all([
+          supabase.rpc('get_my_team_hierarchy'),
+          supabase.functions.invoke('manager-team-attendance', { body: {} }),
+          supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
+        ]);
+        if (hierarchyResult.error) {
+          setProfiles([currentProfile]); setManagerAssignments([]);
+          setMessage('Could not load reporting hierarchy: ' + hierarchyResult.error.message);
+        } else {
+          const descendants = (hierarchyResult.data ?? []) as Array<Profile & { manager_id: string; depth: number }>;
+          setProfiles([currentProfile, ...descendants.map(({ id, email, full_name, role, active }) => ({ id, email, full_name, role, active }))]);
+          setManagerAssignments(descendants.map(person => ({ manager_id: person.manager_id, employee_id: person.id })));
+          setExpandedManagerIds(new Set([userId]));
+        }
+        if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
+        else setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
+        if (shiftsResult.error) setMessage(current => current || 'Could not load shifts: ' + shiftsResult.error.message);
+        else setShifts((shiftsResult.data ?? []) as Shift[]);
       } else {
         setProfiles([]);
         setManagerAssignments([]);
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
-          supabase.from('attendance')
-            .select('id, check_in, check_out, work_date, work_timezone')
-            .eq('employee_id', userId)
-            .order('check_in', { ascending: false })
-            .limit(100),
-          supabase.from('shifts')
-            .select('id, starts_at, ends_at')
-            .eq('employee_id', userId)
-            .order('starts_at', { ascending: true })
-            .limit(100),
+          supabase.from('attendance').select('id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
+          supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
-
-        if (attendanceResult.error) setMessage(`Could not load attendance: ${attendanceResult.error.message}`);
+        if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
         else setAttendance((attendanceResult.data ?? []) as Attendance[]);
-        if (shiftsResult.error) setMessage(current => current || `Could not load shifts: ${shiftsResult.error.message}`);
+        if (shiftsResult.error) setMessage(current => current || 'Could not load shifts: ' + shiftsResult.error.message);
         else setShifts((shiftsResult.data ?? []) as Shift[]);
       }
     } catch {
@@ -1456,7 +1471,7 @@ export default function App() {
 
   const openRecord = attendance
     .filter((item) => {
-      if (item.check_out || !item.work_date || !item.work_timezone) {
+      if (item.employee_id !== session?.user.id || item.check_out || !item.work_date || !item.work_timezone) {
         return false;
       }
 
@@ -1946,7 +1961,7 @@ export default function App() {
               <p>No attendance records match this date range.</p>
             )}
 
-            {isAdmin && (() => {
+            {(isAdmin || canManageTeam) && (() => {
               const today = getLocalDate(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
               const defaultStart = new Date(`${today}T12:00:00`);
               defaultStart.setDate(defaultStart.getDate() - 6);
@@ -1970,9 +1985,9 @@ export default function App() {
               });
               const peopleWithParents = new Set(managerAssignments.map(assignment => assignment.employee_id));
               const topLevelRoles = new Set(['team_leader', 'senior', 'telemarketing']);
-              const topLevelPeople = allPeople.filter(person =>
-                topLevelRoles.has(String(person.role).toLowerCase()) && !peopleWithParents.has(person.id)
-              );
+              const topLevelPeople = isAdmin
+                ? allPeople.filter(person => topLevelRoles.has(String(person.role).toLowerCase()) && !peopleWithParents.has(person.id))
+                : (profile && peopleById.has(profile.id) ? [peopleById.get(profile.id)!] : []);
               const visiblePeople: Array<{ person: Profile; depth: number; hasChildren: boolean }> = [];
               const appendBranch = (person: Profile, depth: number, path: Set<string>) => {
                 if (path.has(person.id)) return;
@@ -1986,7 +2001,7 @@ export default function App() {
                   if (child) appendBranch(child, depth + 1, nextPath);
                 });
               };
-              if (selectedEmployeeId !== 'all') {
+              if (isAdmin && selectedEmployeeId !== 'all') {
                 const selectedPerson = peopleById.get(selectedEmployeeId);
                 if (selectedPerson) visiblePeople.push({ person: selectedPerson, depth: 0, hasChildren: false });
               } else {
@@ -2037,10 +2052,11 @@ export default function App() {
                   <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f79009'}}/>Incomplete shift</span>
                   <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f04438'}}/>Absent</span>
                   <span>Showing up to 93 dates; defaults to the last 7 days.</span>
+                  {!isAdmin && <span>GPS pins and exact coordinates are hidden; only region and country are shown.</span>}
                 </div>
               </>;
             })()}
-            {!isAdmin && reportAttendance.map((item) => {
+            {!isAdmin && !canManageTeam && reportAttendance.map((item) => {
               const duration = getSessionDuration(item, clockNow);
 
               return (
