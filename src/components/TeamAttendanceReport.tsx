@@ -22,10 +22,10 @@ function MiniBarChart({ title, subtitle, labels, values, color = 'var(--crm-acce
   const slot = (width - left - 12) / Math.max(1, values.length);
   return <section style={panel}>
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}><strong>{title}</strong><span style={muted}>{subtitle}</span></div>
-    {values.length ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} style={{ display: 'block', width: '100%', height: 'auto', marginTop: 12, overflow: 'visible' }}>
+    {values.length ? <div className="crm-report-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} style={{ display: 'block', width: '100%', height: 'auto', marginTop: 12, overflow: 'visible' }}>
       {[0, .5, 1].map(t => <g key={t}><line x1={left} x2={width - 8} y1={top + (height - top - bottom) * t} y2={top + (height - top - bottom) * t} stroke="var(--crm-border)" strokeDasharray="4 4"/><text x={left - 8} y={top + (height - top - bottom) * t + 4} fill="var(--crm-text-muted)" fontSize="10" textAnchor="end">{Math.round(max * (1 - t))}</text></g>)}
       {values.map((value, i) => { const barH = (height - top - bottom) * value / max; const x = left + i * slot + slot * .18; const w = Math.max(5, slot * .62); return <g key={i}><rect x={x} y={height - bottom - barH} width={w} height={barH} rx="4" fill={color} opacity=".88"/><text x={x + w / 2} y={height - 9} fill="var(--crm-text-muted)" fontSize="10" textAnchor="middle">{labels[i]}</text><title>{labels[i]}: {value}</title></g>; })}
-    </svg> : <p style={muted}>No data in this period yet.</p>}
+    </svg></div> : <p style={muted}>No data in this period yet.</p>}
   </section>;
 }
 
@@ -118,7 +118,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
       {['7','30','90'].map(n=><button key={n} type="button" onClick={()=>{const d=new Date();d.setDate(d.getDate()-Number(n)+1);const start=d.toISOString().slice(0,10);const end=new Date().toISOString().slice(0,10);setFrom(start);setTo(end);setAppliedFrom(start);setAppliedTo(end);setRange(n);}} aria-pressed={range===n} style={{ padding: '9px 11px', border: '1px solid var(--crm-border)', borderRadius: 7, background: range===n?'var(--crm-accent-soft)':'var(--crm-card-raised)', color: range===n?'var(--crm-accent-strong)':'var(--crm-text)', cursor: 'pointer' }}>Last {n} days</button>)}
     </section>
     {loading && <p style={muted}>Loading team metrics…</p>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 12 }}>
+    <div className="crm-report-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 12 }}>
       {card('Active team members', scopedPeople.length, 'Active non-admin profiles')}
       {card('Logged in today', activeToday, 'Employees with a check-in today')}
       {card('Attendance records', scopedAttendance.length, 'Check-in sessions in selected range')}
@@ -127,18 +127,18 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
       {card('Late sign-ins', noSchedule ? '—' : late, noSchedule ? 'Requires assigned shift schedules' : `${pct(late,signed)}% of signed-in shifts were over 5 min late`, '#f59e0b')}
     </div>
     {noSchedule ? <section style={{ ...panel, borderColor: '#b7791f' }}><strong>Shift compliance needs shift schedules</strong><p style={muted}>No shift records are currently available to the Admin dashboard. The report can show recorded check-ins, but it cannot fairly calculate missed sign-ins, late sign-ins or a not-signed-in rate without each employee’s scheduled shift start and end. Once shifts are available, these metrics will calculate automatically.</p></section> : <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12 }}>
+      <div className="crm-report-rate-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12 }}>
         {card('Shift sign-in rate', `${pct(signed,expected)}%`, `${signed} signed in from ${expected} scheduled shifts`, '#34d399')}
         {card('Not signed-in rate', `${pct(absent,expected)}%`, `${absent} scheduled shifts with no matching check-in`, '#f87171')}
         {card('On-time rate', `${pct(onTime,expected)}%`, 'Check-ins at or before 5 minutes after shift start')}
         <Donut title="Shift outcome" total={expected} parts={[{label:'On time',value:onTime,color:'#22c55e'},{label:'Late',value:late,color:'#f59e0b'},{label:'No check-in',value:absent,color:'#ef4444'}]}/>
       </div>
     </>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
+    <div className="crm-report-chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
       <MiniBarChart title="Daily team attendance" subtitle="Unique people checking in each day" labels={days.map(dateLabel)} values={dailyCounts}/>
       <MiniBarChart title="Check-in time distribution" subtitle="Recorded check-ins grouped by local hour" labels={lateHours.map(x=>x.label)} values={lateHours.map(x=>x.value)} color="#60a5fa"/>
     </div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
+    <div className="crm-report-secondary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
       <section style={panel}><strong>Telegram response rate</strong><div style={{ ...metricValue, marginTop: 12 }}>{teamResponseMetrics.length ? responseRate + '%' : '—'}</div><p style={muted}>{teamResponseMetrics.length ? `Average first response: ${avgResponse == null ? '—' : avgResponse < 60 ? avgResponse + ' sec' : Math.round(avgResponse/60) + ' min'}. Based on linked team identities in tracked Telegram groups.` : 'No attributable Telegram question/reply metrics are available for the selected team.'}</p></section>
       <section style={panel}><strong>Role distribution</strong><div style={{ display: 'grid', gap: 9, marginTop: 13 }}>{Object.entries(roleCounts).map(([role,count])=><div key={role}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}><span>{role}</span><strong>{count}</strong></div><div style={{ height: 7, background: 'var(--crm-border)', borderRadius: 8, overflow: 'hidden' }}><div style={{ width: pct(count,activePeople.length)+'%', height: '100%', background: 'var(--crm-accent)', borderRadius: 8 }}/></div></div>)}</div></section>
     </div>
