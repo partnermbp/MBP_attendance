@@ -1349,7 +1349,7 @@ export default function App() {
 
   function handleExportCsv() {
     const rows = [
-      ['Employee', 'Employee email', 'Work date', 'Check-in', 'Check-out', 'Status', 'Elapsed minutes', 'Worked minutes', 'Timezone', 'Check-in map', 'Check-out map'],
+      ['Employee', 'Employee email', 'Work date', 'Check-in', 'Check-out', 'Status', 'Elapsed minutes', 'Worked minutes', 'Timezone', ...(isAdmin ? ['Check-in map', 'Check-out map'] : ['Check-in region', 'Check-in country', 'Check-out region', 'Check-out country'])],
       ...reportAttendance.map((item) => {
         const person = profiles.find((p) => p.id === item.employee_id);
         const start = new Date(item.check_in).getTime();
@@ -1377,8 +1377,7 @@ export default function App() {
           elapsedMinutes,
           workedMinutes,
           item.work_timezone || '',
-          checkInMap,
-          checkOutMap,
+          ...(isAdmin ? [checkInMap, checkOutMap] : [item.check_in_region || '', item.check_in_country || '', item.check_out_region || '', item.check_out_country || '']),
         ];
       }),
     ];
@@ -2031,14 +2030,19 @@ export default function App() {
                       return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:154}}>
                         <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
                           {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
-                            <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
-                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>
-                            </span>
-                            <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
-                              {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
-                              {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
-                            </span>
+                            {isAdmin ? < >
+                              <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
+                                <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
+                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>
+                              </span>
+                              <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
+                                {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
+                                {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
+                              </span>
+                            </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2,overflowWrap:'anywhere'}}>
+                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_in_region,record.check_in_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span></span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span></span>
+                            </span>}
                           </>}
                         </div>
                       </td>;
