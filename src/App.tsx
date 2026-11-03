@@ -606,7 +606,7 @@ export default function App() {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
-          supabase.from('attendance').select('id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
         if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
