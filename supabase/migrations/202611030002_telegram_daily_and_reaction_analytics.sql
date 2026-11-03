@@ -56,6 +56,10 @@ revoke all on public.telegram_message_reaction_counts from anon, authenticated;
 revoke all on public.telegram_message_reaction_events from anon, authenticated;
 grant select on public.telegram_message_reactions to authenticated;
 grant select on public.telegram_message_reaction_counts to authenticated;
+grant all on public.telegram_message_reactions to service_role;
+grant all on public.telegram_message_reaction_counts to service_role;
+grant all on public.telegram_message_reaction_events to service_role;
+grant usage, select on sequence public.telegram_message_reaction_events_id_seq to service_role;
 
 drop policy if exists "Authorized staff read Telegram message reactions" on public.telegram_message_reactions;
 create policy "Authorized staff read Telegram message reactions"
