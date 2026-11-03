@@ -1645,3 +1645,21 @@ body::after { content:none; }
 @media (max-width:380px) {
   .crm-report-stat-grid { grid-template-columns:minmax(0,1fr) !important; }
 }
+
+
+@media (max-width:760px) {
+  .crm-settings-section { margin:14px 0; padding:15px !important; border-radius:12px; }
+  .crm-settings-choice-grid { grid-template-columns:minmax(0,1fr) !important; gap:8px !important; margin-top:12px; }
+  .crm-settings-choice { display:grid; grid-template-columns:24px minmax(0,1fr); align-items:center; gap:4px 10px; padding:12px; }
+  .crm-settings-choice > span:last-child { grid-column:2; }
+  .crm-settings-choice > strong { font-size:13px; }
+  .crm-settings-heading h2 { font-size:16px !important; }
+  .crm-settings-toggle { padding:13px 0; }
+  .crm-settings-reset { align-items:stretch; flex-direction:column; gap:12px; }
+  .crm-settings-reset button { width:100%; justify-content:center; }
+  .crm-layout > main > section section[style*="margin: 20px 0"] { margin:14px 0 !important; padding:14px !important; }
+  .crm-layout > main > section section[style*="grid-template-columns: repeat(auto-fit, minmax(160px"] > article {
+    padding:12px !important; min-width:0;
+  }
+  .crm-layout > main > section section[style*="grid-template-columns: repeat(auto-fit, minmax(160px"] > article strong { font-size:22px !important; }
+}
