@@ -2013,7 +2013,7 @@ export default function App() {
                 : null;
               return <>
                 <div style={{overflowX:'auto',border:'1px solid var(--crm-border)',marginTop:12}}>
-                <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*154),textAlign:'left'}}>
+                <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*(isAdmin?154:230)),textAlign:'left'}}>
                   <thead><tr style={{background:'var(--crm-card-raised)'}}>
                     <th style={{position:'sticky',left:0,zIndex:2,background:'var(--crm-card-raised)',padding:12,borderBottom:'1px solid var(--crm-border)',minWidth:180}}>Employee</th>
                     {dateKeys.map(date => <th key={date} style={{padding:10,borderBottom:'1px solid var(--crm-border)',whiteSpace:'nowrap',textAlign:'center'}}>{new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</th>)}
@@ -2027,8 +2027,8 @@ export default function App() {
                       const present = Boolean(record);
                       const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
                       const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
-                      return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:154}}>
-                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
+                      return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:isAdmin?154:218}}>
+                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:isAdmin?142:206,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
                           {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
                             {isAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
