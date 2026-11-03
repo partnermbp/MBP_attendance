@@ -1,4 +1,6 @@
 
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
@@ -51,6 +53,7 @@ type Coordinates = {
   longitude: number;
 };
 
+const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
 const BREAK_MINUTES = 60;
 const APPROVED_EMAIL_DOMAINS = [
   'mostbet.partners',
@@ -169,7 +172,42 @@ function getSessionDuration(item: Attendance, now: number) {
   };
 }
 
-function getLocation(): Promise<Coordinates> {
+function toCoordinates(latitude: number, longitude: number): Coordinates {
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    throw new Error('The device returned invalid coordinates.');
+  }
+
+  return { latitude, longitude };
+}
+
+async function getLocation(): Promise<Coordinates> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      });
+      return toCoordinates(position.coords.latitude, position.coords.longitude);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error ?? '');
+      if (/permission|denied/i.test(detail)) {
+        throw new Error('Location permission was denied. Allow MBP Attendance to access location in Android Settings.');
+      }
+      if (/timeout/i.test(detail)) {
+        throw new Error('Location request timed out. Please try again.');
+      }
+      throw new Error('Your current location is unavailable. Check that Location is enabled and try again.');
+    }
+  }
+
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Location is not supported by this browser.'));
@@ -178,22 +216,11 @@ function getLocation(): Promise<Coordinates> {
 
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        if (
-          !Number.isFinite(coords.latitude) ||
-          !Number.isFinite(coords.longitude) ||
-          coords.latitude < -90 ||
-          coords.latitude > 90 ||
-          coords.longitude < -180 ||
-          coords.longitude > 180
-        ) {
-          reject(new Error('The browser returned invalid coordinates.'));
-          return;
+        try {
+          resolve(toCoordinates(coords.latitude, coords.longitude));
+        } catch (error) {
+          reject(error);
         }
-
-        resolve({
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-        });
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
@@ -745,7 +772,7 @@ export default function App() {
     setBusy(true);
     setMessage('');
     try {
-      const redirectTo = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(inviteToken);
+      const redirectTo = `${CRM_WEB_APP_URL}?invite=${encodeURIComponent(inviteToken)}`;
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
@@ -843,7 +870,7 @@ export default function App() {
     if (!isApprovedEmail(normalizedEmail)) { setMessage('Enter your approved work email address first.'); return; }
     setBusy(true); setMessage('');
     try {
-      const redirectTo = window.location.origin + window.location.pathname;
+      const redirectTo = CRM_WEB_APP_URL;
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
       if (error) setMessage('Could not send the password reset email: ' + error.message);
       else { setMessage('Password reset instructions have been sent to your registered email address.'); }
