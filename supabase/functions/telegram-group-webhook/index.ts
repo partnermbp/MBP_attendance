@@ -41,6 +41,20 @@ function personName(user: any): string | null {
   return name || user.username || null;
 }
 
+function reactionKey(reaction: any): string {
+  if (reaction?.type === "emoji") return "emoji:" + String(reaction.emoji ?? "");
+  if (reaction?.type === "custom_emoji") return "custom_emoji:" + String(reaction.custom_emoji_id ?? "");
+  if (reaction?.type === "paid") return "paid";
+  return String(reaction?.type ?? "unknown");
+}
+
+function reactionLabel(reaction: any): string {
+  if (reaction?.type === "emoji") return String(reaction.emoji ?? "Reaction");
+  if (reaction?.type === "custom_emoji") return "Custom emoji";
+  if (reaction?.type === "paid") return "⭐";
+  return "Reaction";
+}
+
 async function ensureGroup(chat: any) {
   if (!chat?.id) return;
   const title = chat.title || chat.username || String(chat.id);
@@ -120,19 +134,90 @@ async function handleMessage(message: any, update: any) {
   }
 }
 
-async function handleReaction(reactionUpdate: any) {
+async function handleReaction(reactionUpdate: any, updateId: number) {
   const chat = reactionUpdate?.chat;
   if (!chat?.id || chat.type === "private") return;
-  await ensureGroup(chat);
-  await upsertMember(chat.id, reactionUpdate.user);
 
-  // Telegram sends the full current reaction set. Store it as one JSON value.
-  const reactions = reactionUpdate.new_reaction ?? [];
-  await db("telegram_reactions", "POST", [{
+  await ensureGroup(chat);
+  const user = reactionUpdate.user;
+  await upsertMember(chat.id, user);
+
+  const messageId = Number(reactionUpdate.message_id);
+  const oldReactions = Array.isArray(reactionUpdate.old_reaction) ? reactionUpdate.old_reaction : [];
+  const newReactions = Array.isArray(reactionUpdate.new_reaction) ? reactionUpdate.new_reaction : [];
+  const oldByKey = new Map(oldReactions.map((reaction: any) => [reactionKey(reaction), reaction]));
+  const newByKey = new Map(newReactions.map((reaction: any) => [reactionKey(reaction), reaction]));
+  const eventAt = new Date((reactionUpdate.date || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+  const actorChat = reactionUpdate.actor_chat ?? null;
+
+  // Cache the current per-user reaction state for display under the message.
+  if (user?.id) {
+    if (newReactions.length) {
+      await db("telegram_message_reactions?on_conflict=telegram_chat_id,telegram_message_id,telegram_user_id", "POST", [{
+        telegram_chat_id: chat.id,
+        telegram_message_id: messageId,
+        telegram_user_id: user.id,
+        username: user.username ?? null,
+        display_name: personName(user),
+        reactions: newReactions,
+        reacted_at: eventAt,
+        updated_at: new Date().toISOString(),
+      }], "resolution=merge-duplicates,return=minimal");
+    } else {
+      await db(
+        `telegram_message_reactions?telegram_chat_id=eq.${chat.id}&telegram_message_id=eq.${messageId}&telegram_user_id=eq.${user.id}`,
+        "DELETE",
+      );
+    }
+  }
+
+  // Derive time-to-first-reaction from the original message timestamp.
+  let responseSeconds: number | null = null;
+  const original = await db(
+    `telegram_messages?telegram_chat_id=eq.${chat.id}&telegram_message_id=eq.${messageId}&select=message_date&limit=1`,
+    "GET",
+  );
+  if (Array.isArray(original) && original[0]?.message_date) {
+    const elapsed = Math.floor((new Date(eventAt).getTime() - new Date(original[0].message_date).getTime()) / 1000);
+    if (Number.isFinite(elapsed) && elapsed >= 0) responseSeconds = elapsed;
+  }
+
+  // Persist only additions/removals, with Telegram update_id for retry-safe writes.
+  const changes = [
+    ...[...newByKey.entries()].filter(([key]) => !oldByKey.has(key)).map(([key, reaction]) => ({ key, reaction, action: "added" })),
+    ...[...oldByKey.entries()].filter(([key]) => !newByKey.has(key)).map(([key, reaction]) => ({ key, reaction, action: "removed" })),
+  ];
+  for (const change of changes) {
+    await db("telegram_message_reaction_events?on_conflict=telegram_update_id,telegram_chat_id,telegram_message_id,reaction_key,action", "POST", [{
+      telegram_update_id: updateId,
+      telegram_chat_id: chat.id,
+      telegram_message_id: messageId,
+      telegram_user_id: user?.id ?? null,
+      username: user?.username ?? null,
+      display_name: personName(user),
+      actor_chat_id: actorChat?.id ?? null,
+      actor_chat_title: actorChat?.title ?? null,
+      reaction_key: change.key,
+      reaction_label: reactionLabel(change.reaction),
+      action: change.action,
+      reacted_at: eventAt,
+      response_seconds: responseSeconds,
+    }], "resolution=ignore-duplicates,return=minimal");
+  }
+}
+
+async function handleReactionCount(reactionCountUpdate: any) {
+  const chat = reactionCountUpdate?.chat;
+  if (!chat?.id || chat.type === "private") return;
+  await ensureGroup(chat);
+
+  // Telegram sends aggregate snapshots for anonymous reactions.
+  await db("telegram_message_reaction_counts?on_conflict=telegram_chat_id,telegram_message_id", "POST", [{
     telegram_chat_id: chat.id,
-    telegram_message_id: reactionUpdate.message_id,
-    reaction: reactions,
-  }], "return=minimal");
+    telegram_message_id: reactionCountUpdate.message_id,
+    reactions: Array.isArray(reactionCountUpdate.reactions) ? reactionCountUpdate.reactions : [],
+    updated_at: new Date((reactionCountUpdate.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+  }], "resolution=merge-duplicates,return=minimal");
 }
 
 Deno.serve(async (req: Request) => {
@@ -158,7 +243,8 @@ Deno.serve(async (req: Request) => {
       ?? update.channel_post
       ?? update.edited_channel_post;
     if (message) await handleMessage(message, update);
-    if (update.message_reaction) await handleReaction(update.message_reaction);
+    if (update.message_reaction) await handleReaction(update.message_reaction, Number(update.update_id ?? 0));
+    if (update.message_reaction_count) await handleReactionCount(update.message_reaction_count);
     return json({ ok: true });
   } catch (error) {
     console.error("Telegram webhook processing failed:", error);
