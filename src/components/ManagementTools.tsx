@@ -231,7 +231,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { void load(); }, [supabase, profile?.id, profile?.role, selectedGroup]);
+  useEffect(() => {
+    void load();
+    if (page !== 'telegram-analytics' || !selectedGroup) return;
+    const refresh = window.setInterval(() => { void load(); }, 30000);
+    return () => window.clearInterval(refresh);
+  }, [supabase, profile?.id, profile?.role, selectedGroup, page]);
   useEffect(() => {
     if (!supabase || !isAdmin || !(page === 'team' || page === 'team-roles')) return;
     let cancelled = false;
@@ -279,6 +284,27 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         for (const message of older) byId.set(message.telegram_message_id, message);
         return [...byId.values()].sort((a, b) => b.telegram_message_id - a.telegram_message_id);
       });
+      const olderIds = older.map(message => message.telegram_message_id);
+      if (olderIds.length) {
+        const [reactionResult, countResult] = await Promise.all([
+          supabase.from('telegram_message_reactions')
+            .select('telegram_chat_id,telegram_message_id,telegram_user_id,display_name,username,reactions')
+            .eq('telegram_chat_id', Number(selectedGroup)).in('telegram_message_id', olderIds),
+          supabase.from('telegram_message_reaction_counts')
+            .select('telegram_chat_id,telegram_message_id,reactions')
+            .eq('telegram_chat_id', Number(selectedGroup)).in('telegram_message_id', olderIds),
+        ]);
+        if (reactionResult.error) setNotice('Could not load reactions for older messages: ' + reactionResult.error.message);
+        else setMessageReactions(previous => [
+          ...previous.filter(row => !olderIds.includes(row.telegram_message_id)),
+          ...((reactionResult.data ?? []) as MessageReaction[]),
+        ]);
+        if (countResult.error) setNotice('Could not load anonymous reaction counts for older messages: ' + countResult.error.message);
+        else setMessageReactionCounts(previous => [
+          ...previous.filter(row => !olderIds.includes(row.telegram_message_id)),
+          ...((countResult.data ?? []) as MessageReactionCount[]),
+        ]);
+      }
       setGroupMessagesHasMore(older.length === GROUP_MESSAGE_PAGE_SIZE);
       if (older.length) {
         if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current);
