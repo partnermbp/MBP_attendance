@@ -2,7 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
