@@ -1542,7 +1542,7 @@ body::after { content:none; }
   .crm-layout > .crm-sidebar { display:none !important; }
   .crm-mobile-bottom-nav {
     position:fixed; z-index:9000; inset:auto 0 0; display:grid;
-    grid-template-columns:repeat(5,minmax(0,1fr)); gap:2px;
+    grid-template-columns:repeat(auto-fit,minmax(56px,1fr)); gap:2px;
     padding:7px 5px calc(7px + env(safe-area-inset-bottom));
     border-top:1px solid var(--crm-border);
     background:color-mix(in srgb,var(--crm-panel-bg) 94%,transparent);
