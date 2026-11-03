@@ -407,6 +407,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [preferences, setPreferences] = useState<CrmPreferences>(loadCrmPreferences);
   const [settingsNotice, setSettingsNotice] = useState('');
   const updatePreference = <K extends keyof CrmPreferences>(key: K, value: CrmPreferences[K]) => { setPreferences(current => { const next = { ...current, [key]: value }; try { localStorage.setItem('mbp_crm_preferences', JSON.stringify(next)); } catch { /* Browser storage may be disabled. */ } return next; }); setSettingsNotice('Your preferences have been saved on this device.'); };
@@ -1664,6 +1665,42 @@ export default function App() {
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid var(--crm-accent-strong)',borderRadius:6,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:16,paddingTop:12,borderTop:'1px solid #24252c',color:'#98a2b3',fontSize:11,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
+          <nav className="crm-mobile-bottom-nav" aria-label="Mobile navigation">
+            <button type="button" className={activePage==='dashboard'?'is-active':''} aria-current={activePage==='dashboard'?'page':undefined} onClick={()=>{setActivePage('dashboard');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+              <LayoutDashboard size={19}/><span>Home</span>
+            </button>
+            <button type="button" className={['attendance','attendance-records','team-attendance'].includes(activePage)?'is-active':''} aria-current={['attendance','attendance-records','team-attendance'].includes(activePage)?'page':undefined} onClick={()=>{setActivePage('attendance-records');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+              <CalendarDays size={19}/><span>Attendance</span>
+            </button>
+            {(isAdmin||canManageTeam)&&<button type="button" className={activePage==='team'||activePage.startsWith('team-')?'is-active':''} aria-current={activePage==='team'||activePage.startsWith('team-')?'page':undefined} onClick={()=>{setActivePage('team');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+              <Users size={19}/><span>Team</span>
+            </button>}
+            {(isAdmin||canManageTeam||canUseHumanTelegram)&&<button type="button" className={activePage==='telegram'||activePage.startsWith('telegram-')?'is-active':''} aria-current={activePage==='telegram'||activePage.startsWith('telegram-')?'page':undefined} onClick={()=>{setActivePage(canUseHumanTelegram?'telegram-human':'telegram-analytics');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+              <MessageCircle size={19}/><span>Telegram</span>
+            </button>}
+            <button type="button" className={mobileMoreOpen||['settings','security','requests'].includes(activePage)?'is-active':''} aria-expanded={mobileMoreOpen} onClick={()=>setMobileMoreOpen(v=>!v)}>
+              {mobileMoreOpen?<X size={19}/>:<MoreHorizontal size={19}/>}<span>More</span>
+            </button>
+          </nav>
+          {mobileMoreOpen && <div className="crm-mobile-more-backdrop" role="presentation" onClick={()=>setMobileMoreOpen(false)}>
+            <section className="crm-mobile-more-sheet" role="dialog" aria-modal="true" aria-label="More CRM pages" onClick={event=>event.stopPropagation()}>
+              <div className="crm-mobile-sheet-handle"/>
+              <div className="crm-mobile-sheet-heading"><div><strong>More</strong><small>Tools and account settings</small></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}><X size={19}/></button></div>
+              <div className="crm-mobile-more-grid">
+                {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-attendance');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Users size={18}/><span><strong>Team attendance report</strong><small>Team trends, graphs and shift statistics</small></span><ChevronRight size={16}/></button>}
+                {isAdmin&&<button type="button" onClick={()=>{setActivePage('security');setMobileMoreOpen(false);window.scrollTo(0,0);}}><ShieldAlert size={18}/><span><strong>Security</strong><small>Account and activity controls</small></span><ChevronRight size={16}/></button>}
+                {isAdmin&&<button type="button" onClick={()=>{setActivePage('requests');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Requests</strong><small>Review Telegram ID change requests</small></span><ChevronRight size={16}/></button>}
+                {(isAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('team-roles');setMobileMoreOpen(false);window.scrollTo(0,0);}}><UserCog size={18}/><span><strong>Employee roles</strong><small>Manage roles and access</small></span><ChevronRight size={16}/></button>}
+                {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-links');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Link2 size={18}/><span><strong>Link Telegram members</strong><small>Connect Telegram identities</small></span><ChevronRight size={16}/></button>}
+                {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-assignments');setMobileMoreOpen(false);window.scrollTo(0,0);}}><GitBranch size={18}/><span><strong>Manager assignments</strong><small>View reporting hierarchy</small></span><ChevronRight size={16}/></button>}
+                {(isAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('team-invitations');setMobileMoreOpen(false);window.scrollTo(0,0);}}><UserPlus size={18}/><span><strong>{isAdmin?'Admin invitation':'Employee invitations'}</strong><small>Invite people to the CRM</small></span><ChevronRight size={16}/></button>}
+                {(isAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('telegram-analytics');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Telegram group analytics</strong><small>Group activity and response metrics</small></span><ChevronRight size={16}/></button>}
+                {canUseHumanTelegram&&<button type="button" onClick={()=>{setActivePage('telegram-human');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Human Telegram chat</strong><small>Inbox, assignments and replies</small></span><ChevronRight size={16}/></button>}
+                <button type="button" onClick={()=>{setActivePage('settings');setMobileMoreOpen(false);window.scrollTo(0,0);}}><SettingsIcon size={18}/><span><strong>Settings</strong><small>Appearance, display and timezone</small></span><ChevronRight size={16}/></button>
+                <button type="button" className="crm-mobile-signout" disabled={busy} onClick={()=>{setMobileMoreOpen(false);void handleLogout();}}><LogOut size={18}/><span><strong>Sign out</strong><small>End your CRM session</small></span><ChevronRight size={16}/></button>
+              </div>
+            </section>
+          </div>}
           <main style={{minWidth:0}}>
           <section style={panelStyle}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',attendance:'Attendance', 'attendance-records':'Attendance records','team-attendance':'Team attendance report',team:'Team management','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
