@@ -1620,3 +1620,28 @@ body::after { content:none; }
 @media (prefers-reduced-motion:reduce) {
   .crm-mobile-more-backdrop,.crm-mobile-bottom-nav { scroll-behavior:auto; }
 }
+
+
+@media (max-width:760px) {
+  .crm-report-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:8px !important; }
+  .crm-report-rate-grid,.crm-report-chart-grid,.crm-report-secondary-grid {
+    grid-template-columns:minmax(0,1fr) !important; gap:10px !important;
+  }
+  .crm-report-chart-scroll { width:100%; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+  .crm-report-chart-scroll svg { min-width:480px; max-width:none !important; }
+  .crm-layout .crm-report-stat-grid article { padding:12px !important; }
+  .crm-layout .crm-report-stat-grid article strong { font-size:22px !important; overflow-wrap:anywhere; }
+  .crm-layout .crm-report-stat-grid article > div { font-size:11px !important; }
+  .crm-layout .crm-report-rate-grid section,.crm-layout .crm-report-secondary-grid section { padding:14px !important; }
+  .crm-layout .crm-report-chart-grid section { padding:13px !important; }
+  .crm-layout .crm-report-chart-grid section > div:first-child { align-items:flex-start !important; flex-direction:column; gap:3px !important; }
+  .crm-layout .crm-report-chart-grid section > div:first-child span { font-size:11px !important; }
+  .crm-layout .crm-report-stat-grid + section { padding:13px !important; }
+  .crm-layout .crm-report-stat-grid + section > div { width:100%; }
+  .crm-layout .crm-report-stat-grid + section label { flex:1 1 100%; min-width:0 !important; }
+  .crm-layout .crm-report-stat-grid + section button { flex:1 1 auto; }
+  .crm-layout .crm-report-stat-grid ~ section { min-width:0; }
+}
+@media (max-width:380px) {
+  .crm-report-stat-grid { grid-template-columns:minmax(0,1fr) !important; }
+}
