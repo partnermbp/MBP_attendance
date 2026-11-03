@@ -628,6 +628,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           <li>Open the add-bot option and select the company work group.</li>
           <li>Confirm that the bot is allowed to receive group messages.</li>
           <li>For full message analytics, the configured bot (@md_shobbot) must have message access. If Telegram privacy settings prevent this, the Admin must disable Group Privacy through <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: 'var(--crm-accent)' }}>BotFather</a>, then remove and add the bot again.</li>
+          <li>For reaction analytics, make the bot a group administrator and register the webhook for both <code>message_reaction</code> and <code>message_reaction_count</code> updates. Telegram does not send these updates unless both conditions are met.</li>
         </ol>
         <p style={{ ...muted, margin: '8px 0 0', fontSize: 11 }}>Only newly received messages are collected; earlier group history and read receipts are not available to Telegram bots. Ensure participants know that messages are processed for CRM analytics.</p>
       </details>}
