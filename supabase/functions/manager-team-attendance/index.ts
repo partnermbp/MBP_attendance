@@ -1,4 +1,4 @@
-// Returns manager-visible attendance with coarse city/country labels only.
+// Returns manager-visible attendance with coarse region/country labels only.
 // Exact GPS coordinates remain server-side and are never included in this response.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -34,14 +34,14 @@ function coordinateKey(lat: number | null, lng: number | null) {
     : `${lat.toFixed(2)},${lng.toFixed(2)}`;
 }
 
-async function cityCountry(lat: number, lng: number): Promise<string> {
+async function regionCountry(lat: number, lng: number): Promise<{ region: string | null; country: string | null }> {
   const roundedLat = Number(lat.toFixed(2));
   const roundedLng = Number(lng.toFixed(2));
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("lat", String(roundedLat));
   url.searchParams.set("lon", String(roundedLng));
-  url.searchParams.set("zoom", "11");
+  url.searchParams.set("zoom", "5");
   url.searchParams.set("addressdetails", "1");
 
   // Retry transient rate-limit/network/server errors once. A single failed lookup
@@ -54,26 +54,22 @@ async function cityCountry(lat: number, lng: number): Promise<string> {
           await new Promise(resolve => setTimeout(resolve, 1500));
           continue;
         }
-        return "Location unavailable";
+        return { region: null, country: null };
       }
       const data = await response.json();
       const address = data?.address || {};
-      const city = address.city || address.town || address.village || address.municipality || "";
-      const district = address.city_district || address.district || address.county || address.suburb || address.borough || "";
-      const country = address.country || "";
-      const localityParts = [city, district && district.toLowerCase() !== city.toLowerCase() ? district : ""].filter(Boolean);
-      const locality = localityParts.join(", ");
-      // If a district is available without a city, still show the district and country.
-      return [locality, country].filter(Boolean).join(", ") || "Location unavailable";
+      const region = address.state || address.province || address.region || address.state_district || null;
+      const country = address.country || null;
+      return { region: region ? String(region) : null, country: country ? String(country) : null };
     } catch {
       if (attempt === 0) {
         await new Promise(resolve => setTimeout(resolve, 1200));
         continue;
       }
-      return "Location unavailable";
+      return { region: null, country: null };
     }
   }
-  return "Location unavailable";
+  return { region: null, country: null };
 }
 
 Deno.serve(async (req: Request) => {
@@ -98,7 +94,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Active manager account required" }, 403);
     }
 
-    const teamIds = new Set<string>();
+    const teamIds = new Set<string>([String(user.id)]);
     let frontier = [String(user.id)];
     for (let depth = 0; depth < 12 && frontier.length; depth++) {
       const managerFilter = frontier.map(id => encodeURIComponent(id)).join(",");
@@ -116,12 +112,12 @@ Deno.serve(async (req: Request) => {
 
     if (!teamIds.size) return json({ records: [] });
     const ids = [...teamIds].map(encodeURIComponent).join(",");
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng&order=check_in.desc&limit=500`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng&order=check_in.desc&limit=1000`
     );
 
-    const labels = new Map<string, string>();
+    const labels = new Map<string, { region: string | null; country: string | null }>();
     const keys = new Set<string>();
     for (const row of rows || []) {
       const inKey = coordinateKey(row.check_in_lat, row.check_in_lng);
@@ -134,8 +130,8 @@ Deno.serve(async (req: Request) => {
     // geocoding and cache duplicate rounded points for this response.
     for (const key of keys) {
       const [lat, lng] = key.split(",").map(Number);
-      try { labels.set(key, await cityCountry(lat, lng)); }
-      catch { labels.set(key, "Location unavailable"); }
+      try { labels.set(key, await regionCountry(lat, lng)); }
+      catch { labels.set(key, { region: null, country: null }); }
       await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
@@ -146,8 +142,10 @@ Deno.serve(async (req: Request) => {
       check_out: row.check_out,
       work_date: row.work_date,
       work_timezone: row.work_timezone,
-      check_in_city: coordinateKey(row.check_in_lat, row.check_in_lng) ? labels.get(coordinateKey(row.check_in_lat, row.check_in_lng)!) || "Location unavailable" : null,
-      check_out_city: coordinateKey(row.check_out_lat, row.check_out_lng) ? labels.get(coordinateKey(row.check_out_lat, row.check_out_lng)!) || "Location unavailable" : null,
+      check_in_region: coordinateKey(row.check_in_lat, row.check_in_lng) ? labels.get(coordinateKey(row.check_in_lat, row.check_in_lng)!)?.region ?? null : null,
+      check_in_country: coordinateKey(row.check_in_lat, row.check_in_lng) ? labels.get(coordinateKey(row.check_in_lat, row.check_in_lng)!)?.country ?? null : null,
+      check_out_region: coordinateKey(row.check_out_lat, row.check_out_lng) ? labels.get(coordinateKey(row.check_out_lat, row.check_out_lng)!)?.region ?? null : null,
+      check_out_country: coordinateKey(row.check_out_lat, row.check_out_lng) ? labels.get(coordinateKey(row.check_out_lat, row.check_out_lng)!)?.country ?? null : null,
     }));
     return json({ records });
   } catch (error) {
