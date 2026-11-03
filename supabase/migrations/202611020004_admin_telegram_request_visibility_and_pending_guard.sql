@@ -93,9 +93,7 @@ begin
     group by requester_profile_id
     having count(*) > 1
   ) then
-    create unique index if not exists telegram_id_change_requests_one_pending_per_user_idx
-      on public.telegram_id_change_requests(requester_profile_id)
-      where status = 'pending' and requester_profile_id is not null;
+    execute 'create unique index if not exists telegram_id_change_requests_one_pending_per_user_idx on public.telegram_id_change_requests(requester_profile_id) where status = ''pending'' and requester_profile_id is not null';
   end if;
 end;
 $$;
