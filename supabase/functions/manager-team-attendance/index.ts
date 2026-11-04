@@ -155,6 +155,21 @@ Deno.serve(async (req: Request) => {
       if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
+    // Return only linked Telegram identities and response timing for this
+    // authenticated manager's own reporting branch. The service-role query is
+    // deliberately scoped to the already-authorized profile IDs above.
+    const telegramMembers = await rest(
+      `telegram_group_members?profile_id=in.(${ids})&select=telegram_user_id,profile_id,username,display_name&limit=5000`
+    );
+    const telegramIds = [...new Set((telegramMembers || []).map((member: any) => Number(member.telegram_user_id)).filter((id: number) => Number.isFinite(id)))];
+    let telegramMetrics: any[] = [];
+    if (telegramIds.length) {
+      const telegramIdFilter = telegramIds.join(",");
+      telegramMetrics = await rest(
+        `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds&order=calculated_at.desc&limit=10000`
+      ) || [];
+    }
+
     const records = (rows || []).map((row: any) => {
       const inLabel = labels.get("in:" + row.id) || { region: row.check_in_region || null, country: row.check_in_country || null };
       const outLabel = labels.get("out:" + row.id) || { region: row.check_out_region || null, country: row.check_out_country || null };
@@ -173,7 +188,7 @@ Deno.serve(async (req: Request) => {
         check_out_gps_recorded: row.check_out_lat != null && row.check_out_lng != null,
       };
     });
-    return json({ records });
+    return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics });
   } catch (error) {
     console.error("Manager attendance lookup failed:", error);
     return json({ error: "Could not load team attendance. Check the manager-team-attendance Edge Function logs." }, 500);
