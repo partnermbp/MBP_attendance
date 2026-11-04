@@ -155,29 +155,55 @@ Deno.serve(async (req: Request) => {
       if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
-    // Only the Telegram identity verified and saved directly on each CRM profile
-    // is authoritative. Group participants and their usernames must never be
-    // presented as the registered account for a manager.
+    // Profile-verified IDs are used server-side only. Return usernames only when
+    // the group membership row matches both the profile and verified Telegram ID.
     const linkedProfiles = await rest(
       `profiles?id=in.(${ids})&select=id,telegram_user_id,telegram_verified_at&limit=5000`
     ) || [];
-    const telegramMembers = linkedProfiles
+    const verifiedLinks = linkedProfiles
       .filter((linked: any) => linked.telegram_user_id != null && linked.telegram_verified_at != null)
       .map((linked: any) => ({
         profile_id: String(linked.id),
         telegram_user_id: Number(linked.telegram_user_id),
         verified_at: linked.telegram_verified_at,
       }));
-    const telegramIds = [...new Set(telegramMembers
+    const groupMembers = verifiedLinks.length
+      ? await rest(`telegram_group_members?profile_id=in.(${verifiedLinks.map((link: any) => encodeURIComponent(link.profile_id)).join(",")})&select=profile_id,telegram_user_id,username,display_name&limit=5000`) || []
+      : [];
+    const telegramMembers = verifiedLinks.map((link: any) => {
+      const matched = groupMembers.find((member: any) =>
+        String(member.profile_id) === link.profile_id &&
+        Number(member.telegram_user_id) === link.telegram_user_id
+      );
+      return {
+        profile_id: link.profile_id,
+        verified_at: link.verified_at,
+        username: matched?.username || null,
+        display_name: matched?.display_name || null,
+      };
+    });
+    const telegramIds = [...new Set(verifiedLinks
       .map((member: any) => Number(member.telegram_user_id))
       .filter((id: number) => Number.isFinite(id) && id > 0))];
-    let telegramMetrics: any[] = [];
+    let rawTelegramMetrics: any[] = [];
     if (telegramIds.length) {
       const telegramIdFilter = telegramIds.join(",");
-      telegramMetrics = await rest(
+      rawTelegramMetrics = await rest(
         `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds&order=calculated_at.desc&limit=10000`
       ) || [];
     }
+    const telegramMetrics = verifiedLinks.map((link: any) => {
+      const replies = rawTelegramMetrics.filter((metric: any) => Number(metric.first_reply_user_id) === link.telegram_user_id && metric.response_seconds != null);
+      const asked = rawTelegramMetrics.filter((metric: any) => Number(metric.question_user_id) === link.telegram_user_id);
+      return {
+        profile_id: link.profile_id,
+        reply_count: replies.length,
+        asked_count: asked.length,
+        average_response_seconds: replies.length
+          ? replies.reduce((sum: number, metric: any) => sum + Number(metric.response_seconds || 0), 0) / replies.length
+          : null,
+      };
+    });
 
     const records = (rows || []).map((row: any) => {
       const inLabel = labels.get("in:" + row.id) || { region: row.check_in_region || null, country: row.check_in_country || null };
@@ -197,7 +223,7 @@ Deno.serve(async (req: Request) => {
         check_out_gps_recorded: row.check_out_lat != null && row.check_out_lng != null,
       };
     });
-    return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics });
+    return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
   } catch (error) {
     console.error("Manager attendance lookup failed:", error);
     return json({ error: "Could not load team attendance. Check the manager-team-attendance Edge Function logs." }, 500);
