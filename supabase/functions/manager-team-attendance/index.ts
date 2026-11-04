@@ -1,4 +1,4 @@
-// Returns manager-visible attendance with coarse region/country labels only.
+// Returns manager-visible attendance with persisted coarse region/country labels only.
 // Exact GPS coordinates remain server-side and are never included in this response.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
