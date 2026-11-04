@@ -401,6 +401,10 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [telegramOtp, setTelegramOtp] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailOtpRequested, setEmailOtpRequested] = useState(false);
+  const [mfaChallengeTicket, setMfaChallengeTicket] = useState('');
+  const mfaLoginInProgressRef = useRef(false);
   const [otpRequested, setOtpRequested] = useState(false);
   const [showTelegramIdRequest, setShowTelegramIdRequest] = useState(false);
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
@@ -656,31 +660,33 @@ export default function App() {
 
     let alive = true;
 
-    const applySession = (nextSession: Session | null) => {
-      if (!alive) return;
-
+    const applySession = async (nextSession: Session | null) => {
+      if (!alive || mfaLoginInProgressRef.current) return;
       setSession(nextSession);
-
-      if (nextSession?.user.email) {
-        setEmail(nextSession.user.email);
-      }
-
+      if (nextSession?.user.email) setEmail(nextSession.user.email);
       if (nextSession && passwordFlow) {
         setScreen('set-password');
       } else if (nextSession) {
-        const pendingEmail = sessionStorage.getItem('mbp_mfa_pending_email');
-        const verifiedEmail = localStorage.getItem('mbp_mfa_verified_email');
-        const currentEmail = (nextSession.user.email || '').trim().toLowerCase();
-        if (pendingEmail === currentEmail) {
-          setOtpRequested(true);
-          setScreen('login');
-        } else if (verifiedEmail === currentEmail) {
+        try {
+          const { data: validation, error: validationError } = await supabase!.functions.invoke('auth-mfa-login', { body: { action: 'validate' } });
+          if (!alive) return;
+          if (validationError || validation?.valid !== true) {
+            setProfileReady(false);
+            setSession(null);
+            setScreen('login');
+            setMessage('Your login verification has expired or is incomplete. Please sign in again.');
+            await supabase!.auth.signOut({ scope: 'local' });
+            return;
+          }
           setScreen('signed-in');
-          void loadDashboard(nextSession.user.id);
-        } else {
+          await loadDashboard(nextSession.user.id);
+        } catch {
+          if (!alive) return;
           setProfileReady(false);
+          setSession(null);
           setScreen('login');
-          void supabase?.auth.signOut();
+          setMessage('Could not validate your secure login. Please sign in again.');
+          await supabase!.auth.signOut({ scope: 'local' });
         }
       } else {
         setScreen('login');
@@ -713,6 +719,7 @@ export default function App() {
       }
 
       if (event === 'SIGNED_OUT') {
+        if (mfaLoginInProgressRef.current) return;
         setSession(null);
         setScreen('login');
         setAttendance([]);
@@ -835,72 +842,126 @@ export default function App() {
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
-
     const normalizedEmail = email.trim().toLowerCase();
-
     if (!isApprovedEmail(normalizedEmail)) {
       setMessage('This email address is not on the approved account list.');
       return;
     }
-
     setBusy(true);
     setMessage('');
-
+    mfaLoginInProgressRef.current = true;
     try {
-      sessionStorage.setItem('mbp_mfa_pending_email', normalizedEmail);
-      localStorage.removeItem('mbp_mfa_verified_email');
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error || !authData.session || !authData.user) {
-        sessionStorage.removeItem('mbp_mfa_pending_email');
+        mfaLoginInProgressRef.current = false;
         setMessage(error?.message || 'Unable to establish your login session. Please try again.');
         return;
       }
-
-      const { data: accountProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, active')
-        .eq('id', authData.user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        sessionStorage.removeItem('mbp_mfa_pending_email');
-        setMessage('Could not verify your CRM account role: ' + profileError.message);
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (!accountProfile?.active) {
-        sessionStorage.removeItem('mbp_mfa_pending_email');
-        setMessage('This CRM account is inactive. Please contact your administrator.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      setPassword('');
-      setPasswordFlow(null);
       setSession(authData.session);
-
-      if (String(accountProfile.role || '').trim().toLowerCase() === 'admin') {
-        sessionStorage.removeItem('mbp_mfa_pending_email');
-        localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
+      const { data: result, error: mfaError } = await supabase.functions.invoke('auth-mfa-login', { body: { action: 'begin' } });
+      if (mfaError || !result?.ok) {
+        await supabase.auth.signOut({ scope: 'local' });
+        mfaLoginInProgressRef.current = false;
+        setSession(null);
+        setMessage(result?.error || mfaError?.message || 'Unable to start secure login verification.');
+        return;
+      }
+      setPassword('');
+      setMfaChallengeTicket(result.challenge_ticket || '');
+      if (result.stage === 'email') {
+        await supabase.auth.signOut({ scope: 'local' });
+        const { error: emailSendError } = await supabase.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: { shouldCreateUser: false },
+        });
+        if (emailSendError) {
+          mfaLoginInProgressRef.current = false;
+          setMfaChallengeTicket('');
+          setMessage('Could not send the corporate email OTP: ' + emailSendError.message);
+          return;
+        }
+        setEmailOtp('');
+        setEmailOtpRequested(true);
+        setOtpRequested(false);
+        setMessage('A verification code has been sent to your registered corporate email address.');
+      } else if (result.stage === 'telegram') {
+        setEmailOtpRequested(false);
+        setOtpRequested(true);
+        setTelegramOtp('');
+        setMessage('Password verified. Enter the Telegram code sent to your registered account.');
+      } else if (result.stage === 'complete') {
+        mfaLoginInProgressRef.current = false;
         await recordCrmLogin('password_2fa');
         setOtpRequested(false);
-        setTelegramOtp('');
-        setMessage('Password verified. You are signed in as Admin.');
+        setEmailOtpRequested(false);
+        setMfaChallengeTicket('');
         setScreen('signed-in');
         await loadDashboard(authData.user.id);
       } else {
+        await supabase.auth.signOut({ scope: 'local' });
+        mfaLoginInProgressRef.current = false;
+        setMessage('Unexpected login verification response. Please try again.');
+      }
+    } catch (error) {
+      await supabase.auth.signOut({ scope: 'local' });
+      mfaLoginInProgressRef.current = false;
+      setSession(null);
+      setMessage('Unable to sign in securely: ' + getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyEmailCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    const code = emailOtp.trim();
+    if (!/^\\d{6,10}$/.test(code)) {
+      setMessage('Enter the numeric OTP sent to your corporate email.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    mfaLoginInProgressRef.current = true;
+    try {
+      const { data: verified, error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: code,
+        type: 'email',
+      });
+      if (error || !verified.session) {
+        setMessage(error?.message || 'The email code could not be verified. Request a new code and try again.');
+        return;
+      }
+      setSession(verified.session);
+      const { data: result, error: mfaError } = await supabase.functions.invoke('auth-mfa-login', {
+        body: { action: 'email_verified', challenge_ticket: mfaChallengeTicket },
+      });
+      if (mfaError || !result?.ok) {
+        await supabase.auth.signOut({ scope: 'local' });
+        setSession(null);
+        setMfaChallengeTicket('');
+        setEmailOtpRequested(false);
+        mfaLoginInProgressRef.current = false;
+        setMessage(result?.error || mfaError?.message || 'Email verification could not be completed. Start login again.');
+        return;
+      }
+      setEmailOtp('');
+      setEmailOtpRequested(false);
+      if (result.stage === 'telegram') {
         setOtpRequested(true);
         setTelegramOtp('');
-        setMessage('Password verified. Sending your second-step Telegram code…');
-        await handleRequestTelegramCode();
+        setMessage('Corporate email verified. Now enter the Telegram code sent to your registered account.');
+      } else if (result.stage === 'complete') {
+        mfaLoginInProgressRef.current = false;
+        await recordCrmLogin('password_2fa');
+        setMfaChallengeTicket('');
+        setScreen('signed-in');
+        await loadDashboard(verified.session.user.id);
       }
-    } catch {
-      setMessage('Unable to sign in. Please try again.');
+    } catch (error) {
+      setMessage('Unable to verify the corporate email OTP: ' + getErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1049,47 +1110,39 @@ export default function App() {
   async function handleVerifyTelegramCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
-
-    const normalizedEmail = email.trim().toLowerCase();
     const code = telegramOtp.trim();
-
-    if (!isApprovedEmail(normalizedEmail)) {
-      setMessage('Enter an approved work email address first.');
+    if (!/^\\d{6}$/.test(code)) {
+      setMessage('Enter the six-digit code sent to your registered Telegram account.');
       return;
     }
-
-    if (!/^\d{6,10}$/.test(code)) {
-      setMessage('Enter the numeric login code sent to your Telegram.');
-      return;
-    }
-
     setBusy(true);
     setMessage('');
-
+    mfaLoginInProgressRef.current = true;
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: normalizedEmail,
-        token: code,
-        type: 'email',
+      const { data: result, error } = await supabase.functions.invoke('auth-mfa-login', {
+        body: { action: 'finish', challenge_ticket: mfaChallengeTicket, telegram_otp: code },
       });
-
-      if (error || !data.session) {
-        setMessage(error?.message || 'The code could not be verified. Request a new code and try again.');
+      if (error || !result?.ok) {
+        setMessage(result?.error || error?.message || 'Telegram verification failed. Please try again.');
         return;
       }
-
-      sessionStorage.removeItem('mbp_mfa_pending_email');
-      localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
-      await recordCrmLogin('telegram_otp');
-      setSession(data.session);
-      setPasswordFlow(null);
+      const { data: authData } = await supabase.auth.getSession();
+      if (!authData.session) {
+        setMessage('Your login session expired. Please sign in again.');
+        await supabase.auth.signOut({ scope: 'local' });
+        return;
+      }
+      setSession(authData.session);
       setTelegramOtp('');
       setOtpRequested(false);
-      setMessage('Signed in successfully with Telegram.');
+      setMfaChallengeTicket('');
+      mfaLoginInProgressRef.current = false;
+      await recordCrmLogin('password_2fa');
+      setMessage('All login verification steps completed successfully.');
       setScreen('signed-in');
-      await loadDashboard(data.session.user.id);
+      await loadDashboard(authData.session.user.id);
     } catch (error) {
-      setMessage(`Unable to verify the Telegram code: ${getErrorMessage(error)}`);
+      setMessage('Unable to verify the Telegram code: ' + getErrorMessage(error));
     } finally {
       setBusy(false);
     }
