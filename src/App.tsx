@@ -1593,15 +1593,23 @@ export default function App() {
             Sign in with your approved account.
           </p>
 
-          {!otpRequested ? <form onSubmit={handleLogin}>
+          {!otpRequested && !emailOtpRequested ? <form onSubmit={handleLogin}>
             <label htmlFor="email">Login ID / work email</label>
             <input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} style={inputStyle}/>
             <label htmlFor="login-password" style={{display:'block',marginTop:14}}>Password</label>
             <input id="login-password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} style={inputStyle}/>
             <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:16}}>{busy ? 'Verifying password…' : 'Continue'}</button>
             <button type="button" disabled={busy} onClick={()=>void handleForgotPassword()} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Forgot password?</button>
-          </form> : <>
-            <p style={{color:'#b7c0d1'}}>Step 2 of 2 · Enter the Telegram code sent to your registered Telegram account.</p>
+          </form> : emailOtpRequested ? <>
+            <p style={{color:'#b7c0d1'}}>Email verification required · Enter the OTP sent to your registered corporate email address. This is required on first login and every 7 days.</p>
+            <form onSubmit={handleVerifyEmailCode}>
+              <label htmlFor="email-otp" style={{display:'block',marginTop:18}}>Corporate email OTP</label>
+              <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\\D/g,''))} style={inputStyle}/>
+              <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying email…' : 'Verify email and continue'}</button>
+            </form>
+            <button type="button" disabled={busy} onClick={async()=>{if(!supabase)return;setBusy(true);const {error}=await supabase.auth.signInWithOtp({email:email.trim().toLowerCase(),options:{shouldCreateUser:false}});setBusy(false);setMessage(error?'Could not resend email OTP: '+error.message:'A new email verification code has been requested.');}} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Resend email OTP</button>
+          </> : <>
+            <p style={{color:'#b7c0d1'}}>Final step · Enter the six-digit code sent to your registered Telegram account.</p>
             <form onSubmit={handleVerifyTelegramCode}>
               <label htmlFor="telegram-otp" style={{display:'block',marginTop:18}}>Telegram OTP</label>
               <input id="telegram-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={telegramOtp} onChange={(event)=>setTelegramOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
