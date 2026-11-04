@@ -918,7 +918,7 @@ export default function App() {
     if (!supabase) return;
     const normalizedEmail = email.trim().toLowerCase();
     const code = emailOtp.trim();
-    if (!/^\\d{6,10}$/.test(code)) {
+    if (!/^\d{6,10}$/.test(code)) {
       setMessage('Enter the numeric OTP sent to your corporate email.');
       return;
     }
@@ -1065,7 +1065,7 @@ export default function App() {
     event.preventDefault();
     if (!supabase) return;
     const code = telegramOtp.trim();
-    if (!/^\\d{6}$/.test(code)) {
+    if (!/^\d{6}$/.test(code)) {
       setMessage('Enter the six-digit code sent to your registered Telegram account.');
       return;
     }
@@ -1558,7 +1558,7 @@ export default function App() {
             <p style={{color:'#b7c0d1'}}>Email verification required · Enter the OTP sent to your registered corporate email address. This is required on first login and every 7 days.</p>
             <form onSubmit={handleVerifyEmailCode}>
               <label htmlFor="email-otp" style={{display:'block',marginTop:18}}>Corporate email OTP</label>
-              <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\\D/g,''))} style={inputStyle}/>
+              <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying email…' : 'Verify email and continue'}</button>
             </form>
             <button type="button" disabled={busy} onClick={async()=>{if(!supabase)return;setBusy(true);const {error}=await supabase.auth.signInWithOtp({email:email.trim().toLowerCase(),options:{shouldCreateUser:false}});setBusy(false);setMessage(error?'Could not resend email OTP: '+error.message:'A new email verification code has been requested.');}} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Resend email OTP</button>
