@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
     const ids = [...teamIds].map(encodeURIComponent).join(",");
     const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng&order=check_in.desc&limit=1000`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng,check_in_region,check_in_country,check_out_region,check_out_country&order=check_in.desc&limit=1000`
     );
 
     // Use persisted coarse labels first. Only retry unresolved locations, and never
