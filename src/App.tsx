@@ -596,16 +596,13 @@ export default function App() {
           setProfiles([currentProfile, ...descendants.map(({ id, email, full_name, role, active }) => ({ id, email, full_name, role, active }))]);
           setManagerAssignments(descendants.map(person => ({ manager_id: person.manager_id, employee_id: person.id })));
           setExpandedManagerIds(new Set([userId]));
-          const visibleIds = [userId, ...descendants.map(person => person.id)];
-          const [membersResult, responseMetricsResult] = await Promise.all([
-            supabase.from('telegram_group_members').select('telegram_user_id,profile_id,username,display_name').in('profile_id', visibleIds).limit(5000),
-            supabase.from('telegram_response_metrics').select('question_user_id,first_reply_user_id,response_seconds').limit(10000),
-          ]);
-          setTelegramMembers(membersResult.error ? [] : (membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>);
-          setTelegramResponseMetrics(responseMetricsResult.error ? [] : (responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
         }
         if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
-        else setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
+        else {
+          setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
+          setTelegramMembers((Array.isArray(teamAttendanceResult.data?.telegram_members) ? teamAttendanceResult.data.telegram_members : []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>);
+          setTelegramResponseMetrics((Array.isArray(teamAttendanceResult.data?.telegram_metrics) ? teamAttendanceResult.data.telegram_metrics : []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
+        }
         if (shiftsResult.error) setMessage(current => current || 'Could not load shifts: ' + shiftsResult.error.message);
         else setShifts((shiftsResult.data ?? []) as Shift[]);
       } else {
