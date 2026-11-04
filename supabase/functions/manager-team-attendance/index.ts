@@ -155,7 +155,7 @@ Deno.serve(async (req: Request) => {
       if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
-    // Profile-verified IDs are used server-side only. Return usernames only when
+    // Profile-verified IDs are used server-side only. Admin-only ID exposure is not part of this API. Return usernames only when
     // the group membership row matches both the profile and verified Telegram ID.
     const linkedProfiles = await rest(
       `profiles?id=in.(${ids})&select=id,telegram_user_id,telegram_verified_at&limit=5000`
