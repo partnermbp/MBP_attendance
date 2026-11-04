@@ -2,6 +2,9 @@ name: Update Supabase Magic Link Email Template
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/update-auth-email-template.yml'
 
 permissions:
   contents: read
