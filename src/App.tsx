@@ -2,7 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye, Download } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -63,6 +63,7 @@ type Coordinates = {
 };
 
 const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
+const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/app-debug.apk';
 const BREAK_MINUTES = 60;
 const APPROVED_EMAIL_DOMAINS = [
   'mostbet.partners',
@@ -397,8 +398,7 @@ export default function App() {
   const [registrationTicket, setRegistrationTicket] = useState('');
   const [screen, setScreen] = useState<Screen>('loading');
   const [profileReady, setProfileReady] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
-  const [email, setEmail] = useState('');
+  const [session, setSession] = useState<Session | null>(null);  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [telegramOtp, setTelegramOtp] = useState('');
   const [emailOtp, setEmailOtp] = useState('');
@@ -797,8 +797,7 @@ export default function App() {
       return;
     }
     if (!inviteTelegramVerified || !ticket) {
-      setMessage('Verify your Telegram account with @mbpauthbot before registering.');
-      return;
+      setMessage('Verify your Telegram account with @mbpauthbot before registering.');      return;
     }
     if (normalizedEmail !== inviteDetails.corporate_email.trim().toLowerCase()) {
       setMessage('Use the exact corporate email assigned by your inviter: ' + inviteDetails.corporate_email);
@@ -1197,8 +1196,7 @@ export default function App() {
           }
         } catch {
           // Keep the original function error message.
-        }
-        setMessage(`Could not create a Telegram linking link: ${details}`);
+        }        setMessage(`Could not create a Telegram linking link: ${details}`);
         return;
       }
 
@@ -1597,8 +1595,7 @@ export default function App() {
               <div style={{padding:12,margin:'12px 0',border:'1px solid #475467',borderRadius:8,background:'#151413'}}>
                 <p style={{margin:'4px 0'}}> <strong>Admin Panel Name:</strong> {inviteDetails.admin_panel_name}</p>
                 <p style={{margin:'4px 0',overflowWrap:'anywhere'}}><strong>Corporate Email:</strong> {inviteDetails.corporate_email}</p>
-                <p style={{margin:'4px 0'}}><strong>Assigned role:</strong> {inviteDetails.invited_role.replaceAll('_',' ')}</p>
-              </div>
+                <p style={{margin:'4px 0'}}><strong>Assigned role:</strong> {inviteDetails.invited_role.replaceAll('_',' ')}</p>              </div>
               {!inviteDetails.valid ? <p style={{color:'#fda29b'}}>This invitation is expired or has already been used.</p> : <>
                 {!invitePasswordStep ? <>
                   <p style={{color:'#b7c0d1',fontSize:13}}>Verify the Telegram account belonging to this employee before creating the CRM account.</p>
@@ -1711,6 +1708,7 @@ export default function App() {
                 </div>}
               </div>)}
             </nav>
+            <a href={ANDROID_APK_DOWNLOAD_URL} download title="Download Android APK" aria-label="Download Android APK" style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid #34353e',borderRadius:6,background:'#1a1b20',color:'#dce4f2',fontWeight:600,textDecoration:'none',cursor:'pointer'}}><Download size={18}/>{navOpen&&'Download Android APK'}</a>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid var(--crm-accent-strong)',borderRadius:6,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:16,paddingTop:12,borderTop:'1px solid #24252c',color:'#98a2b3',fontSize:11,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
@@ -1736,6 +1734,7 @@ export default function App() {
               <div className="crm-mobile-sheet-handle"/>
               <div className="crm-mobile-sheet-heading"><div><strong>More</strong><small>Tools and account settings</small></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}><X size={19}/></button></div>
               <div className="crm-mobile-more-grid">
+                <button type="button" onClick={()=>{window.open(ANDROID_APK_DOWNLOAD_URL,'_blank','noopener,noreferrer');setMobileMoreOpen(false);}}><Download size={18}/><span><strong>Download Android app</strong><small>Install the latest Android APK</small></span><ChevronRight size={16}/></button>
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-attendance');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Users size={18}/><span><strong>Team attendance report</strong><small>Team trends, graphs and shift statistics</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('security');setMobileMoreOpen(false);window.scrollTo(0,0);}}><ShieldAlert size={18}/><span><strong>Security</strong><small>Account and activity controls</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('requests');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Requests</strong><small>Review Telegram ID change requests</small></span><ChevronRight size={16}/></button>}
@@ -1997,8 +1996,7 @@ export default function App() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18 }}>
               <button type="button" style={buttonStyle} onClick={() => { if (draftStartDate && draftEndDate && draftStartDate > draftEndDate) { setMessage('The start date must be on or before the end date.'); return; } setReportStartDate(draftStartDate); setReportEndDate(draftEndDate); setMessage('Attendance dates applied.'); }}>
                 Apply dates
-              </button>
-              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setDraftStartDate(''); setDraftEndDate(''); setReportStartDate(''); setReportEndDate(''); setMessage('Date filters cleared.'); }}>
+              </button>              <button type="button" style={{ ...buttonStyle, background: '#475467' }} onClick={() => { setDraftStartDate(''); setDraftEndDate(''); setReportStartDate(''); setReportEndDate(''); setMessage('Date filters cleared.'); }}>
                 Clear dates
               </button>
               <button type="button" onClick={handleExportCsv} style={buttonStyle}>
