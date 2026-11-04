@@ -29,6 +29,20 @@ async function rest(path: string, method = "GET", body?: unknown) {
   return text ? JSON.parse(text) : null;
 }
 
+
+async function mfaSessionApproved(accessToken: string): Promise<boolean> {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return false;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_auth_mfa_current`, {
+      method: "POST",
+      headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!response.ok) return false;
+    return await response.json() === true;
+  } catch { return false; }
+}
+
 function coordinateKey(lat: number | null, lng: number | null) {
   return lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)
     ? null
@@ -86,6 +100,7 @@ Deno.serve(async (req: Request) => {
   });
   if (!userResponse.ok) return json({ error: "Session is invalid or expired" }, 401);
   const user = await userResponse.json();
+  if (!(await mfaSessionApproved(accessToken))) return json({ error: "Complete secure login verification first." }, 403);
 
   try {
     const profiles = await rest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,active&limit=1`);
