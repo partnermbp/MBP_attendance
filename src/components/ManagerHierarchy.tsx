@@ -94,10 +94,10 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     const completed = own.filter(a => a.check_out);
     const workedSeconds = completed.reduce((sum,a) => sum + Math.max(0,(new Date(a.check_out!).getTime()-new Date(a.check_in).getTime())/1000-3600),0);
     const avgShift = completed.length ? workedSeconds/completed.length : null;
-    const ownTelegramMembers = telegramMembers.filter(m => m.profile_id === selected.id);
-    const ownTelegramIds = new Set(ownTelegramMembers.map(m => m.telegram_user_id));
-    const verifiedTelegramLink = ownTelegramMembers.some(m => Boolean(m.verified_at));
-    const handles = [...new Set(ownTelegramMembers.map(m => m.username).filter(Boolean))];
+    // Only registration-verified identities are authoritative. Group membership usernames are not account identity.
+    const ownTelegramMembers = telegramMembers.filter(m => m.profile_id === selected.id && Boolean(m.verified_at));
+    const ownTelegramIds = new Set(ownTelegramMembers.map(m => Number(m.telegram_user_id)).filter(id => Number.isFinite(id) && id > 0));
+    const telegramId = ownTelegramIds.size ? [...ownTelegramIds][0] : null;
     const sentReplies = telegramMetrics.filter(m => m.first_reply_user_id != null && ownTelegramIds.has(m.first_reply_user_id));
     const asked = telegramMetrics.filter(m => m.question_user_id != null && ownTelegramIds.has(m.question_user_id));
     const replyAvg = sentReplies.length ? sentReplies.reduce((sum,m) => sum + (m.response_seconds || 0),0)/sentReplies.length : null;
@@ -111,7 +111,10 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
       <header style={{...panel,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
         <div style={{width:54,height:54,borderRadius:14,display:'grid',placeItems:'center',background:'var(--crm-accent-soft)',color:'var(--crm-accent)'}}><UserRound size={26}/></div>
         <div style={{flex:1,minWidth:220}}><h1 style={{margin:0,fontSize:25}}>{selected.full_name || 'Unnamed manager'}</h1><div style={{...muted,marginTop:5}}>{roleName(selected.role)} · {selected.active?'Active account':'Inactive account'}</div></div>
-        <div style={{display:'grid',gap:6,fontSize:13}}><span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span><span style={{display:'flex',alignItems:'center',gap:7}}><MessageCircle size={14}/>{handles.length?handles.map(h=>'@'+h).join(', '):verifiedTelegramLink?'Telegram linked':'Telegram account not linked'}</span></div>
+        <div style={{display:'grid',gap:8,fontSize:13}}>
+          <span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span>
+          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{telegramId ? <>Telegram ID: <strong>{telegramId}</strong><a href={`https://t.me/user?id=${telegramId}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open Telegram chat</a></> : 'No verified Telegram account registered on this CRM profile'}</span>
+        </div>
       </header>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12}}>
         {stat('Attendance sessions',own.length,String(completed.length)+' completed · '+(own.length-completed.length)+' open',<CalendarDays size={15}/> )}
