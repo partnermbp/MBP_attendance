@@ -18,8 +18,6 @@ jobs:
       - name: Deploy manager attendance function
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || (echo "Missing SUPABASE_ACCESS_TOKEN repository secret" && exit 1)
-          test -n "$SUPABASE_PROJECT_REF" || (echo "Missing SUPABASE_PROJECT_REF repository secret" && exit 1)
-          supabase functions deploy manager-team-attendance --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy manager-team-attendance --project-ref "ncpcpckajzzqxxxonfnv"
