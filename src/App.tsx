@@ -564,7 +564,7 @@ export default function App() {
             .order('starts_at', { ascending: false })
             .limit(3000),
           supabase.from('telegram_group_members')
-            .select('telegram_user_id, profile_id')
+            .select('telegram_user_id, profile_id, username, display_name')
             .not('profile_id', 'is', null)
             .limit(5000),
           supabase.from('telegram_response_metrics')
@@ -1926,7 +1926,7 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'manager-hierarchy' && (isAdmin || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} />}
+          {activePage === 'manager-hierarchy' && (isAdmin || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
           {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
