@@ -1,4 +1,4 @@
-// Securely request the existing GitHub Actions Telegram inbox worker.
+// Securely request the existing GitHub Actions Telegram inbox worker. MFA is checked before sync dispatch.
 // Required Supabase Edge Function secrets:
 // GITHUB_TOKEN (fine-grained token with Actions: write for partnermbp/MBP_attendance)
 // SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
