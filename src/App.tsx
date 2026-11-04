@@ -488,7 +488,7 @@ export default function App() {
     try {
       const profileResult = await supabase
         .from('profiles')
-        .select('id, email, full_name, role, active')
+        .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at')
         .eq('id', userId)
         .maybeSingle();
 
@@ -579,7 +579,15 @@ export default function App() {
           setManagerAssignments((assignmentsResult.data ?? []) as ManagerAssignment[]);
         }
         setShifts((shiftsResult.data ?? []) as Shift[]);
-        setTelegramMembers((membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null}>);
+        const groupTelegramMembers = (membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>;
+        const verifiedProfileLinks = ((peopleResult.data ?? []) as Array<Profile & {telegram_user_id?:number|null;telegram_verified_at?:string|null}>)
+          .filter(person => person.telegram_user_id != null && person.telegram_verified_at != null)
+          .map(person => {
+            const groupMember = groupTelegramMembers.find(member => member.profile_id === person.id && Number(member.telegram_user_id) === Number(person.telegram_user_id));
+            return { telegram_user_id: Number(person.telegram_user_id), profile_id: person.id, username: groupMember?.username ?? null, display_name: groupMember?.display_name ?? null, verified_at: person.telegram_verified_at };
+          });
+        const verifiedKeys = new Set(verifiedProfileLinks.map(member => member.profile_id + ':' + member.telegram_user_id));
+        setTelegramMembers([...groupTelegramMembers.filter(member => !verifiedKeys.has(member.profile_id + ':' + member.telegram_user_id)), ...verifiedProfileLinks]);
         setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
       } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
