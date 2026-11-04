@@ -25,6 +25,8 @@ type Attendance = {
   check_in_country?: string | null;
   check_out_region?: string | null;
   check_out_country?: string | null;
+  check_in_gps_recorded?: boolean;
+  check_out_gps_recorded?: boolean;
 };
 
 type Shift = {
@@ -539,10 +541,7 @@ export default function App() {
             .select('id, email, full_name, role, active')
             .order('full_name', { ascending: true })
             .limit(500),
-          supabase.from('attendance')
-            .select('id, employee_id, check_in, check_out, check_in_lat, check_in_lng, check_out_lat, check_out_lng, work_date, work_timezone')
-            .order('check_in', { ascending: false })
-            .limit(1000),
+          supabase.rpc('get_admin_attendance_with_gps'),
           supabase.from('manager_employee_assignments')
             .select('manager_id, employee_id')
             .limit(2000),
