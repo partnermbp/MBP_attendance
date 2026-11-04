@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, GitBranch, Mail, MessageCircle, C
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string };
 type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null };
-type TelegramMember = { telegram_user_id: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
+type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
 
 const managerRoles = new Set(['junior', 'middle', 'senior', 'team_leader', 'team leader']);
@@ -19,13 +19,14 @@ const duration = (seconds: number | null) => {
 const panel = { padding: 16, border: '1px solid var(--crm-border)', borderRadius: 12, background: 'var(--crm-card-bg)' } as const;
 const muted = { color: 'var(--crm-text-muted)', fontSize: 12 } as const;
 
-export default function ManagerHierarchy({ profile, profiles, assignments, attendance, telegramMembers, telegramMetrics }: {
+export default function ManagerHierarchy({ profile, profiles, assignments, attendance, telegramMembers, telegramMetrics, isAdmin }: {
   profile: Person | null;
   profiles: Person[];
   assignments: Assignment[];
   attendance: Attendance[];
   telegramMembers: TelegramMember[];
   telegramMetrics: TelegramMetric[];
+  isAdmin: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(profile ? [profile.id] : []));
@@ -96,11 +97,15 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     const avgShift = completed.length ? workedSeconds/completed.length : null;
     // Only registration-verified identities are authoritative. Group membership usernames are not account identity.
     const ownTelegramMembers = telegramMembers.filter(m => m.profile_id === selected.id && Boolean(m.verified_at));
+    const ownTelegram = ownTelegramMembers[0] || null;
     const ownTelegramIds = new Set(ownTelegramMembers.map(m => Number(m.telegram_user_id)).filter(id => Number.isFinite(id) && id > 0));
-    const telegramId = ownTelegramIds.size ? [...ownTelegramIds][0] : null;
+    const ownMetric = telegramMetrics.find(m => (m as any).profile_id === selected.id) as any;
     const sentReplies = telegramMetrics.filter(m => m.first_reply_user_id != null && ownTelegramIds.has(m.first_reply_user_id));
-    const asked = telegramMetrics.filter(m => m.question_user_id != null && ownTelegramIds.has(m.question_user_id));
-    const replyAvg = sentReplies.length ? sentReplies.reduce((sum,m) => sum + (m.response_seconds || 0),0)/sentReplies.length : null;
+    const askedCount = ownMetric?.asked_count ?? telegramMetrics.filter(m => m.question_user_id != null && ownTelegramIds.has(m.question_user_id)).length;
+    const replyCount = ownMetric?.reply_count ?? sentReplies.length;
+    const replyAvg = ownMetric ? ownMetric.average_response_seconds : sentReplies.length ? sentReplies.reduce((sum,m) => sum + (m.response_seconds || 0),0)/sentReplies.length : null;
+    const telegramUsername = ownTelegram?.username?.replace(/^@/, '') || null;
+    const telegramId = isAdmin && ownTelegramIds.size ? [...ownTelegramIds][0] : null;
     const today = new Date(); const since = new Date(today.getTime()-29*86400000);
     const daysActive = new Set(own.filter(a => new Date(a.check_in) >= since).map(a => a.work_date || a.check_in.slice(0,10))).size;
     const activity = Math.round(daysActive/30*100);
@@ -113,14 +118,14 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
         <div style={{flex:1,minWidth:220}}><h1 style={{margin:0,fontSize:25}}>{selected.full_name || 'Unnamed manager'}</h1><div style={{...muted,marginTop:5}}>{roleName(selected.role)} · {selected.active?'Active account':'Inactive account'}</div></div>
         <div style={{display:'grid',gap:8,fontSize:13}}>
           <span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span>
-          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{telegramId ? <>Telegram ID: <strong>{telegramId}</strong><a href={`tg://user?id=${telegramId}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open Telegram chat</a></> : 'No verified Telegram account registered on this CRM profile'}</span>
+          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{ownTelegram ? <>{isAdmin && telegramId != null && <>Telegram ID: <strong>{telegramId}</strong> · </>}{telegramUsername ? <a href={`https://t.me/${encodeURIComponent(telegramUsername)}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open manager's Telegram chat</a> : <span>{isAdmin && telegramId != null ? 'Verified Telegram ID · no public username available for a direct chat link' : 'Telegram account verified · direct chat link unavailable because no username is available'}</span>}</> : 'No verified Telegram account registered on this CRM profile'}</span>
         </div>
       </header>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12}}>
         {stat('Attendance sessions',own.length,String(completed.length)+' completed · '+(own.length-completed.length)+' open',<CalendarDays size={15}/> )}
         {stat('Active attendance days',daysActive+' / 30','Days with at least one recorded check-in',<Activity size={15}/> )}
         {stat('Average completed shift',duration(avgShift),'One-hour break deducted, matching CRM attendance rules',<Clock3 size={15}/> )}
-        {stat('Telegram replies',sentReplies.length,'Tracked first replies attributed to this manager',<MessageCircle size={15}/> )}
+        {stat('Telegram replies',replyCount,'Tracked first replies attributed to this manager',<MessageCircle size={15}/> )}
         {stat('Average reply delay',duration(replyAvg),'Across tracked group replies attributed to this account',<Clock3 size={15}/> )}
         {stat('Reporting team',teamSize,'All direct and indirect reports',<Users size={15}/> )}
       </div>
@@ -130,7 +135,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
         <p style={{...muted,marginBottom:0}}>Attendance activity is based on days with recorded check-ins. Telegram activity is shown separately because message totals and private-chat activity are not fully available in the group analytics feed.</p>
       </section>
       <section style={panel}><strong>Attendance overview · manager and reporting line</strong><p style={muted}>{ownAndTeam.length} total attendance sessions across {scope.size} people. Exact GPS coordinates are not displayed on manager profiles.</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10}}><div><strong style={{fontSize:21}}>{ownAndTeam.filter(a=>a.check_out).length}</strong><div style={muted}>Completed team sessions</div></div><div><strong style={{fontSize:21}}>{ownAndTeam.filter(a=>!a.check_out).length}</strong><div style={muted}>Open team sessions</div></div><div><strong style={{fontSize:21}}>{new Set(ownAndTeam.map(a=>a.employee_id)).size}</strong><div style={muted}>People with attendance</div></div></div></section>
-      <section style={panel}><strong>Telegram response performance</strong><p style={muted}>Response delay uses tracked group questions and first replies linked to this manager's Telegram identity.</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,marginTop:12}}><div><strong style={{fontSize:22}}>{sentReplies.length}</strong><div style={muted}>Attributed replies</div></div><div><strong style={{fontSize:22}}>{duration(replyAvg)}</strong><div style={muted}>Average first reply delay</div></div><div><strong style={{fontSize:22}}>{asked.length}</strong><div style={muted}>Tracked messages by manager</div></div></div></section>
+      <section style={panel}><strong>Telegram response performance</strong><p style={muted}>Response delay uses tracked group questions and first replies linked to this manager's Telegram identity.</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,marginTop:12}}><div><strong style={{fontSize:22}}>{sentReplies.length}</strong><div style={muted}>Attributed replies</div></div><div><strong style={{fontSize:22}}>{duration(replyAvg)}</strong><div style={muted}>Average first reply delay</div></div><div><strong style={{fontSize:22}}>{askedCount}</strong><div style={muted}>Tracked messages by manager</div></div></div></section>
       <section style={panel}><strong>Direct reports</strong><div style={{display:'grid',gap:8,marginTop:12}}>{(children.get(selected.id)||[]).map(id=>people.get(id)).filter((p):p is Person=>Boolean(p)).map(p=><button key={p.id} type="button" onClick={()=>setSelectedId(p.id)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:11,border:'1px solid var(--crm-border)',borderRadius:8,background:'var(--crm-card-raised)',color:'var(--crm-text)',textAlign:'left',cursor:'pointer'}}><span><strong>{p.full_name||p.email}</strong><small style={{display:'block',...muted}}>{roleName(p.role)}</small></span><ChevronRight size={16}/></button>)}{(children.get(selected.id)||[]).length===0&&<p style={muted}>No direct reports assigned.</p>}</div></section>
     </div>;
   }
