@@ -41,6 +41,8 @@ Deno.serve(async (req: Request) => {
     const { data: userData, error: userError } = await userClient.auth.getUser();
     const user = userData.user;
     if (userError || !user) return json(401, { error: "Your session is invalid. Please sign in again." });
+    const { data: mfaApproved, error: mfaError } = await userClient.rpc("is_auth_mfa_current");
+    if (mfaError || mfaApproved !== true) return json(403, { error: "Complete secure login verification first." });
 
     const adminClient = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
