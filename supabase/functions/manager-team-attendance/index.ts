@@ -155,69 +155,22 @@ Deno.serve(async (req: Request) => {
       if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
-    // Return only linked Telegram identities and response timing for this
-    // authenticated manager's own reporting branch. The service-role query is
-    // deliberately scoped to the already-authorized profile IDs above.
-    // Registration-time Telegram verification is authoritative. Group membership
-    // is only an optional source of usernames and group-analytics attribution.
+    // Only the Telegram identity verified and saved directly on each CRM profile
+    // is authoritative. Group participants and their usernames must never be
+    // presented as the registered account for a manager.
     const linkedProfiles = await rest(
       `profiles?id=in.(${ids})&select=id,telegram_user_id,telegram_verified_at&limit=5000`
     ) || [];
-    const groupMembers = await rest(
-      `telegram_group_members?profile_id=in.(${ids})&select=telegram_user_id,profile_id,username,display_name&limit=5000`
-    ) || [];
-
-    // Recover the Telegram handler captured during invitation verification.
-    // The registration flow stores it on the invitation verification row, not
-    // on profiles, so resolve it through the redeemed invitation.
-    const redeemedInvites = await rest(
-      `manager_invitations?redeemed_by=in.(${ids})&select=id,redeemed_by&limit=5000`
-    ) || [];
-    const inviteIds = [...new Set(redeemedInvites.map((invite: any) => Number(invite.id)).filter((id: number) => Number.isFinite(id)))];
-    let inviteVerifications: any[] = [];
-    if (inviteIds.length) {
-      inviteVerifications = await rest(
-        `manager_invitation_telegram_verifications?invitation_id=in.(${inviteIds.join(",")})&select=invitation_id,telegram_user_id,telegram_username,verified_at&order=verified_at.desc&limit=5000`
-      ) || [];
-    }
-
-    const inviteById = new Map(redeemedInvites.map((invite: any) => [Number(invite.id), String(invite.redeemed_by)]));
-    const usernameByProfile = new Map<string, string>();
-    for (const verification of inviteVerifications) {
-      const profileId = inviteById.get(Number(verification.invitation_id));
-      if (profileId && verification.telegram_username && !usernameByProfile.has(profileId)) {
-        usernameByProfile.set(profileId, String(verification.telegram_username));
-      }
-    }
-    for (const member of groupMembers) {
-      if (member.profile_id && member.username && !usernameByProfile.has(String(member.profile_id))) {
-        usernameByProfile.set(String(member.profile_id), String(member.username));
-      }
-    }
-
-    const memberMap = new Map<string, any>();
-    for (const member of groupMembers) {
-      if (member.profile_id && member.telegram_user_id != null) {
-        memberMap.set(`${member.profile_id}:${member.telegram_user_id}`, { ...member });
-      }
-    }
-    for (const linked of linkedProfiles) {
-      if (linked.telegram_user_id == null || linked.telegram_verified_at == null) continue;
-      const profileId = String(linked.id);
-      const telegramId = Number(linked.telegram_user_id);
-      const key = `${profileId}:${telegramId}`;
-      const existing = memberMap.get(key) || {};
-      memberMap.set(key, {
-        ...existing,
-        profile_id: profileId,
-        telegram_user_id: telegramId,
-        username: existing.username || usernameByProfile.get(profileId) || null,
-        display_name: existing.display_name || null,
+    const telegramMembers = linkedProfiles
+      .filter((linked: any) => linked.telegram_user_id != null && linked.telegram_verified_at != null)
+      .map((linked: any) => ({
+        profile_id: String(linked.id),
+        telegram_user_id: Number(linked.telegram_user_id),
         verified_at: linked.telegram_verified_at,
-      });
-    }
-    const telegramMembers = [...memberMap.values()];
-    const telegramIds = [...new Set(telegramMembers.map((member: any) => Number(member.telegram_user_id)).filter((id: number) => Number.isFinite(id)))];
+      }));
+    const telegramIds = [...new Set(telegramMembers
+      .map((member: any) => Number(member.telegram_user_id))
+      .filter((id: number) => Number.isFinite(id) && id > 0))];
     let telegramMetrics: any[] = [];
     if (telegramIds.length) {
       const telegramIdFilter = telegramIds.join(",");
