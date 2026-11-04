@@ -44,6 +44,8 @@ type Profile = {
   full_name: string | null;
   role: string;
   active: boolean;
+  telegram_user_id?: number | null;
+  telegram_verified_at?: string | null;
 };
 
 type ManagerAssignment = { manager_id: string; employee_id: string };
@@ -477,6 +479,16 @@ export default function App() {
     return () => { cancelled = true; };
   }, [inviteToken]);
 
+  const recordCrmLogin = useCallback(async (loginMethod: 'password_2fa' | 'telegram_otp' | 'invitation_registration') => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.rpc('record_crm_login', { p_login_method: loginMethod });
+      if (error) console.error('CRM login audit could not be recorded:', error.message);
+    } catch (error) {
+      console.error('CRM login audit could not be recorded:', error);
+    }
+  }, []);
+
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
     // Do not render any signed-in navigation or page content until the role
@@ -513,11 +525,12 @@ export default function App() {
             setMessage('Invitation could not be redeemed: ' + inviteError.message);
           } else {
             setInviteRedeemed(true);
+            await recordCrmLogin('invitation_registration');
             sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
             sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
             await supabase.auth.updateUser({ data: { registration_ticket: null } });
             setMessage('Invitation accepted. Your verified Telegram identity and manager relationship are now active.');
-            const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active').eq('id', userId).maybeSingle();
+            const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at').eq('id', userId).maybeSingle();
             if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
             window.history.replaceState({}, document.title, window.location.pathname);
           }
@@ -539,7 +552,7 @@ export default function App() {
       if (isAdmin) {
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           supabase.from('profiles')
-            .select('id, email, full_name, role, active')
+            .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at')
             .order('full_name', { ascending: true })
             .limit(500),
           supabase.rpc('get_admin_attendance_with_gps'),
@@ -633,7 +646,7 @@ export default function App() {
       setLoadingDashboard(false);
       setProfileReady(true);
     }
-  }, [inviteToken, inviteRedeemed]);
+  }, [inviteToken, inviteRedeemed, recordCrmLogin]);
 
   useEffect(() => {
     if (!supabase) {
@@ -874,6 +887,7 @@ export default function App() {
       if (String(accountProfile.role || '').trim().toLowerCase() === 'admin') {
         sessionStorage.removeItem('mbp_mfa_pending_email');
         localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
+        await recordCrmLogin('password_2fa');
         setOtpRequested(false);
         setTelegramOtp('');
         setMessage('Password verified. You are signed in as Admin.');
@@ -1066,6 +1080,7 @@ export default function App() {
 
       sessionStorage.removeItem('mbp_mfa_pending_email');
       localStorage.setItem('mbp_mfa_verified_email', normalizedEmail);
+      await recordCrmLogin('telegram_otp');
       setSession(data.session);
       setPasswordFlow(null);
       setTelegramOtp('');
