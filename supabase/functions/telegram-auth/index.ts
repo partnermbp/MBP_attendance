@@ -99,37 +99,6 @@ async function getLinkStatus(req: Request) {
   return jsonResponse({ ok: true, linked });
 }
 
-async function requestLoginCode(req: Request) {
-  const authorization = req.headers.get("authorization") ?? "";
-  const bearer = authorization.match(/^Bearer\s+(.+)$/i);
-  if (!bearer) return jsonResponse({ error: "Verify your password before requesting the Telegram code." }, 401);
-  const { data: authData, error: authError } = await supabase.auth.getUser(bearer[1]);
-  if (authError || !authData.user?.email) return jsonResponse({ error: "Your password session is invalid or expired. Sign in again." }, 401);
-  let body: any;
-  try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body." }, 400); }
-  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonResponse({ error: "Enter a valid work email address." }, 400);
-  if (authData.user.email.trim().toLowerCase() !== email) return jsonResponse({ error: "The password-authenticated account does not match this login ID." }, 403);
-  const genericResponse = () => jsonResponse({ ok: true, message: "If this is an active account with a linked Telegram, a login code will be sent shortly." });
-  let profile: Awaited<ReturnType<typeof getActiveLinkedProfile>>;
-  try { profile = await getActiveLinkedProfile(email); } catch { return jsonResponse({ error: "Unable to process the request." }, 500); }
-  if (!profile) return genericResponse();
-  const cutoff = new Date(Date.now() - 60 * 1000).toISOString();
-  const { data: recentRequests, error: rateLimitError } = await supabase.from("telegram_login_codes").select("id").eq("email", email).gte("created_at", cutoff).limit(1);
-  if (rateLimitError) return jsonResponse({ error: "Unable to process the request." }, 500);
-  if (recentRequests?.length) return genericResponse();
-  const cooldownHash = await sha256Hex(randomToken());
-  const { error: cooldownInsertError } = await supabase.from("telegram_login_codes").insert({ email, code_hash: cooldownHash, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
-  if (cooldownInsertError) return jsonResponse({ error: "Unable to process the request." }, 500);
-  try {
-    const { data, error } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
-    if (error || !data?.properties?.email_otp) return jsonResponse({ error: "Unable to generate a login code. Please try again later." }, 500);
-    await sendTelegramMessage(profile.telegramUserId, "Your Attendance CRM login code is:\n\n" + data.properties.email_otp + "\n\nEnter this code on the attendance website to sign in. It can only be used once. Never share it with anyone.");
-    return genericResponse();
-  } catch {
-    return jsonResponse({ error: "Unable to deliver a login code. Please wait before requesting another." }, 502);
-  }
-}
 
 async function createInviteTelegramChallenge(req: Request) {
   let body: any;
@@ -301,7 +270,6 @@ Deno.serve(async (req: Request) => {
   try {
     let body: any;
     try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body." }, 400); }
-    if (body?.action === "request_login_code") return await requestLoginCode(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
     if (body?.action === "create_link_token") return await createLinkToken(req);
     if (body?.action === "link_status") return await getLinkStatus(req);
     if (body?.action === "create_invite_telegram_challenge") return await createInviteTelegramChallenge(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
