@@ -529,7 +529,6 @@ export default function App() {
             setMessage('Invitation could not be redeemed: ' + inviteError.message);
           } else {
             setInviteRedeemed(true);
-            await recordCrmLogin('invitation_registration');
             sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
             sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
             await supabase.auth.updateUser({ data: { registration_ticket: null } });
@@ -870,6 +869,7 @@ export default function App() {
       setMfaChallengeTicket(result.challenge_ticket || '');
       if (result.stage === 'email') {
         await supabase.auth.signOut({ scope: 'local' });
+        setSession(null);
         const { error: emailSendError } = await supabase.auth.signInWithOtp({
           email: normalizedEmail,
           options: { shouldCreateUser: false },
@@ -877,6 +877,7 @@ export default function App() {
         if (emailSendError) {
           mfaLoginInProgressRef.current = false;
           setMfaChallengeTicket('');
+          setSession(null);
           setMessage('Could not send the corporate email OTP: ' + emailSendError.message);
           return;
         }
@@ -1059,53 +1060,6 @@ export default function App() {
     }
   }
 
-  async function handleRequestTelegramCode() {
-    if (!supabase) return;
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const { data: currentAuth } = await supabase.auth.getSession();
-    if (!currentAuth.session || currentAuth.session.user.email?.trim().toLowerCase() !== normalizedEmail || sessionStorage.getItem('mbp_mfa_pending_email') !== normalizedEmail) {
-      setMessage('Enter your work email and password first.');
-      return;
-    }
-
-    if (!isApprovedEmail(normalizedEmail)) {
-      setMessage('Enter an approved work email address first.');
-      return;
-    }
-
-    setBusy(true);
-    setMessage('');
-
-    try {
-      const { data, error } = await supabase.functions.invoke('telegram-auth', {
-        body: {
-          action: 'request_login_code',
-          email: normalizedEmail,
-        },
-      });
-
-      if (error) {
-        setMessage(`Could not request a Telegram code: ${error.message}`);
-        return;
-      }
-
-      if (data?.ok) {
-        setOtpRequested(true);
-        setTelegramOtp('');
-        setMessage(
-          data.message ||
-            'If this is an active account with linked Telegram, a login code will be sent shortly.'
-        );
-      } else {
-        setMessage(data?.error || 'Unable to request a Telegram code. Please try again.');
-      }
-    } catch (error) {
-      setMessage(`Could not request a Telegram code: ${getErrorMessage(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function handleVerifyTelegramCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
