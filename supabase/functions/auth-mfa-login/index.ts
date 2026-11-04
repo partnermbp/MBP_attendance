@@ -88,6 +88,11 @@ async function begin(req: Request, body: any) {
   const auth = await caller(req);
   if (!auth) return reply({ error: "Your password session is invalid. Sign in again." }, 401);
   const email = auth.user.email!.trim().toLowerCase();
+  const recentCutoff = new Date(Date.now() - 60 * 1000).toISOString();
+  const { data: recentChallenges, error: rateError } = await db.from("crm_login_challenges")
+    .select("id").eq("user_id", auth.user.id).gte("created_at", recentCutoff).limit(1);
+  if (rateError) return reply({ error: "Unable to start secure login verification." }, 500);
+  if (recentChallenges?.length) return reply({ error: "A login verification was started recently. Wait one minute before requesting another code." }, 429);
   const { data: profile, error } = await db.from("profiles")
     .select("active, role, telegram_user_id, telegram_verified_at")
     .eq("id", auth.user.id).maybeSingle();
