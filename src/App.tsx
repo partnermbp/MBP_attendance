@@ -2076,8 +2076,8 @@ export default function App() {
                                 {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
                               </span>
                             </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2,overflowWrap:'anywhere'}}>
-                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_in_region,record.check_in_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span></span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} {record.check_out && <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || 'Location unavailable'}</span>}</span>
+                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_in_region,record.check_in_country].filter(Boolean).join(' · ') || (record.check_in_gps_recorded === false ? 'GPS not recorded' : 'Region lookup pending / unavailable')}</span></span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} {record.check_out && <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || (record.check_out_gps_recorded === false ? 'GPS not recorded' : 'Region lookup pending / unavailable')}</span>}</span>
                             </span>}
                           </>}
                         </div>
