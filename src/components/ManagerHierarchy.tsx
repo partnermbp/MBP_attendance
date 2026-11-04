@@ -113,7 +113,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
         <div style={{flex:1,minWidth:220}}><h1 style={{margin:0,fontSize:25}}>{selected.full_name || 'Unnamed manager'}</h1><div style={{...muted,marginTop:5}}>{roleName(selected.role)} · {selected.active?'Active account':'Inactive account'}</div></div>
         <div style={{display:'grid',gap:8,fontSize:13}}>
           <span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span>
-          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{telegramId ? <>Telegram ID: <strong>{telegramId}</strong><a href={`https://t.me/user?id=${telegramId}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open Telegram chat</a></> : 'No verified Telegram account registered on this CRM profile'}</span>
+          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{telegramId ? <>Telegram ID: <strong>{telegramId}</strong><a href={`tg://user?id=${telegramId}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open Telegram chat</a></> : 'No verified Telegram account registered on this CRM profile'}</span>
         </div>
       </header>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12}}>
