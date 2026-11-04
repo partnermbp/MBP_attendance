@@ -46,8 +46,8 @@ jobs:
     </div>
   </div>
 </div>
-HTML
 
+          HTML
           SUBJECT="Your Attendance CRM verification code"
           CONTENT="$(cat email-template.html)"
           PAYLOAD="$(jq -n --arg subject "$SUBJECT" --arg content "$CONTENT" '{mailer_subjects_magic_link:$subject,mailer_templates_magic_link_content:$content}')"
