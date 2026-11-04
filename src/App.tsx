@@ -1083,6 +1083,10 @@ export default function App() {
       const { data: authData } = await supabase.auth.getSession();
       if (!authData.session) {
         setMessage('Your login session expired. Please sign in again.');
+        mfaLoginInProgressRef.current = false;
+        setMfaChallengeTicket('');
+        setOtpRequested(false);
+        setSession(null);
         await supabase.auth.signOut({ scope: 'local' });
         return;
       }
@@ -1569,7 +1573,7 @@ export default function App() {
             <p style={{color:'#b7c0d1'}}>Final step · Enter the six-digit code sent to your registered Telegram account.</p>
             <form onSubmit={handleVerifyTelegramCode}>
               <label htmlFor="telegram-otp" style={{display:'block',marginTop:18}}>Telegram OTP</label>
-              <input id="telegram-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={telegramOtp} onChange={(event)=>setTelegramOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <input id="telegram-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={telegramOtp} onChange={(event)=>setTelegramOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying…' : 'Verify code and sign in'}</button>
             </form>
             <button type="button" disabled={busy} onClick={()=>{setShowTelegramIdRequest(v=>!v);setMessage('');}} style={{display:'block',margin:'14px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Update Telegram ID</button>
