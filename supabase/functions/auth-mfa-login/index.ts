@@ -36,6 +36,21 @@ function sessionIdFromJwt(token: string): string | null {
     return typeof payload.session_id === "string" ? payload.session_id : null;
   } catch { return null; }
 }
+function hasRecentAuthMethod(token: string, method: string): boolean {
+  try {
+    const part = token.split(".")[1];
+    const normalized = part.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")));
+    const entries = Array.isArray(payload.amr) ? payload.amr : [];
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return entries.some((entry: any) =>
+      entry?.method === method &&
+      Number.isFinite(Number(entry.timestamp)) &&
+      nowSeconds - Number(entry.timestamp) >= 0 &&
+      nowSeconds - Number(entry.timestamp) <= 15 * 60
+    );
+  } catch { return false; }
+}
 async function caller(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const token = auth.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -86,7 +101,7 @@ async function completeSession(userId: string, sessionId: string, weekIndex: num
 }
 async function begin(req: Request, body: any) {
   const auth = await caller(req);
-  if (!auth) return reply({ error: "Your password session is invalid. Sign in again." }, 401);
+  if (!auth || !hasRecentAuthMethod(auth.token, "password")) return reply({ error: "Verify your password again to start login." }, 401);
   const email = auth.user.email!.trim().toLowerCase();
   const recentCutoff = new Date(Date.now() - 60 * 1000).toISOString();
   const { data: recentChallenges, error: rateError } = await db.from("crm_login_challenges")
@@ -115,7 +130,7 @@ async function begin(req: Request, body: any) {
     ticket_hash: await sha(ticket),
     stage: emailRequired ? "email" : "telegram",
     week_index: weekIndex,
-    session_id: emailRequired ? null : auth.sessionId,
+    session_id: auth.sessionId,
     expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   }).select("id").single();
   if (insertError || !challenge) return reply({ error: "Unable to start secure login verification." }, 500);
@@ -145,6 +160,7 @@ async function emailVerified(req: Request, body: any) {
   const { data: challenge, error } = await db.from("crm_login_challenges").select("*")
     .eq("ticket_hash", await sha(ticket)).eq("user_id", auth.user.id).eq("stage", "email").maybeSingle();
   if (error || !challenge || challenge.expires_at <= new Date().toISOString()) return reply({ error: "This login challenge expired. Start again." }, 400);
+  if (challenge.session_id === auth.sessionId || !hasRecentAuthMethod(auth.token, "otp")) return reply({ error: "Verify the OTP sent to your corporate email before continuing." }, 403);
   if (auth.user.email!.trim().toLowerCase() !== String(challenge.email).toLowerCase()) return reply({ error: "The verified email does not match this account." }, 403);
   const weekIndex = await currentWeek(auth.user.id);
   if (weekIndex !== Number(challenge.week_index)) return reply({ error: "The verification period changed. Start login again." }, 400);
