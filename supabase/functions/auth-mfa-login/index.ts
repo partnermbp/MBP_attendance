@@ -113,12 +113,25 @@ async function begin(req: Request, body: any) {
     .eq("id", auth.user.id).maybeSingle();
   if (error || !profile || profile.active !== true) return reply({ error: "This CRM account is inactive or unavailable." }, 403);
   const admin = String(profile.role || "").toLowerCase() === "admin";
-  if (!admin && (!profile.telegram_user_id || !profile.telegram_verified_at)) {
-    return reply({ error: "This account has no verified Telegram identity. Contact your administrator." }, 403);
-  }
   let weekIndex: number;
   try { weekIndex = await currentWeek(auth.user.id); }
   catch { return reply({ error: "Unable to verify the account registration date." }, 500); }
+
+  // Admin accounts intentionally use password-only authentication.
+  // Do not create an email/Telegram challenge or update the user's weekly
+  // corporate-email verification status for an admin login.
+  if (admin) {
+    try {
+      await completeSession(auth.user.id, auth.sessionId, weekIndex);
+      return reply({ ok: true, stage: "complete", verification: "password_only" });
+    } catch {
+      return reply({ error: "Unable to approve this admin login." }, 500);
+    }
+  }
+
+  if (!profile.telegram_user_id || !profile.telegram_verified_at) {
+    return reply({ error: "This account has no verified Telegram identity. Contact your administrator." }, 403);
+  }
   const { data: status, error: statusError } = await db.from("crm_email_mfa_status")
     .select("verified_week").eq("user_id", auth.user.id).maybeSingle();
   if (statusError) return reply({ error: "Unable to check email verification status." }, 500);
