@@ -1362,6 +1362,9 @@ export default function App() {
       setPassword('');
       setConfirmPassword('');
       setTelegramOtp('');
+      setEmailOtp('');
+      setEmailOtpRequested(false);
+      setMfaChallengeTicket('');
       setOtpRequested(false);
       setPasswordFlow(null);
       setScreen('login');
