@@ -17,11 +17,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function rest(path: string, method = "GET") {
+async function rest(path: string, method = "GET", body?: unknown) {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error("Server configuration missing");
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
-    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...(method === "PATCH" ? { Prefer: "return=minimal" } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`Database request failed: ${response.status}`);
@@ -117,36 +118,61 @@ Deno.serve(async (req: Request) => {
       `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng&order=check_in.desc&limit=1000`
     );
 
+    // Use persisted coarse labels first. Only retry unresolved locations, and never
+    // include coordinates in the response sent to a manager.
     const labels = new Map<string, { region: string | null; country: string | null }>();
-    const keys = new Set<string>();
+    const pending = new Map<string, { rowId: string; event: "check_in" | "check_out"; lat: number; lng: number }>();
     for (const row of rows || []) {
-      const inKey = coordinateKey(row.check_in_lat, row.check_in_lng);
-      const outKey = coordinateKey(row.check_out_lat, row.check_out_lng);
-      if (inKey) keys.add(inKey);
-      if (outKey) keys.add(outKey);
+      if (row.check_in_region || row.check_in_country) {
+        const key = coordinateKey(row.check_in_lat, row.check_in_lng);
+        if (key) labels.set("in:" + row.id, { region: row.check_in_region || null, country: row.check_in_country || null });
+      } else if (row.check_in_lat != null && row.check_in_lng != null) {
+        const key = coordinateKey(row.check_in_lat, row.check_in_lng);
+        if (key && !pending.has("in:" + row.id)) pending.set("in:" + row.id, { rowId: row.id, event: "check_in", lat: row.check_in_lat, lng: row.check_in_lng });
+      }
+      if (row.check_out_region || row.check_out_country) {
+        const key = coordinateKey(row.check_out_lat, row.check_out_lng);
+        if (key) labels.set("out:" + row.id, { region: row.check_out_region || null, country: row.check_out_country || null });
+      } else if (row.check_out_lat != null && row.check_out_lng != null) {
+        const key = coordinateKey(row.check_out_lat, row.check_out_lng);
+        if (key && !pending.has("out:" + row.id)) pending.set("out:" + row.id, { rowId: row.id, event: "check_out", lat: row.check_out_lat, lng: row.check_out_lng });
+      }
     }
 
-    // Public Nominatim usage is limited to one request per second. Round to a coarse grid before
-    // geocoding and cache duplicate rounded points for this response.
-    for (const key of keys) {
-      const [lat, lng] = key.split(",").map(Number);
-      try { labels.set(key, await regionCountry(lat, lng)); }
-      catch { labels.set(key, { region: null, country: null }); }
-      await new Promise(resolve => setTimeout(resolve, 1100));
+    // Bound each request to avoid long waits and respect Nominatim's public rate limit.
+    let lookupCount = 0;
+    for (const item of pending.values()) {
+      if (lookupCount >= 8) break;
+      const result = await regionCountry(item.lat, item.lng);
+      labels.set((item.event === "check_in" ? "in:" : "out:") + item.rowId, result);
+      if (result.region || result.country) {
+        const patch = item.event === "check_in"
+          ? { check_in_region: result.region, check_in_country: result.country }
+          : { check_out_region: result.region, check_out_country: result.country };
+        await rest(`attendance?id=eq.${encodeURIComponent(item.rowId)}`, "PATCH", patch);
+      }
+      lookupCount++;
+      if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
     }
 
-    const records = (rows || []).map((row: any) => ({
-      id: row.id,
-      employee_id: row.employee_id,
-      check_in: row.check_in,
-      check_out: row.check_out,
-      work_date: row.work_date,
-      work_timezone: row.work_timezone,
-      check_in_region: coordinateKey(row.check_in_lat, row.check_in_lng) ? labels.get(coordinateKey(row.check_in_lat, row.check_in_lng)!)?.region ?? null : null,
-      check_in_country: coordinateKey(row.check_in_lat, row.check_in_lng) ? labels.get(coordinateKey(row.check_in_lat, row.check_in_lng)!)?.country ?? null : null,
-      check_out_region: coordinateKey(row.check_out_lat, row.check_out_lng) ? labels.get(coordinateKey(row.check_out_lat, row.check_out_lng)!)?.region ?? null : null,
-      check_out_country: coordinateKey(row.check_out_lat, row.check_out_lng) ? labels.get(coordinateKey(row.check_out_lat, row.check_out_lng)!)?.country ?? null : null,
-    }));
+    const records = (rows || []).map((row: any) => {
+      const inLabel = labels.get("in:" + row.id) || { region: row.check_in_region || null, country: row.check_in_country || null };
+      const outLabel = labels.get("out:" + row.id) || { region: row.check_out_region || null, country: row.check_out_country || null };
+      return {
+        id: row.id,
+        employee_id: row.employee_id,
+        check_in: row.check_in,
+        check_out: row.check_out,
+        work_date: row.work_date,
+        work_timezone: row.work_timezone,
+        check_in_region: inLabel.region,
+        check_in_country: inLabel.country,
+        check_out_region: outLabel.region,
+        check_out_country: outLabel.country,
+        check_in_gps_recorded: row.check_in_lat != null && row.check_in_lng != null,
+        check_out_gps_recorded: row.check_out_lat != null && row.check_out_lng != null,
+      };
+    });
     return json({ records });
   } catch (error) {
     console.error("Manager attendance lookup failed:", error);
