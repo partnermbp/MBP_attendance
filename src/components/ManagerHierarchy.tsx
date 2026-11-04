@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, GitBranch, Mail, MessageCircle, CalendarDays, Clock3, Activity, Users, UserRound } from 'lucide-react';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
@@ -66,7 +67,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     }
     return ids;
   };
-  const renderNode = (person: Person, depth: number, path: Set<string>): JSX.Element | null => {
+  const renderNode = (person: Person, depth: number, path: Set<string>): ReactElement | null => {
     if (path.has(person.id)) return null;
     const nextPath = new Set(path); nextPath.add(person.id);
     const direct = (children.get(person.id) || []).filter(id => visibleManagers.has(id)).map(id => people.get(id)).filter((p): p is Person => Boolean(p)).sort((a,b)=>(a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
@@ -102,7 +103,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     const daysActive = new Set(own.filter(a => new Date(a.check_in) >= since).map(a => a.work_date || a.check_in.slice(0,10))).size;
     const activity = Math.round(daysActive/30*100);
     const teamSize = Math.max(0,scope.size-1);
-    const stat = (label: string, value: string | number, note: string, icon: JSX.Element) => <article style={{...panel,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:8,...muted}}>{icon}{label}</div><strong style={{display:'block',fontSize:25,marginTop:12,color:'var(--crm-text)'}}>{value}</strong><p style={{...muted,margin:'6px 0 0'}}>{note}</p></article>;
+    const stat = (label: string, value: string | number, note: string, icon: ReactElement) => <article style={{...panel,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:8,...muted}}>{icon}{label}</div><strong style={{display:'block',fontSize:25,marginTop:12,color:'var(--crm-text)'}}>{value}</strong><p style={{...muted,margin:'6px 0 0'}}>{note}</p></article>;
     return <div style={{display:'grid',gap:16,marginTop:18}}>
       <button type="button" onClick={()=>setSelectedId(null)} style={{display:'inline-flex',alignItems:'center',gap:8,width:'fit-content',padding:'9px 12px',border:'1px solid var(--crm-border)',borderRadius:8,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}><ArrowLeft size={16}/> Back to manager hierarchy</button>
       <header style={{...panel,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
