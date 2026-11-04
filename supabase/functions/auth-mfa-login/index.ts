@@ -8,6 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+// The service-role client keeps all challenge and session-approval records server-side.
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
 function reply(body: unknown, status = 200) {
