@@ -81,7 +81,7 @@ async function sendCorporateEmailOtp(email: string, code: string) {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Smtp2go-Api-Key": SMTP2GO_API_KEY, "Accept": "application/json" },
     body: JSON.stringify({
-      sender: SMTP2GO_FROM_EMAIL,
+      sender: `Attendance CRM <${SMTP2GO_FROM_EMAIL}>`,
       to: [email],
       subject: "Your Attendance CRM verification code",
       text_body: "Your Attendance CRM verification code is: " + code +
@@ -271,13 +271,6 @@ async function emailVerified(req: Request, body: any) {
     await db.from("crm_login_challenges").delete().eq("id", challenge.id);
     return reply({ error: "This CRM account is inactive." }, 403);
   }
-  const { error: statusError } = await db.from("crm_email_mfa_status").upsert({
-    user_id: auth.user.id, verified_week: weekIndex, verified_at: new Date().toISOString(),
-  }, { onConflict: "user_id" });
-  if (statusError) {
-    await db.from("crm_login_challenges").delete().eq("id", challenge.id);
-    return reply({ error: "Could not save email verification." }, 500);
-  }
   if (!profile.telegram_user_id || !profile.telegram_verified_at) {
     await db.from("crm_login_challenges").delete().eq("id", challenge.id);
     return reply({ error: "This account has no verified Telegram identity." }, 403);
@@ -308,6 +301,12 @@ async function finish(req: Request, body: any) {
   const weekIndex = await currentWeek(auth.user.id);
   if (weekIndex !== Number(challenge.week_index)) return reply({ error: "The weekly verification period changed. Start login again." }, 400);
   try {
+    // Record the weekly email factor only after the full required login
+    // sequence succeeds. An email-only attempt must not satisfy next week's gate.
+    const { error: statusError } = await db.from("crm_email_mfa_status").upsert({
+      user_id: auth.user.id, verified_week: weekIndex, verified_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    if (statusError) throw new Error("Unable to save weekly email verification");
     await completeSession(auth.user.id, auth.sessionId, weekIndex);
     await db.from("crm_login_challenges").update({ stage: "complete", completed_at: new Date().toISOString() }).eq("id", challenge.id);
     return reply({ ok: true, stage: "complete" });
