@@ -867,19 +867,6 @@ export default function App() {
       setPassword('');
       setMfaChallengeTicket(result.challenge_ticket || '');
       if (result.stage === 'email') {
-        await supabase.auth.signOut({ scope: 'local' });
-        setSession(null);
-        const { error: emailSendError } = await supabase.auth.signInWithOtp({
-          email: normalizedEmail,
-          options: { shouldCreateUser: false },
-        });
-        if (emailSendError) {
-          mfaLoginInProgressRef.current = false;
-          setMfaChallengeTicket('');
-          setSession(null);
-          setMessage('Could not send the corporate email OTP: ' + emailSendError.message);
-          return;
-        }
         setEmailOtp('');
         setEmailOtpRequested(true);
         setOtpRequested(false);
@@ -915,36 +902,20 @@ export default function App() {
   async function handleVerifyEmailCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
-    const normalizedEmail = email.trim().toLowerCase();
     const code = emailOtp.trim();
-    if (!/^\d{6,10}$/.test(code)) {
-      setMessage('Enter the numeric OTP sent to your corporate email.');
+    if (!/^\d{6}$/.test(code)) {
+      setMessage('Enter the six-digit OTP sent to your corporate email.');
       return;
     }
     setBusy(true);
     setMessage('');
     mfaLoginInProgressRef.current = true;
     try {
-      const { data: verified, error } = await supabase.auth.verifyOtp({
-        email: normalizedEmail,
-        token: code,
-        type: 'email',
-      });
-      if (error || !verified.session) {
-        setMessage(error?.message || 'The email code could not be verified. Request a new code and try again.');
-        return;
-      }
-      setSession(verified.session);
       const { data: result, error: mfaError } = await supabase.functions.invoke('auth-mfa-login', {
-        body: { action: 'email_verified', challenge_ticket: mfaChallengeTicket },
+        body: { action: 'email_verified', challenge_ticket: mfaChallengeTicket, email_otp: code },
       });
       if (mfaError || !result?.ok) {
-        await supabase.auth.signOut({ scope: 'local' });
-        setSession(null);
-        setMfaChallengeTicket('');
-        setEmailOtpRequested(false);
-        mfaLoginInProgressRef.current = false;
-        setMessage(result?.error || mfaError?.message || 'Email verification could not be completed. Start login again.');
+        setMessage(result?.error || mfaError?.message || 'The email code could not be verified. Please try again.');
         return;
       }
       setEmailOtp('');
@@ -958,10 +929,30 @@ export default function App() {
         await recordCrmLogin('password_2fa');
         setMfaChallengeTicket('');
         setScreen('signed-in');
-        await loadDashboard(verified.session.user.id);
+        if (session?.user.id) await loadDashboard(session.user.id);
       }
     } catch (error) {
       setMessage('Unable to verify the corporate email OTP: ' + getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResendEmailCode() {
+    if (!supabase || !mfaChallengeTicket) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data: result, error } = await supabase.functions.invoke('auth-mfa-login', {
+        body: { action: 'resend_email', challenge_ticket: mfaChallengeTicket },
+      });
+      if (error || !result?.ok) setMessage(result?.error || error?.message || 'Could not resend the corporate email code.');
+      else {
+        setEmailOtp('');
+        setMessage('A new corporate email verification code has been sent.');
+      }
+    } catch (error) {
+      setMessage('Could not resend the corporate email code: ' + getErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1563,10 +1554,10 @@ export default function App() {
             <p style={{color:'#b7c0d1'}}>Email verification required · Enter the OTP sent to your registered corporate email address. This is required on first login and every 7 days.</p>
             <form onSubmit={handleVerifyEmailCode}>
               <label htmlFor="email-otp" style={{display:'block',marginTop:18}}>Corporate email OTP</label>
-              <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
+              <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying email…' : 'Verify email and continue'}</button>
             </form>
-            <button type="button" disabled={busy} onClick={async()=>{if(!supabase)return;setBusy(true);const {error}=await supabase.auth.signInWithOtp({email:email.trim().toLowerCase(),options:{shouldCreateUser:false}});setBusy(false);setMessage(error?'Could not resend email OTP: '+error.message:'A new email verification code has been requested.');}} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Resend email OTP</button>
+            <button type="button" disabled={busy} onClick={()=>void handleResendEmailCode()} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Resend email OTP</button>
           </> : <>
             <p style={{color:'#b7c0d1'}}>Final step · Enter the six-digit code sent to your registered Telegram account.</p>
             <form onSubmit={handleVerifyTelegramCode}>
