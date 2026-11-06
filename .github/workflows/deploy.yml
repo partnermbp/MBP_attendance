@@ -31,6 +31,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Verify Supabase project configuration
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "Missing VITE_SUPABASE_URL repository secret" && exit 1)
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || (echo "Missing VITE_SUPABASE_PUBLISHABLE_KEY repository secret" && exit 1)
+          node -e 'const u = new URL(process.env.VITE_SUPABASE_URL); console.log("Supabase project host:", u.host); if (u.hostname !== "ncpcpckajzzqxxxonfnv.supabase.co") { console.error("VITE_SUPABASE_URL points to the wrong Supabase project."); process.exit(1); }'
       - name: Build frontend
         run: npm run build
         env:
