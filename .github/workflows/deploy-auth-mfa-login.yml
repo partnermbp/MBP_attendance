@@ -11,6 +11,10 @@ on:
       - "supabase/functions/telegram-inbox-status/**"
       - "supabase/functions/telegram-media-proxy/**"
 
+concurrency:
+  group: supabase-edge-functions-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
