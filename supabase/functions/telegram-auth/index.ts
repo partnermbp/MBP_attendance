@@ -252,7 +252,13 @@ async function createInvitedAccount(req: Request) {
     console.error("Invited account creation failed:", createError?.message || "No user returned");
     return jsonResponse({ error: createError?.message?.includes("already been registered") ? "An account already exists for this email. Contact your administrator." : "Account creation failed. Please try again or contact your administrator." }, 409);
   }
-  return jsonResponse({ ok: true, email: invite.corporate_email, message: "Both identity checks passed and your CRM account has been created. Sign in to continue." });
+  // The database trigger has already consumed both tickets. Remove raw bearer
+  // tickets from Auth metadata immediately; only non-secret profile labels remain.
+  const { error: metadataError } = await supabase.auth.admin.updateUserById(created.user.id, {
+    user_metadata: { full_name: invite.admin_panel_name, admin_panel_name: invite.admin_panel_name },
+  });
+  if (metadataError) console.error("Could not clear consumed invitation metadata:", metadataError.message);
+  return jsonResponse({ ok: true, email: invite.corporate_email, message: "Both identity checks passed and your CRM account has been created." });
 }
 
 async function verifyInviteTelegramOtp(req: Request) {
