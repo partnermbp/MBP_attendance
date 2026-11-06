@@ -416,6 +416,10 @@ export default function App() {
   const [inviteOtp, setInviteOtp] = useState('');
   const [inviteTelegramVerified, setInviteTelegramVerified] = useState(false);
   const [invitePasswordStep, setInvitePasswordStep] = useState(false);
+  const [inviteEmailOtp, setInviteEmailOtp] = useState('');
+  const [inviteEmailSent, setInviteEmailSent] = useState(false);
+  const [inviteEmailVerified, setInviteEmailVerified] = useState(false);
+  const [emailRegistrationTicket, setEmailRegistrationTicket] = useState('');
   const [registrationTicket, setRegistrationTicket] = useState('');
   const [screen, setScreen] = useState<Screen>('loading');
   const [profileReady, setProfileReady] = useState(false);
@@ -498,6 +502,11 @@ export default function App() {
       if (savedTicket) {
         setRegistrationTicket(savedTicket);
         setInviteTelegramVerified(true);
+      }
+      const savedEmailTicket = sessionStorage.getItem('mbp_email_registration_ticket_' + inviteToken) || '';
+      if (savedEmailTicket) {
+        setEmailRegistrationTicket(savedEmailTicket);
+        setInviteEmailVerified(true);
         setInvitePasswordStep(true);
       }
       if (!details.valid) setMessage('This invitation has expired or has already been used.');
@@ -813,9 +822,8 @@ export default function App() {
       setRegistrationTicket(data.registration_ticket);
       sessionStorage.setItem('mbp_registration_ticket_' + inviteToken, data.registration_ticket);
       setInviteTelegramVerified(true);
-      setInvitePasswordStep(true);
       setInviteOtp('');
-      setMessage('Telegram verified. Create and confirm your password to finish registration.');
+      setMessage('Telegram verified. Next, verify your official email address.');
     } catch (error) {
       setMessage('Telegram verification failed: ' + getErrorMessage(error));
     } finally {
@@ -823,17 +831,50 @@ export default function App() {
     }
   }
 
+  async function handleSendInviteEmailOtp() {
+    if (!supabase || !inviteToken || !registrationTicket) return;
+    setBusy(true); setMessage('');
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-auth', { body: { action: 'send_invite_email_otp', invitation_token: inviteToken, registration_ticket: registrationTicket } });
+      if (error || !data?.ok) { setMessage(data?.error || error?.message || 'Could not send the email verification code.'); return; }
+      setInviteEmailSent(true);
+      setMessage('A six-digit verification code has been sent to ' + (data.email || inviteDetails?.corporate_email) + '.');
+    } catch (error) { setMessage('Email verification could not be started: ' + getErrorMessage(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function handleVerifyInviteEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !inviteToken) return;
+    setBusy(true); setMessage('');
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-auth', { body: { action: 'verify_invite_email_otp', invitation_token: inviteToken, otp: inviteEmailOtp } });
+      if (error || !data?.ok || !data?.email_registration_ticket) { setMessage(data?.error || error?.message || 'Corporate email verification failed.'); return; }
+      setEmailRegistrationTicket(data.email_registration_ticket);
+      sessionStorage.setItem('mbp_email_registration_ticket_' + inviteToken, data.email_registration_ticket);
+      setInviteEmailVerified(true); setInvitePasswordStep(true); setInviteEmailOtp('');
+      setMessage('Both Telegram and corporate email are verified. Create your password to activate the CRM account.');
+    } catch (error) { setMessage('Corporate email verification failed: ' + getErrorMessage(error)); }
+    finally { setBusy(false); }
+  }
+
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !inviteToken) return;
     const normalizedEmail = email.trim().toLowerCase();
     const ticket = registrationTicket || sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
+    const emailTicket = emailRegistrationTicket || sessionStorage.getItem('mbp_email_registration_ticket_' + inviteToken) || '';
     if (!inviteDetails?.valid) {
       setMessage('This invitation is invalid, expired, or already used.');
       return;
     }
     if (!inviteTelegramVerified || !ticket) {
-      setMessage('Verify your Telegram account with @mbpauthbot before registering.');      return;
+      setMessage('Verify your Telegram account with @mbpauthbot before registering.');
+      return;
+    }
+    if (!inviteEmailVerified || !emailTicket) {
+      setMessage('Verify the official email address before creating your account.');
+      return;
     }
     if (normalizedEmail !== inviteDetails.corporate_email.trim().toLowerCase()) {
       setMessage('Use the exact corporate email assigned by your inviter: ' + inviteDetails.corporate_email);
@@ -854,18 +895,28 @@ export default function App() {
     setBusy(true);
     setMessage('');
     try {
-      const redirectTo = `${CRM_WEB_APP_URL}?invite=${encodeURIComponent(inviteToken)}`;
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: { emailRedirectTo: redirectTo, data: { full_name: inviteDetails.admin_panel_name, admin_panel_name: inviteDetails.admin_panel_name, invitation_token: inviteToken, registration_ticket: ticket } },
+      const { data: created, error: createError } = await supabase.functions.invoke('telegram-auth', {
+        body: { action: 'create_invited_account', invitation_token: inviteToken, registration_ticket: ticket, email_registration_ticket: emailTicket, password },
       });
-      if (error) setMessage('Registration failed: ' + error.message);
-      else if (data.session && data.user) {
-        setMessage('Account created. Finishing sign-in and redeeming your invitation…');
-      } else {
-        setMessage('Registration started. Confirm your email using the link sent to you, then return to this invitation link and sign in to redeem it.');
+      if (createError || !created?.ok) { setMessage(created?.error || createError?.message || 'Account creation failed. Please try again.'); return; }
+      sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
+      sessionStorage.removeItem('mbp_email_registration_ticket_' + inviteToken);
+      sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+      if (signInError || !authData.session || !authData.user) {
+        setMessage('Your account has been created and verified. Sign in with your new password to enter the CRM.');
+        window.history.replaceState({}, document.title, window.location.pathname); return;
       }
+      setSession(authData.session);
+      const { data: access, error: accessError } = await supabase.functions.invoke('auth-mfa-login', { body: { action: 'begin' } });
+      if (accessError || !access?.ok || access.stage !== 'complete') {
+        await supabase.auth.signOut({ scope: 'local' }); setSession(null);
+        setMessage(access?.error || accessError?.message || 'Registration is complete, but secure first access could not be approved. Please sign in again.'); return;
+      }
+      setInviteRedeemed(true); setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
+      setMessage('Registration complete. Both identities are verified and your CRM account is active.');
+      await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id);
+      window.history.replaceState({}, document.title, window.location.pathname);
     } catch {
       setMessage('Registration could not be completed. Please try again.');
     } finally {
@@ -1674,7 +1725,27 @@ export default function App() {
                     <button type="submit" disabled={busy || !inviteTelegramVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Complete registration'}</button>
                   </form>
                 </>}
-                <p style={{textAlign:'center',marginTop:24,color:'#b7c0d1',fontSize:13}}>Already registered? <a href={window.location.pathname} style={{color:'#82b4ff'}}>Sign in</a></p>
+                  <p style={{color:'#86efac'}}>Telegram identity verified.</p>
+                  {!inviteEmailVerified ? <>
+                    <p style={{color:'#b7c0d1',fontSize:13}}>Next, verify the official email address assigned to this invitation.</p>
+                    {!inviteEmailSent ? <button type="button" onClick={handleSendInviteEmailOtp} disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?'Sending code…':'Send email verification code'}</button> : <form onSubmit={handleVerifyInviteEmail} style={{marginTop:14}}>
+                      <label htmlFor="invite-email-otp">Six-digit code sent to {inviteDetails.corporate_email}</label>
+                      <input id="invite-email-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={inviteEmailOtp} onChange={event=>setInviteEmailOtp(event.target.value.replace(/\D/g,'').slice(0,6))} style={inputStyle}/>
+                      <button type="submit" disabled={busy || inviteEmailOtp.length!==6} style={{...buttonStyle,width:'100%',marginTop:10}}>Verify official email</button>
+                      <button type="button" onClick={handleSendInviteEmailOtp} disabled={busy} style={{...buttonStyle,width:'100%',marginTop:8,background:'transparent'}}>Resend code</button>
+                    </form>}
+                  </> : <form onSubmit={handleRegister} style={{marginTop:16}}>
+                    <p style={{color:'#86efac'}}>Telegram and official email verified.</p>
+                    <label htmlFor="register-email">Corporate email</label>
+                    <input id="register-email" type="email" autoComplete="email" required readOnly value={inviteDetails.corporate_email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
+                    <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Create password (at least 8 characters)</label>
+                    <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
+                    <label htmlFor="register-confirm-password" style={{display:'block',marginTop:12}}>Confirm password</label>
+                    <input id="register-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} style={inputStyle}/>
+                    <button type="submit" disabled={busy || !inviteTelegramVerified || !inviteEmailVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Complete registration'}</button>
+                  </form>}
+                </>}
+Already registered? <a href={window.location.pathname} style={{color:'#82b4ff'}}>Sign in</a></p>
               </>}
             </> : <p style={{color:'#b7c0d1'}}>Loading invitation details…</p>}
           </div>}
