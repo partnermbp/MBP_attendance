@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, GitBranch, Mail, MessageCircle, CalendarDays, Clock3, Activity, Users, UserRound } from 'lucide-react';
 
-type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
+type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean; telegram_user_id?: number | null; telegram_username?: string | null; telegram_verified_at?: string | null };
 type Assignment = { manager_id: string; employee_id: string };
 type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null };
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
@@ -99,12 +99,14 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     const ownTelegramMembers = telegramMembers.filter(m => m.profile_id === selected.id && Boolean(m.verified_at));
     const ownTelegram = ownTelegramMembers[0] || null;
     const ownTelegramIds = new Set(ownTelegramMembers.map(m => Number(m.telegram_user_id)).filter(id => Number.isFinite(id) && id > 0));
+    if (selected.telegram_user_id != null && selected.telegram_verified_at) ownTelegramIds.add(Number(selected.telegram_user_id));
+    const hasVerifiedTelegram = Boolean(ownTelegram || (selected.telegram_user_id != null && selected.telegram_verified_at));
     const ownMetric = telegramMetrics.find(m => (m as any).profile_id === selected.id) as any;
     const sentReplies = telegramMetrics.filter(m => m.first_reply_user_id != null && ownTelegramIds.has(m.first_reply_user_id));
     const askedCount = ownMetric?.asked_count ?? telegramMetrics.filter(m => m.question_user_id != null && ownTelegramIds.has(m.question_user_id)).length;
     const replyCount = ownMetric?.reply_count ?? sentReplies.length;
     const replyAvg = ownMetric ? ownMetric.average_response_seconds : sentReplies.length ? sentReplies.reduce((sum,m) => sum + (m.response_seconds || 0),0)/sentReplies.length : null;
-    const telegramUsername = ownTelegram?.username?.replace(/^@/, '') || null;
+    const telegramUsername = (ownTelegram?.username || selected.telegram_username || '').replace(/^@/, '') || null;
     const telegramId = isAdmin && ownTelegramIds.size ? [...ownTelegramIds][0] : null;
     const today = new Date(); const since = new Date(today.getTime()-29*86400000);
     const daysActive = new Set(own.filter(a => new Date(a.check_in) >= since).map(a => a.work_date || a.check_in.slice(0,10))).size;
@@ -118,7 +120,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
         <div style={{flex:1,minWidth:220}}><h1 style={{margin:0,fontSize:25}}>{selected.full_name || 'Unnamed manager'}</h1><div style={{...muted,marginTop:5}}>{roleName(selected.role)} · {selected.active?'Active account':'Inactive account'}</div></div>
         <div style={{display:'grid',gap:8,fontSize:13}}>
           <span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span>
-          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{ownTelegram ? <>{isAdmin && telegramId != null && <>Telegram ID: <strong>{telegramId}</strong> · </>}{telegramUsername ? <a href={`https://t.me/${encodeURIComponent(telegramUsername)}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open manager's Telegram chat</a> : <span>{isAdmin && telegramId != null ? 'Verified Telegram ID · no public username available for a direct chat link' : 'Telegram account verified · direct chat link unavailable because no username is available'}</span>}</> : 'No verified Telegram account registered on this CRM profile'}</span>
+          <span style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}><MessageCircle size={14}/>{hasVerifiedTelegram ? <>{isAdmin && telegramId != null && <>Telegram ID: <strong>{telegramId}</strong> · </>}{telegramUsername ? <a href={`https://t.me/${encodeURIComponent(telegramUsername)}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 10px',borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',textDecoration:'none',fontWeight:700}}><MessageCircle size={14}/>Open manager's Telegram chat</a> : <span>{isAdmin && telegramId != null ? 'Verified Telegram ID · no public username available for a direct chat link' : 'Telegram account verified · direct chat link unavailable because no username is available'}</span>}</> : 'No verified Telegram account registered on this CRM profile'}</span>
         </div>
       </header>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12}}>
