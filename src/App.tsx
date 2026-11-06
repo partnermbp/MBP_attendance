@@ -1510,6 +1510,9 @@ export default function App() {
     setMessage('');
 
     try {
+      if (session?.user.id) {
+        try { localStorage.removeItem(INACTIVITY_STORAGE_PREFIX + session.user.id); } catch { /* storage may be unavailable */ }
+      }
       const { error } = await supabase.auth.signOut();
 
       if (error) {
