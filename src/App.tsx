@@ -46,6 +46,7 @@ type Profile = {
   active: boolean;
   telegram_user_id?: number | null;
   telegram_verified_at?: string | null;
+  telegram_username?: string | null;
 };
 
 type ManagerAssignment = { manager_id: string; employee_id: string };
@@ -591,7 +592,7 @@ export default function App() {
       if (isAdmin) {
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           supabase.from('profiles')
-            .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at')
+            .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username')
             .order('full_name', { ascending: true })
             .limit(500),
           supabase.rpc('get_admin_attendance_with_gps'),
@@ -636,7 +637,7 @@ export default function App() {
           .filter(person => person.telegram_user_id != null && person.telegram_verified_at != null)
           .map(person => {
             const groupMember = groupTelegramMembers.find(member => member.profile_id === person.id && Number(member.telegram_user_id) === Number(person.telegram_user_id));
-            return { telegram_user_id: Number(person.telegram_user_id), profile_id: person.id, username: groupMember?.username ?? null, display_name: groupMember?.display_name ?? null, verified_at: person.telegram_verified_at };
+            return { telegram_user_id: Number(person.telegram_user_id), profile_id: person.id, username: groupMember?.username ?? person.telegram_username ?? null, display_name: groupMember?.display_name ?? person.full_name ?? null, verified_at: person.telegram_verified_at };
           });
         const verifiedKeys = new Set(verifiedProfileLinks.map(member => member.profile_id + ':' + member.telegram_user_id));
         setTelegramMembers([...groupTelegramMembers.filter(member => !verifiedKeys.has(member.profile_id + ':' + member.telegram_user_id)), ...verifiedProfileLinks]);
@@ -644,7 +645,7 @@ export default function App() {
       } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         const [hierarchyResult, teamAttendanceResult, shiftsResult, ownAttendanceResult] = await Promise.all([
-          supabase.rpc('get_my_team_hierarchy'),
+          supabase.rpc('get_my_team_hierarchy_with_telegram'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
           supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
@@ -654,7 +655,7 @@ export default function App() {
           setMessage('Could not load reporting hierarchy: ' + hierarchyResult.error.message);
         } else {
           const descendants = (hierarchyResult.data ?? []) as Array<Profile & { manager_id: string; depth: number }>;
-          setProfiles([currentProfile, ...descendants.map(({ id, email, full_name, role, active }) => ({ id, email, full_name, role, active }))]);
+          setProfiles([currentProfile, ...descendants.map(({ id, email, full_name, role, active, telegram_user_id, telegram_username, telegram_verified_at }) => ({ id, email, full_name, role, active, telegram_user_id, telegram_username, telegram_verified_at }))]);
           setManagerAssignments(descendants.map(person => ({ manager_id: person.manager_id, employee_id: person.id })));
           setExpandedManagerIds(new Set([userId]));
         }
