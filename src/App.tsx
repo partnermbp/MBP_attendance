@@ -2,7 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye, Download } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye, Download, Smartphone } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -63,7 +63,7 @@ type Coordinates = {
   longitude: number;
 };
 
-const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
+const CRM_WEB_APP_URL = 'https://attendence.dpdns.org/';
 const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/app-debug.apk';
 const BREAK_MINUTES = 60;
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000;
@@ -1910,6 +1910,7 @@ export default function App() {
               </div>)}
             </nav>
             <a href={ANDROID_APK_DOWNLOAD_URL} download title="Download Android APK" aria-label="Download Android APK" style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid #34353e',borderRadius:6,background:'#1a1b20',color:'#dce4f2',fontWeight:600,textDecoration:'none',cursor:'pointer'}}><Download size={18}/>{navOpen&&'Download Android APK'}</a>
+            <a href="/mbp-attendance-ios.mobileconfig" download title="Install iOS Web Clip" aria-label="Install iOS Web Clip" style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:8,border:'1px solid #34353e',borderRadius:6,background:'#1a1b20',color:'#dce4f2',fontWeight:600,textDecoration:'none',cursor:'pointer'}}><Smartphone size={18}/>{navOpen&&'Install iOS Web Clip'}</a>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid var(--crm-accent-strong)',borderRadius:6,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:16,paddingTop:12,borderTop:'1px solid #24252c',color:'#98a2b3',fontSize:11,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
@@ -1936,6 +1937,7 @@ export default function App() {
               <div className="crm-mobile-sheet-heading"><div><strong>More</strong><small>Tools and account settings</small></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}><X size={19}/></button></div>
               <div className="crm-mobile-more-grid">
                 <button type="button" onClick={()=>{window.open(ANDROID_APK_DOWNLOAD_URL,'_blank','noopener,noreferrer');setMobileMoreOpen(false);}}><Download size={18}/><span><strong>Download Android app</strong><small>Install the latest Android APK</small></span><ChevronRight size={16}/></button>
+                <a href="/mbp-attendance-ios.mobileconfig" download onClick={()=>setMobileMoreOpen(false)}><Smartphone size={18}/><span><strong>Install iOS Web Clip</strong><small>Add MBP Attendance to the iPhone Home Screen</small></span><ChevronRight size={16}/></a>
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-attendance');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Users size={18}/><span><strong>Team attendance report</strong><small>Team trends, graphs and shift statistics</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('security');setMobileMoreOpen(false);window.scrollTo(0,0);}}><ShieldAlert size={18}/><span><strong>Security</strong><small>Account and activity controls</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('requests');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Requests</strong><small>Review Telegram ID change requests</small></span><ChevronRight size={16}/></button>}
