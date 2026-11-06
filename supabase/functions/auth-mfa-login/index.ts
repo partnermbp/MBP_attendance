@@ -7,7 +7,9 @@ const SMTP2GO_API_KEY = Deno.env.get("SMTP2GO_API_KEY") || "";
 const SMTP2GO_FROM_EMAIL = Deno.env.get("SMTP2GO_FROM_EMAIL") || "";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 // The service-role client keeps all challenge and session-approval records server-side.
