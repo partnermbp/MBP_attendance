@@ -199,7 +199,7 @@ async function verifyInviteEmailOtp(req: Request) {
   let body: any; try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid request." }, 400); }
   const token = typeof body?.invitation_token === "string" ? body.invitation_token : "";
   const otp = typeof body?.otp === "string" ? body.otp.trim() : "";
-  if (!/^[a-f0-9]{64}$/i.test(token) || !/^\\d{6}$/.test(otp)) return jsonResponse({ error: "Enter the six-digit code sent to your corporate email." }, 400);
+  if (!/^[a-f0-9]{64}$/i.test(token) || !/^\d{6}$/.test(otp)) return jsonResponse({ error: "Enter the six-digit code sent to your corporate email." }, 400);
   const { data: invite, error: inviteError } = await supabase.from("manager_invitations")
     .select("id, corporate_email, redeemed_at, expires_at").eq("token_hash", await sha256Hex(token)).maybeSingle();
   if (inviteError || !invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Invitation is invalid, expired, or already used." }, 400);
