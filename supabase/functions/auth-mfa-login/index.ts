@@ -150,6 +150,29 @@ async function begin(req: Request, body: any) {
   const auth = await caller(req);
   if (!auth || !hasRecentAuthMethod(auth.token, "password")) return reply({ error: "Verify your password again to start login." }, 401);
   const email = auth.user.email!.trim().toLowerCase();
+
+  // Invitation registration already verified both factors before the auth user
+  // was created. Consume its short-lived, DB-issued grant once to approve this
+  // first password session without sending duplicate OTPs.
+  const { data: registrationGrant, error: grantError } = await db
+    .from("invitation_registration_access_grants")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("user_id", auth.user.id)
+    .is("consumed_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .select("user_id")
+    .maybeSingle();
+  if (grantError) return reply({ error: "Unable to validate the completed registration." }, 500);
+  if (registrationGrant) {
+    try {
+      const weekIndex = await currentWeek(auth.user.id);
+      await completeSession(auth.user.id, auth.sessionId, weekIndex);
+      return reply({ ok: true, stage: "complete", verification: "invitation_verified" });
+    } catch {
+      return reply({ error: "Your registration is complete, but the first session could not be approved. Sign in again." }, 500);
+    }
+  }
+
   const recentCutoff = new Date(Date.now() - 60 * 1000).toISOString();
   const { data: recentChallenges, error: rateError } = await db.from("crm_login_challenges")
     .select("id").eq("user_id", auth.user.id).gte("created_at", recentCutoff).limit(1);
