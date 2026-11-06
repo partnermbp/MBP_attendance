@@ -546,7 +546,7 @@ export default function App() {
       setProfile(currentProfile);
       // The authenticated user's own profile is a reliable fallback if the
       // Telegram status Edge Function is temporarily unavailable.
-      const profileTelegramLinked = currentProfile?.telegram_user_id != null && currentProfile?.telegram_verified_at != null;
+      const profileTelegramLinked = currentProfile?.telegram_user_id != null || currentProfile?.telegram_verified_at != null;
       setTelegramLinked(profileTelegramLinked);
       try {
         const { data: telegramStatus, error: telegramStatusError } = await supabase.functions.invoke('telegram-auth', { body: { action: 'link_status' } });
@@ -1823,16 +1823,6 @@ export default function App() {
             {settingsNotice && <p className="crm-settings-notice" role="status">{settingsNotice}</p>}
           </>}
           {activePage === 'dashboard' && <>
-          <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
-          <p
-            style={{
-              color: '#b7c0d1',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
-          </p>
-
 {!isAdmin && <section
             style={{ padding: '28px 18px', margin: '20px 0', borderRadius: 14, border: '1px solid #34302c', background: 'radial-gradient(circle at 50% 28%, #25201a 0%, #151413 58%, #101010 100%)', textAlign: 'center' }}
           >
@@ -1895,6 +1885,16 @@ export default function App() {
               </div>
             </section>
           )}
+
+          <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
+          <p
+            style={{
+              color: '#b7c0d1',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
+          </p>
 
           {isAdmin && (
             <section style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054' }}>
