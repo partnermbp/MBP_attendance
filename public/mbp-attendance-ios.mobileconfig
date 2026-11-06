@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>PayloadContent</key><array><dict>
+<key>FullScreen</key><true/>
+<key>IsRemovable</key><true/>
+<key>Label</key><string>MBP Attendance</string>
+<key>PrecomposedIcon</key><true/>
+<key>PayloadDescription</key><string>Adds MBP Attendance to the iPhone Home Screen.</string>
+<key>PayloadDisplayName</key><string>MBP Attendance Web Clip</string>
+<key>PayloadIdentifier</key><string>com.mostbetpartners.attendancecrm.webclip</string>
+<key>PayloadType</key><string>com.apple.webClip.managed</string>
+<key>PayloadUUID</key><string>7D89A2F1-7A21-4C61-9B1E-21D7A1A7B260</string>
+<key>PayloadVersion</key><integer>1</integer>
+<key>URL</key><string>https://attendence.dpdns.org/</string>
+</dict></array>
+<key>PayloadDisplayName</key><string>MBP Attendance</string>
+<key>PayloadIdentifier</key><string>com.mostbetpartners.attendancecrm.profile</string>
+<key>PayloadOrganization</key><string>Mostbet Partners</string>
+<key>PayloadRemovalDisallowed</key><false/>
+<key>PayloadType</key><string>Configuration</string>
+<key>PayloadUUID</key><string>F67D20D1-0E7B-4A8D-9E57-6B8E7E8F5F61</string>
+<key>PayloadVersion</key><integer>1</integer>
+</dict></plist>
