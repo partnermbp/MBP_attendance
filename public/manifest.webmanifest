@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "MBP Attendance",
+  "short_name": "MBP Attendance",
+  "description": "Employee attendance and team management CRM",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#03091f",
+  "theme_color": "#03091f",
+  "icons": [
+    { "src": "/icons/attendance-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
