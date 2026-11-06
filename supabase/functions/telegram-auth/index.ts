@@ -1,3 +1,4 @@
+// Deployment source remains owned by the serialized auth Edge Function workflow.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Login OTP delivery is handled by auth-mfa-login; this function only handles Telegram linking and invitation verification.\nconst SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
