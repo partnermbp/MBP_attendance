@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Generate matching web, iOS Web Clip and Android icons from the CRM brand artwork."""
+"""Generate web, iOS Web Clip and Android icons from the exact supplied PNG."""
 from pathlib import Path
 import base64
-import cairosvg
 from PIL import Image
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SVG = ROOT / "public/icons/attendance-logo.svg"
+SOURCE = ROOT / "public/icons/attendance-logo.png"
 OUT = ROOT / "public/icons"
 OUT.mkdir(parents=True, exist_ok=True)
-# Rasterize the shared brand artwork at high resolution, then create platform sizes.
-master = OUT / "attendance-master.png"
-cairosvg.svg2png(url=str(SVG), write_to=str(master), output_width=1024, output_height=1024)
-logo = Image.open(master).convert("RGBA")
+logo = Image.open(SOURCE).convert("RGBA")
+if logo.size != (1024, 1024):
+    logo = logo.resize((1024, 1024), Image.Resampling.LANCZOS)
+
 for size, name in [(180, "apple-touch-icon.png"), (192, "icon-192.png"), (512, "icon-512.png")]:
     logo.resize((size, size), Image.Resampling.LANCZOS).save(OUT / name, optimize=True)
 
@@ -42,7 +42,7 @@ profile = f'''<?xml version="1.0" encoding="UTF-8"?>
 </dict></plist>'''
 (ROOT / "public/mbp-attendance-ios.mobileconfig").write_text(profile, encoding="utf-8")
 
-# Capacitor creates android/ during CI. Use the same artwork for native launcher icons.
+# Capacitor creates android/ during CI. Generate every launcher variant from the supplied artwork.
 res = ROOT / "android/app/src/main/res"
 if res.exists():
     for density, size in [("mdpi",48),("hdpi",72),("xhdpi",96),("xxhdpi",144),("xxxhdpi",192)]:
@@ -51,7 +51,7 @@ if res.exists():
         scaled.save(d / "ic_launcher.png", optimize=True)
         scaled.save(d / "ic_launcher_round.png", optimize=True)
     fg = Image.new("RGBA", (432,432), (0,0,0,0))
-    mark = logo.copy(); mark.thumbnail((300,300), Image.Resampling.LANCZOS)
+    mark = logo.copy(); mark.thumbnail((360,360), Image.Resampling.LANCZOS)
     fg.alpha_composite(mark, ((432-mark.width)//2,(432-mark.height)//2))
     d = res / "drawable"; d.mkdir(parents=True, exist_ok=True)
     fg.save(d / "ic_launcher_foreground.png", optimize=True)
@@ -61,7 +61,6 @@ if res.exists():
     adaptive = '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/ic_launcher_background"/><foreground android:drawable="@drawable/ic_launcher_foreground"/></adaptive-icon>'
     (d / "ic_launcher.xml").write_text(adaptive, encoding="utf-8")
     (d / "ic_launcher_round.xml").write_text(adaptive, encoding="utf-8")
-    import xml.etree.ElementTree as ET
     ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
     manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
     tree = ET.parse(manifest); app = tree.getroot().find("application")
@@ -70,4 +69,4 @@ if res.exists():
     app.set(ns+"icon", "@mipmap/ic_launcher")
     app.set(ns+"roundIcon", "@mipmap/ic_launcher_round")
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
-print("Generated the PWA icons, embedded-icon iOS Web Clip profile and Android launcher icons.")
+print("Generated all platform icons and the embedded-icon iOS Web Clip profile from attendance-logo.png.")
