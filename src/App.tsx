@@ -544,12 +544,17 @@ export default function App() {
         }
       }
       setProfile(currentProfile);
-      // The auth function is the source of truth for Telegram-account linkage.
+      // The authenticated user's own profile is a reliable fallback if the
+      // Telegram status Edge Function is temporarily unavailable.
+      const profileTelegramLinked = currentProfile?.telegram_user_id != null && currentProfile?.telegram_verified_at != null;
+      setTelegramLinked(profileTelegramLinked);
       try {
-        const { data: telegramStatus } = await supabase.functions.invoke('telegram-auth', { body: { action: 'link_status' } });
-        setTelegramLinked(telegramStatus?.ok === true && telegramStatus?.linked === true ? true : telegramStatus?.ok === true && telegramStatus?.linked === false ? false : null);
+        const { data: telegramStatus, error: telegramStatusError } = await supabase.functions.invoke('telegram-auth', { body: { action: 'link_status' } });
+        if (!telegramStatusError && telegramStatus?.ok === true && typeof telegramStatus.linked === 'boolean') {
+          setTelegramLinked(telegramStatus.linked);
+        }
       } catch {
-        setTelegramLinked(null);
+        // Keep the status derived from the authenticated user's own profile.
       }
       const isAdmin = currentProfile?.active === true &&
         String(currentProfile.role).toLowerCase() === 'admin';
@@ -1828,6 +1833,40 @@ export default function App() {
             Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
           </p>
 
+{!isAdmin && <section
+            style={{ padding: '28px 18px', margin: '20px 0', borderRadius: 14, border: '1px solid #34302c', background: 'radial-gradient(circle at 50% 28%, #25201a 0%, #151413 58%, #101010 100%)', textAlign: 'center' }}
+          >
+            <div style={{ color: openRecord ? '#86efac' : 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase' }}>{openRecord ? 'SHIFT IN PROGRESS' : 'ATTENDANCE'}</div>
+            <h2 style={{ margin: '8px 0 4px', fontSize: 22 }}>{openRecord ? 'You are active on your shift' : 'Ready to start your shift?'}</h2>
+            <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work. Your current location is required to record attendance.'}</p>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+              <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
+                onClick={() => { if (!openRecord) void handleCheckIn(); }}
+                onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
+                onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
+                onContextMenu={event => event.preventDefault()}
+                style={{ width: 184, height: 184, borderRadius: '50%', border: '8px solid ' + (openRecord ? '#14532d' : '#7c3d0b'),
+                  background: openRecord ? 'radial-gradient(circle at 35% 28%, #34d399, #047857 58%, #064e3b)' : 'radial-gradient(circle at 35% 28%, #ffb454, #e66a13 58%, #9a3412)',
+                  color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  boxShadow: openRecord ? '0 0 0 8px #10b98118, 0 12px 38px #05966955, inset 0 2px 8px #ffffff55' : '0 0 0 8px #f9731618, 0 12px 38px #ea580c55, inset 0 2px 8px #ffffff55',
+                  cursor: busy || loadingDashboard ? 'wait' : openRecord ? 'grab' : 'pointer', opacity: busy || loadingDashboard ? .7 : 1,
+                  transform: stopHoldArmed ? 'scale(.94)' : 'scale(1)', transition: 'transform .15s ease, box-shadow .2s ease', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}>
+                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.13em' }}>{openRecord ? 'ACTIVE' : busy ? 'PLEASE WAIT' : 'CHECK IN'}</span>
+                <span style={{ fontSize: 35, lineHeight: 1 }}>{openRecord ? 'Ⅱ' : '⏻'}</span>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>{openRecord ? 'HOLD TO STOP' : 'START SHIFT'}</span>
+              </button>
+            </div>
+            {openRecord ? <>
+              <div style={{ marginTop: 22, fontSize: 12, color: '#9ca3af' }}>TIME ON SHIFT</div>
+              <div style={{ marginTop: 4, fontSize: 34, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#a7f3d0' }}>
+                {(() => { const elapsed = Math.max(0, clockNow - new Date(openRecord.check_in).getTime()); const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const sec = Math.floor((elapsed % 60000) / 1000); return [h,m,sec].map(v => String(v).padStart(2,'0')).join(':'); })()}
+              </div>
+              <p style={{ color: '#b7c0d1', fontSize: 12, margin: '7px 0 0' }}>Started {formatDate(openRecord.check_in, openRecord.work_timezone)} · {openRecord.work_timezone}</p>
+              <p style={{ color: stopHoldArmed ? '#fbbf24' : '#98a2b3', fontSize: 12, margin: '14px 0 0', minHeight: 18 }}>{stopHoldArmed ? 'Keep holding… release to cancel' : 'Press and hold the circular button for 1.2 seconds to stop your shift.'}</p>
+            </> : <div style={{ minHeight: 24, marginTop: 16, color: '#9ca3af', fontSize: 12 }}>Your shift timer will start after successful GPS check-in.</div>}
+            <p style={{ margin: '20px auto 0', color: '#98a2b3', fontSize: 12, maxWidth: 480 }}>GPS location is mandatory for both starting and stopping a shift. If location permission is denied or unavailable, the attendance action will not be recorded.</p>
+          </section>}
+
           {!isAdmin && (
             <section aria-label="Monthly salary attendance progress" style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054', background: preferences.theme === 'day' ? '#ffffff' : '#151719' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
@@ -1933,39 +1972,7 @@ export default function App() {
             )}
           </section>}
 
-          {!isAdmin && <section
-            style={{ padding: '28px 18px', margin: '20px 0', borderRadius: 14, border: '1px solid #34302c', background: 'radial-gradient(circle at 50% 28%, #25201a 0%, #151413 58%, #101010 100%)', textAlign: 'center' }}
-          >
-            <div style={{ color: openRecord ? '#86efac' : 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase' }}>{openRecord ? 'SHIFT IN PROGRESS' : 'ATTENDANCE'}</div>
-            <h2 style={{ margin: '8px 0 4px', fontSize: 22 }}>{openRecord ? 'You are active on your shift' : 'Ready to start your shift?'}</h2>
-            <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work. Your current location is required to record attendance.'}</p>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-              <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
-                onClick={() => { if (!openRecord) void handleCheckIn(); }}
-                onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
-                onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
-                onContextMenu={event => event.preventDefault()}
-                style={{ width: 184, height: 184, borderRadius: '50%', border: '8px solid ' + (openRecord ? '#14532d' : '#7c3d0b'),
-                  background: openRecord ? 'radial-gradient(circle at 35% 28%, #34d399, #047857 58%, #064e3b)' : 'radial-gradient(circle at 35% 28%, #ffb454, #e66a13 58%, #9a3412)',
-                  color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  boxShadow: openRecord ? '0 0 0 8px #10b98118, 0 12px 38px #05966955, inset 0 2px 8px #ffffff55' : '0 0 0 8px #f9731618, 0 12px 38px #ea580c55, inset 0 2px 8px #ffffff55',
-                  cursor: busy || loadingDashboard ? 'wait' : openRecord ? 'grab' : 'pointer', opacity: busy || loadingDashboard ? .7 : 1,
-                  transform: stopHoldArmed ? 'scale(.94)' : 'scale(1)', transition: 'transform .15s ease, box-shadow .2s ease', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}>
-                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.13em' }}>{openRecord ? 'ACTIVE' : busy ? 'PLEASE WAIT' : 'CHECK IN'}</span>
-                <span style={{ fontSize: 35, lineHeight: 1 }}>{openRecord ? 'Ⅱ' : '⏻'}</span>
-                <span style={{ fontSize: 11, fontWeight: 700 }}>{openRecord ? 'HOLD TO STOP' : 'START SHIFT'}</span>
-              </button>
-            </div>
-            {openRecord ? <>
-              <div style={{ marginTop: 22, fontSize: 12, color: '#9ca3af' }}>TIME ON SHIFT</div>
-              <div style={{ marginTop: 4, fontSize: 34, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#a7f3d0' }}>
-                {(() => { const elapsed = Math.max(0, clockNow - new Date(openRecord.check_in).getTime()); const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const sec = Math.floor((elapsed % 60000) / 1000); return [h,m,sec].map(v => String(v).padStart(2,'0')).join(':'); })()}
-              </div>
-              <p style={{ color: '#b7c0d1', fontSize: 12, margin: '7px 0 0' }}>Started {formatDate(openRecord.check_in, openRecord.work_timezone)} · {openRecord.work_timezone}</p>
-              <p style={{ color: stopHoldArmed ? '#fbbf24' : '#98a2b3', fontSize: 12, margin: '14px 0 0', minHeight: 18 }}>{stopHoldArmed ? 'Keep holding… release to cancel' : 'Press and hold the circular button for 1.2 seconds to stop your shift.'}</p>
-            </> : <div style={{ minHeight: 24, marginTop: 16, color: '#9ca3af', fontSize: 12 }}>Your shift timer will start after successful GPS check-in.</div>}
-            <p style={{ margin: '20px auto 0', color: '#98a2b3', fontSize: 12, maxWidth: 480 }}>GPS location is mandatory for both starting and stopping a shift. If location permission is denied or unavailable, the attendance action will not be recorded.</p>
-          </section>}
+          
 
           </>}
           {(isAdmin || canManageTeam) && ['team','manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
