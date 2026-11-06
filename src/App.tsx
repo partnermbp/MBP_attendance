@@ -775,7 +775,7 @@ export default function App() {
       });
       if (error) {
         console.error('Telegram invitation Edge Function request failed:', error);
-        const projectHost = (() => { try { return new URL(supabase.supabaseUrl).host; } catch { return 'unknown'; } })();
+        const projectHost = (() => { try { return new URL(import.meta.env.VITE_SUPABASE_URL).host; } catch { return 'unknown'; } })();
         setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error) + ' (Supabase project: ' + projectHost + ')');
         return;
       }
