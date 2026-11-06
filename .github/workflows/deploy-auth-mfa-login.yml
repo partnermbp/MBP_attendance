@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/deploy-auth-mfa-login.yml"
       - "supabase/functions/auth-mfa-login/**"
       - "supabase/functions/telegram-auth/**"
       - "supabase/functions/telegram-inbox-refresh/**"
