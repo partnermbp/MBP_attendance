@@ -428,6 +428,7 @@ export default function App() {
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
   const [humanTelegramAccess, setHumanTelegramAccess] = useState(false);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [salaryAttendance, setSalaryAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -605,10 +606,11 @@ export default function App() {
         setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
       } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
-        const [hierarchyResult, teamAttendanceResult, shiftsResult] = await Promise.all([
+        const [hierarchyResult, teamAttendanceResult, shiftsResult, ownAttendanceResult] = await Promise.all([
           supabase.rpc('get_my_team_hierarchy'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
         ]);
         if (hierarchyResult.error) {
           setProfiles([currentProfile]); setManagerAssignments([]);
@@ -619,6 +621,8 @@ export default function App() {
           setManagerAssignments(descendants.map(person => ({ manager_id: person.manager_id, employee_id: person.id })));
           setExpandedManagerIds(new Set([userId]));
         }
+        if (ownAttendanceResult.error) setSalaryAttendance([]);
+        else setSalaryAttendance((ownAttendanceResult.data ?? []) as Attendance[]);
         if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
         else {
           setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
@@ -637,7 +641,7 @@ export default function App() {
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
         if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
-        else setAttendance((attendanceResult.data ?? []) as Attendance[]);
+        else { setAttendance((attendanceResult.data ?? []) as Attendance[]); setSalaryAttendance((attendanceResult.data ?? []) as Attendance[]); }
         if (shiftsResult.error) setMessage(current => current || 'Could not load shifts: ' + shiftsResult.error.message);
         else setShifts((shiftsResult.data ?? []) as Shift[]);
       }
@@ -1334,7 +1338,7 @@ export default function App() {
     if (!supabase) return;
 
     setMapPreview(null);
-    setAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setTelegramMembers([]); setTelegramResponseMetrics([]); setExpandedManagerIds(new Set()); setProfile(null);
+    setAttendance([]); setSalaryAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setTelegramMembers([]); setTelegramResponseMetrics([]); setExpandedManagerIds(new Set()); setProfile(null);
     setReportStartDate(''); setReportEndDate(''); setDraftStartDate(''); setDraftEndDate('');
     setBusy(true);
     setMessage('');
@@ -1508,7 +1512,7 @@ export default function App() {
   }
   const salaryRequiredMilliseconds = salaryWeekdays * DAILY_REQUIRED_WORK_MINUTES * 60000;
   const salaryMonthPrefix = `${salaryMonthStart.getFullYear()}-${String(salaryMonthStart.getMonth() + 1).padStart(2, '0')}`;
-  const salaryWorkedMilliseconds = attendance.reduce((total, item) => {
+  const salaryWorkedMilliseconds = salaryAttendance.reduce((total, item) => {
     const workDate = item.work_date ?? (item.work_timezone
       ? getLocalDate(item.work_timezone, new Date(item.check_in))
       : item.check_in.slice(0, 10));
