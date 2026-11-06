@@ -1498,7 +1498,7 @@ export default function App() {
   }, 0);
   const reportOpenSessions = reportAttendance.filter((item) => !item.check_out).length;
   // Salary eligibility: 8 net work hours per Monday-Friday in the full calendar month.
-  const salaryMonthStart = new Date(clockNow);
+  const salaryMonthStart = new Date(Date.now());
   salaryMonthStart.setDate(1);
   salaryMonthStart.setHours(0, 0, 0, 0);
   const salaryMonthEnd = new Date(salaryMonthStart.getFullYear(), salaryMonthStart.getMonth() + 1, 0);
@@ -1514,7 +1514,7 @@ export default function App() {
       : item.check_in.slice(0, 10));
     if (!workDate.startsWith(salaryMonthPrefix)) return total;
     const start = new Date(item.check_in).getTime();
-    const end = item.check_out ? new Date(item.check_out).getTime() : clockNow;
+    const end = item.check_out ? new Date(item.check_out).getTime() : Date.now();
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
     const elapsed = end - start;
     const breakMs = elapsed >= BREAK_THRESHOLD_MINUTES * 60000 ? BREAK_MINUTES * 60000 : 0;
