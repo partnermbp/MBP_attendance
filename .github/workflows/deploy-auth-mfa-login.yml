@@ -25,7 +25,7 @@ jobs:
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || (echo "Missing SUPABASE_ACCESS_TOKEN repository secret" && exit 1)
           supabase functions deploy auth-mfa-login --project-ref "ncpcpckajzzqxxxonfnv" --yes
-          supabase functions deploy telegram-auth --project-ref "ncpcpckajzzqxxxonfnv" --yes
+          supabase functions deploy telegram-auth --project-ref "ncpcpckajzzqxxxonfnv" --no-verify-jwt --yes
           supabase functions deploy telegram-inbox-refresh --project-ref "ncpcpckajzzqxxxonfnv" --yes
           supabase functions deploy telegram-inbox-status --project-ref "ncpcpckajzzqxxxonfnv" --yes
           supabase functions deploy telegram-media-proxy --project-ref "ncpcpckajzzqxxxonfnv" --yes
