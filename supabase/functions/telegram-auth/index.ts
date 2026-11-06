@@ -266,7 +266,7 @@ async function handleTelegramUpdate(update: any) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed." }, 405);
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !BOT_TOKEN || !WEBHOOK_SECRET) return jsonResponse({ error: "Server configuration error." }, 500);
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return jsonResponse({ error: "Server configuration error." }, 500);
   try {
     let body: any;
     try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body." }, 400); }
@@ -274,6 +274,7 @@ Deno.serve(async (req: Request) => {
     if (body?.action === "link_status") return await getLinkStatus(req);
     if (body?.action === "create_invite_telegram_challenge") return await createInviteTelegramChallenge(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
     if (body?.action === "verify_invite_telegram_otp") return await verifyInviteTelegramOtp(new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(body) }));
+    if (!BOT_TOKEN || !WEBHOOK_SECRET) return jsonResponse({ error: "Telegram bot configuration is incomplete." }, 500);
     if (req.headers.get("x-telegram-bot-api-secret-token") !== WEBHOOK_SECRET) return jsonResponse({ error: "Unauthorized." }, 401);
     return await handleTelegramUpdate(body);
   } catch (error) {
