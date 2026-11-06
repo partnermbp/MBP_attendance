@@ -411,7 +411,6 @@ export default function App() {
   const [passwordFlow, setPasswordFlow] =
     useState<PasswordFlow>(readPasswordFlow);
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
-  const [inviteRedeemed, setInviteRedeemed] = useState(false);
   const [inviteDetails, setInviteDetails] = useState<InvitationDetails | null>(null);
   const [inviteChallenge, setInviteChallenge] = useState('');
   const [inviteOtp, setInviteOtp] = useState('');
@@ -548,32 +547,6 @@ export default function App() {
       }
 
       let currentProfile = profileResult.data as Profile | null;
-      if (inviteToken && !inviteRedeemed && currentProfile?.active) {
-        const { data: authResult } = await supabase.auth.getUser();
-        const ticket = typeof authResult.user?.user_metadata?.registration_ticket === 'string'
-          ? authResult.user.user_metadata.registration_ticket
-          : sessionStorage.getItem('mbp_registration_ticket_' + inviteToken) || '';
-        if (ticket) {
-          const { error: inviteError } = await supabase.rpc('redeem_manager_invitation', {
-            invitation_token: inviteToken,
-            registration_ticket: ticket,
-          });
-          if (inviteError) {
-            setMessage('Invitation could not be redeemed: ' + inviteError.message);
-          } else {
-            setInviteRedeemed(true);
-            sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
-            sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
-            await supabase.auth.updateUser({ data: { registration_ticket: null } });
-            setMessage('Invitation accepted. Your verified Telegram identity and manager relationship are now active.');
-            const refreshed = await supabase.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at').eq('id', userId).maybeSingle();
-            if (!refreshed.error && refreshed.data) currentProfile = refreshed.data as Profile;
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } else {
-          setMessage('Before this invitation can be accepted, complete Telegram verification on the invitation page and register using the invited corporate email.');
-        }
-      }
       setProfile(currentProfile);
       // The authenticated user's own profile is a reliable fallback if the
       // Telegram status Edge Function is temporarily unavailable.
@@ -690,7 +663,7 @@ export default function App() {
       setLoadingDashboard(false);
       setProfileReady(true);
     }
-  }, [inviteToken, inviteRedeemed, recordCrmLogin]);
+  }, [inviteToken, recordCrmLogin]);
 
   useEffect(() => {
     if (!supabase) {
@@ -942,7 +915,7 @@ export default function App() {
         window.history.replaceState({}, document.title, window.location.pathname); setScreen('login'); return;
       }
       mfaLoginInProgressRef.current = false;
-      setInviteRedeemed(true); setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
+      setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
       setMessage('Registration complete. Both identities are verified and your CRM account is active.');
       await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id);
       window.history.replaceState({}, document.title, window.location.pathname);
