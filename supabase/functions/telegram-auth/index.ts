@@ -169,7 +169,7 @@ async function sendInviteEmailOtp(req: Request) {
     .eq("token_hash", await sha256Hex(token)).maybeSingle();
   if (error || !invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Invitation is invalid, expired, or already used." }, 400);
   const { data: tg, error: tgError } = await supabase.from("manager_invitation_telegram_verifications")
-    .select("id, verified_at, ticket_used_at, ticket_expires_at")
+    .select("id, verified_at, ticket_used_at, ticket_expires_at, telegram_user_id, telegram_username")
     .eq("invitation_id", invite.id).eq("ticket_hash", await sha256Hex(telegramTicket)).maybeSingle();
   if (tgError || !tg || !tg.verified_at || tg.ticket_used_at || !tg.ticket_expires_at || new Date(tg.ticket_expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Telegram verification is missing or expired. Verify Telegram again." }, 400);
   const { data: old, error: oldError } = await supabase.from("manager_invitation_email_verifications")
@@ -258,6 +258,10 @@ async function createInvitedAccount(req: Request) {
     user_metadata: { full_name: invite.admin_panel_name, admin_panel_name: invite.admin_panel_name },
   });
   if (metadataError) console.error("Could not clear consumed invitation metadata:", metadataError.message);
+  const { error: usernameError } = await supabase.from("profiles")
+    .update({ telegram_username: tg.telegram_username ?? null })
+    .eq("id", created.user.id);
+  if (usernameError) console.error("Could not save verified Telegram username:", usernameError.message);
   return jsonResponse({ ok: true, email: invite.corporate_email, message: "Both identity checks passed and your CRM account has been created." });
 }
 
