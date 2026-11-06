@@ -852,7 +852,17 @@ export default function App() {
     setBusy(true); setMessage('');
     try {
       const { data, error } = await supabase.functions.invoke('telegram-auth', { body: { action: 'verify_invite_email_otp', invitation_token: inviteToken, otp: inviteEmailOtp } });
-      if (error || !data?.ok || !data?.email_registration_ticket) { setMessage(data?.error || error?.message || 'Corporate email verification failed.'); return; }
+      if (error) {
+        let detail = error.message || 'Corporate email verification failed.';
+        try {
+          const response = (error as any).context;
+          const payload = response ? await response.clone().json() : null;
+          if (typeof payload?.error === 'string') detail = payload.error;
+        } catch { /* Keep the SDK message if the response body is unavailable. */ }
+        setMessage(detail);
+        return;
+      }
+      if (!data?.ok || !data?.email_registration_ticket) { setMessage(data?.error || 'Corporate email verification failed.'); return; }
       setEmailRegistrationTicket(data.email_registration_ticket);
       sessionStorage.setItem('mbp_email_registration_ticket_' + inviteToken, data.email_registration_ticket);
       setInviteEmailVerified(true); setInvitePasswordStep(true); setInviteEmailOtp('');
