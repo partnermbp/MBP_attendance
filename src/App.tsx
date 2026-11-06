@@ -1715,17 +1715,6 @@ export default function App() {
                   </form>}
                 </> : <>
                   <p style={{color:'#86efac'}}>Telegram identity verified.</p>
-                  <form onSubmit={handleRegister} style={{marginTop:16}}>
-                    <label htmlFor="register-email">Corporate email</label>
-                    <input id="register-email" type="email" autoComplete="email" required readOnly value={inviteDetails.corporate_email} onChange={event=>setEmail(event.target.value)} style={inputStyle}/>
-                    <label htmlFor="register-password" style={{display:'block',marginTop:12}}>Create password (at least 8 characters)</label>
-                    <input id="register-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event=>setPassword(event.target.value)} style={inputStyle}/>
-                    <label htmlFor="register-confirm-password" style={{display:'block',marginTop:12}}>Confirm password</label>
-                    <input id="register-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} style={inputStyle}/>
-                    <button type="submit" disabled={busy || !inviteTelegramVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Complete registration'}</button>
-                  </form>
-                </>}
-                  <p style={{color:'#86efac'}}>Telegram identity verified.</p>
                   {!inviteEmailVerified ? <>
                     <p style={{color:'#b7c0d1',fontSize:13}}>Next, verify the official email address assigned to this invitation.</p>
                     {!inviteEmailSent ? <button type="button" onClick={handleSendInviteEmailOtp} disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy?'Sending code…':'Send email verification code'}</button> : <form onSubmit={handleVerifyInviteEmail} style={{marginTop:14}}>
@@ -1745,7 +1734,7 @@ export default function App() {
                     <button type="submit" disabled={busy || !inviteTelegramVerified || !inviteEmailVerified} style={{...buttonStyle,width:'100%',marginTop:14}}>{busy?'Creating account…':'Complete registration'}</button>
                   </form>}
                 </>}
-Already registered? <a href={window.location.pathname} style={{color:'#82b4ff'}}>Sign in</a></p>
+                <p style={{textAlign:'center',marginTop:24,color:'#b7c0d1',fontSize:13}}>Already registered? <a href={window.location.pathname} style={{color:'#82b4ff'}}>Sign in</a></p>
               </>}
             </> : <p style={{color:'#b7c0d1'}}>Loading invitation details…</p>}
           </div>}
