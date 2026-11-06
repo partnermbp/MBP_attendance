@@ -62,6 +62,7 @@ if res.exists():
     (d / "ic_launcher.xml").write_text(adaptive, encoding="utf-8")
     (d / "ic_launcher_round.xml").write_text(adaptive, encoding="utf-8")
     import xml.etree.ElementTree as ET
+    ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
     manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
     tree = ET.parse(manifest); app = tree.getroot().find("application")
     if app is None: raise SystemExit("Android application element missing")
