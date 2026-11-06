@@ -503,6 +503,7 @@ export default function App() {
       if (savedTicket) {
         setRegistrationTicket(savedTicket);
         setInviteTelegramVerified(true);
+        setInvitePasswordStep(true);
       }
       const savedEmailTicket = sessionStorage.getItem('mbp_email_registration_ticket_' + inviteToken) || '';
       if (savedEmailTicket) {
@@ -823,6 +824,7 @@ export default function App() {
       setRegistrationTicket(data.registration_ticket);
       sessionStorage.setItem('mbp_registration_ticket_' + inviteToken, data.registration_ticket);
       setInviteTelegramVerified(true);
+      setInvitePasswordStep(true);
       setInviteOtp('');
       setMessage('Telegram verified. Next, verify your official email address.');
     } catch (error) {
