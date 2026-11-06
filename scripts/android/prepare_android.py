@@ -1,25 +1,57 @@
 #!/usr/bin/env python3
-"""Apply Android permissions and install the shared CRM launcher branding."""
+"""Apply Android location permissions using namespace-safe XML editing."""
 from pathlib import Path
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
-manifest = Path("android/app/src/main/AndroidManifest.xml")
+ROOT = Path(__file__).resolve().parents[2]
+manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
 if not manifest.exists():
     raise SystemExit(f"Android manifest not found: {manifest}")
-source = manifest.read_text(encoding="utf-8")
-permissions = [
-    '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
-    '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />',
-]
-for permission in permissions:
-    if permission not in source:
-        marker = "    <application"
-        if marker not in source:
-            raise SystemExit("Could not find Android application element.")
-        source = source.replace(marker, permission + "\\n" + marker, 1)
-gps = '    <uses-feature android:name="android.hardware.location.gps" android:required="false" />'
-if gps not in source:
-    source = source.replace("    <application", gps + "\\n    <application", 1)
-manifest.write_text(source, encoding="utf-8")
-subprocess.run([sys.executable, "scripts/branding/generate_icons.py"], check=True)
+
+ANDROID_NS = "http://schemas.android.com/apk/res/android"
+ET.register_namespace("android", ANDROID_NS)
+android = lambda name: f"{{{ANDROID_NS}}}{name}"
+
+tree = ET.parse(manifest)
+root = tree.getroot()
+
+# Ensure the Android namespace is declared by serializing namespaced attributes,
+# not by inserting raw XML text (which can leave an unbound android: prefix).
+permissions = {
+    "android.permission.ACCESS_COARSE_LOCATION",
+    "android.permission.ACCESS_FINE_LOCATION",
+}
+existing = {
+    node.get(android("name"))
+    for node in root.findall("uses-permission")
+}
+application = root.find("application")
+if application is None:
+    raise SystemExit("Android application element missing")
+
+for permission in sorted(permissions - existing):
+    node = ET.Element("uses-permission")
+    node.set(android("name"), permission)
+    root.insert(list(root).index(application), node)
+
+features = root.findall("uses-feature")
+gps_declared = any(
+    node.get(android("name")) == "android.hardware.location.gps"
+    for node in features
+)
+if not gps_declared:
+    node = ET.Element("uses-feature")
+    node.set(android("name"), "android.hardware.location.gps")
+    node.set(android("required"), "false")
+    root.insert(list(root).index(application), node)
+
+tree.write(manifest, encoding="utf-8", xml_declaration=True)
+
+# Generate shared PWA/iOS assets and the Android launcher icon set.
+subprocess.run(
+    [sys.executable, str(ROOT / "scripts/branding/generate_icons.py")],
+    cwd=ROOT,
+    check=True,
+)
