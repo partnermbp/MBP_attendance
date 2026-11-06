@@ -255,6 +255,23 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Please try again.';
 }
 
+async function getFunctionRequestError(error: unknown): Promise<string> {
+  const item = error as { name?: string; message?: string; context?: unknown };
+  const name = typeof item?.name === 'string' ? item.name : 'RequestError';
+  const message = typeof item?.message === 'string' ? item.message : 'The browser could not complete the request.';
+  const context = item?.context;
+  if (context instanceof Response) {
+    let body = '';
+    try { body = (await context.clone().text()).slice(0, 500); } catch { /* response body unavailable */ }
+    return `${name}: HTTP ${context.status}${body ? ' — ' + body : ''}`;
+  }
+  if (context && typeof context === 'object') {
+    const response = context as { status?: number; statusText?: string };
+    if (typeof response.status === 'number') return `${name}: HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
+  }
+  return `${name}: ${message}`;
+}
+
 function isApprovedEmail(email: string) {
   const normalized = email.trim().toLowerCase();
 
@@ -753,8 +770,13 @@ export default function App() {
       const { data, error } = await supabase.functions.invoke('telegram-auth', {
         body: { action: 'create_invite_telegram_challenge', invitation_token: inviteToken },
       });
-      if (error || !data?.ok || !data?.bot_url) {
-        setMessage(data?.error || error?.message || 'Unable to start Telegram verification.');
+      if (error) {
+        console.error('Telegram invitation Edge Function request failed:', error);
+        setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error));
+        return;
+      }
+      if (!data?.ok || !data?.bot_url) {
+        setMessage(data?.error || 'The Telegram verification function returned an unexpected response.');
         return;
       }
       const challenge = new URL(data.bot_url).searchParams.get('start') || '';
