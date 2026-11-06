@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Verify Supabase project configuration
+      - name: Generate branded web and iOS icons\n        run: |\n          python -m pip install Pillow CairoSVG\n          python scripts/branding/generate_icons.py\n\n      - name: Verify Supabase project configuration
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
