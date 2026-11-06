@@ -902,8 +902,10 @@ export default function App() {
       sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
       sessionStorage.removeItem('mbp_email_registration_ticket_' + inviteToken);
       sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
+      mfaLoginInProgressRef.current = true;
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (signInError || !authData.session || !authData.user) {
+        mfaLoginInProgressRef.current = false;
         setMessage('Your account has been created and verified. Sign in with your new password to enter the CRM.');
         window.history.replaceState({}, document.title, window.location.pathname); return;
       }
@@ -911,8 +913,11 @@ export default function App() {
       const { data: access, error: accessError } = await supabase.functions.invoke('auth-mfa-login', { body: { action: 'begin' } });
       if (accessError || !access?.ok || access.stage !== 'complete') {
         await supabase.auth.signOut({ scope: 'local' }); setSession(null);
-        setMessage(access?.error || accessError?.message || 'Registration is complete, but secure first access could not be approved. Please sign in again.'); return;
+        mfaLoginInProgressRef.current = false;
+        setMessage(access?.error || accessError?.message || 'Registration is complete, but secure first access could not be approved. Please sign in again.');
+        window.history.replaceState({}, document.title, window.location.pathname); setScreen('login'); return;
       }
+      mfaLoginInProgressRef.current = false;
       setInviteRedeemed(true); setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
       setMessage('Registration complete. Both identities are verified and your CRM account is active.');
       await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id);
