@@ -12,6 +12,7 @@ on:
       - 'vite.config.ts'
       - 'tsconfig*.json'
       - 'scripts/android/**'
+      - 'scripts/branding/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
