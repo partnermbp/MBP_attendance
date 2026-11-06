@@ -911,7 +911,18 @@ export default function App() {
       const { data: created, error: createError } = await supabase.functions.invoke('telegram-auth', {
         body: { action: 'create_invited_account', invitation_token: inviteToken, registration_ticket: ticket, email_registration_ticket: emailTicket, password },
       });
-      if (createError || !created?.ok) { setMessage(created?.error || createError?.message || 'Account creation failed. Please try again.'); return; }
+      if (createError || !created?.ok) {
+        let serverMessage = created?.error || '';
+        if (!serverMessage && createError && typeof createError === 'object' && 'context' in createError) {
+          try {
+            const context = (createError as { context?: Response }).context;
+            const payload = context ? await context.clone().json() : null;
+            if (typeof payload?.error === 'string') serverMessage = payload.error;
+          } catch { /* Fall back to the SDK error message. */ }
+        }
+        setMessage(serverMessage || createError?.message || 'Account creation failed. Please try again.');
+        return;
+      }
       sessionStorage.removeItem('mbp_registration_ticket_' + inviteToken);
       sessionStorage.removeItem('mbp_email_registration_ticket_' + inviteToken);
       sessionStorage.removeItem('mbp_invite_challenge_' + inviteToken);
