@@ -1,7 +1,8 @@
 // Deployment source remains owned by the serialized auth Edge Function workflow.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Login OTP delivery is handled by auth-mfa-login; this function only handles Telegram linking and invitation verification.\nconst SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+// Login OTP delivery is handled by auth-mfa-login; this function only handles Telegram linking and invitation verification.
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET")!;
@@ -48,9 +49,6 @@ async function sendTelegramMessage(chatId: number, messageText: string): Promise
 
 const SMTP2GO_API_KEY = Deno.env.get("SMTP2GO_API_KEY") || "";
 const SMTP2GO_FROM_EMAIL = Deno.env.get("SMTP2GO_FROM_EMAIL") || "";
-function randomOtp(): string {
-  return String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
-}
 async function sendInvitationEmailOtp(email: string, code: string): Promise<void> {
   if (!SMTP2GO_API_KEY || !SMTP2GO_FROM_EMAIL) throw new Error("Corporate email delivery is not configured.");
   const response = await fetch("https://api.smtp2go.com/v3/email/send", {
