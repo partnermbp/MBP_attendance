@@ -65,6 +65,8 @@ type Coordinates = {
 const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
 const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/app-debug.apk';
 const BREAK_MINUTES = 60;
+const BREAK_THRESHOLD_MINUTES = 5 * 60;
+const DAILY_REQUIRED_WORK_MINUTES = 8 * 60;
 const APPROVED_EMAIL_DOMAINS = [
   'mostbet.partners',
   'infradim.com',
@@ -164,15 +166,11 @@ function getSessionDuration(item: Attendance, now: number) {
     };
   }
 
-  const breakMilliseconds = Math.min(
-    BREAK_MINUTES * 60000,
-    elapsedMilliseconds
-  );
+  const breakMilliseconds = elapsedMilliseconds >= BREAK_THRESHOLD_MINUTES * 60000
+    ? BREAK_MINUTES * 60000
+    : 0;
 
-  const workedMilliseconds = Math.max(
-    0,
-    elapsedMilliseconds - BREAK_MINUTES * 60000
-  );
+  const workedMilliseconds = Math.max(0, elapsedMilliseconds - breakMilliseconds);
 
   return {
     elapsed: formatDuration(elapsedMilliseconds),
@@ -1388,7 +1386,7 @@ export default function App() {
         const elapsedMinutes = Number.isFinite(start) && Number.isFinite(end) && end >= start
           ? Math.floor((end - start) / 60000)
           : '';
-        const workedMinutes = elapsedMinutes === '' ? '' : Math.max(0, Number(elapsedMinutes) - BREAK_MINUTES);
+        const workedMinutes = elapsedMinutes === '' ? '' : Math.max(0, Number(elapsedMinutes) - (Number(elapsedMinutes) >= BREAK_THRESHOLD_MINUTES ? BREAK_MINUTES : 0));
         const checkInMap = item.check_in_lat != null && item.check_in_lng != null
           ? `https://www.google.com/maps?q=${item.check_in_lat},${item.check_in_lng}`
           : '';
@@ -1495,9 +1493,39 @@ export default function App() {
     const start = new Date(item.check_in).getTime();
     const end = item.check_out ? new Date(item.check_out).getTime() : start;
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
-    return total + Math.max(0, end - start - BREAK_MINUTES * 60000);
+    const elapsed = Math.max(0, end - start);
+    return total + Math.max(0, elapsed - (elapsed >= BREAK_THRESHOLD_MINUTES * 60000 ? BREAK_MINUTES * 60000 : 0));
   }, 0);
   const reportOpenSessions = reportAttendance.filter((item) => !item.check_out).length;
+  // Salary eligibility: 8 net work hours per Monday-Friday in the full calendar month.
+  const salaryMonthStart = new Date(clockNow);
+  salaryMonthStart.setDate(1);
+  salaryMonthStart.setHours(0, 0, 0, 0);
+  const salaryMonthEnd = new Date(salaryMonthStart.getFullYear(), salaryMonthStart.getMonth() + 1, 0);
+  let salaryWeekdays = 0;
+  for (let day = new Date(salaryMonthStart); day <= salaryMonthEnd; day.setDate(day.getDate() + 1)) {
+    if (day.getDay() !== 0 && day.getDay() !== 6) salaryWeekdays += 1;
+  }
+  const salaryRequiredMilliseconds = salaryWeekdays * DAILY_REQUIRED_WORK_MINUTES * 60000;
+  const salaryMonthPrefix = `${salaryMonthStart.getFullYear()}-${String(salaryMonthStart.getMonth() + 1).padStart(2, '0')}`;
+  const salaryWorkedMilliseconds = attendance.reduce((total, item) => {
+    const workDate = item.work_date ?? (item.work_timezone
+      ? getLocalDate(item.work_timezone, new Date(item.check_in))
+      : item.check_in.slice(0, 10));
+    if (!workDate.startsWith(salaryMonthPrefix)) return total;
+    const start = new Date(item.check_in).getTime();
+    const end = item.check_out ? new Date(item.check_out).getTime() : clockNow;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
+    const elapsed = end - start;
+    const breakMs = elapsed >= BREAK_THRESHOLD_MINUTES * 60000 ? BREAK_MINUTES * 60000 : 0;
+    return total + Math.max(0, elapsed - breakMs);
+  }, 0);
+  const salaryProgress = salaryRequiredMilliseconds > 0
+    ? Math.min(100, salaryWorkedMilliseconds / salaryRequiredMilliseconds * 100)
+    : 0;
+  const salaryRemainingMilliseconds = Math.max(0, salaryRequiredMilliseconds - salaryWorkedMilliseconds);
+  const salaryProgressColor = salaryProgress < 80 ? '#ef4444' : salaryProgress < 90 ? '#f59e0b' : '#22c55e';
+
 
   const openRecord = attendance
     .filter((item) => {
@@ -1792,6 +1820,35 @@ export default function App() {
           >
             Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
           </p>
+
+          {!isAdmin && (
+            <section aria-label="Monthly salary attendance progress" style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054', background: preferences.theme === 'day' ? '#ffffff' : '#151719' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>Monthly salary attendance</h2>
+                <strong style={{ color: salaryProgressColor, fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>{salaryProgress.toFixed(1)}%</strong>
+              </div>
+              <div style={{ marginTop: 12, height: 13, overflow: 'hidden', borderRadius: 99, background: preferences.theme === 'day' ? '#e5e7eb' : '#30343a' }}>
+                <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(salaryProgress)} aria-label="Monthly required work time completed" style={{ width: `${salaryProgress}%`, height: '100%', borderRadius: 99, background: salaryProgressColor, transition: 'width .3s ease, background .3s ease' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 12, fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
+                <span>Completed: <strong>{formatDuration(salaryWorkedMilliseconds)}</strong></span>
+                <span>Required: <strong>{formatDuration(salaryRequiredMilliseconds)}</strong></span>
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
+                {salaryProgress >= 100
+                  ? 'Monthly minimum attendance completed. Salary eligibility threshold achieved.'
+                  : `${formatDuration(salaryRemainingMilliseconds)} remaining to complete this month’s required work time.`}
+              </p>
+              <p style={{ margin: '8px 0 0', fontSize: 11, color: preferences.theme === 'day' ? '#667085' : '#98a2b3' }}>
+                {salaryWeekdays} weekdays × 8 work hours. Weekends excluded. Break deduction: 1 hour only on shifts lasting 5 hours or more.
+              </p>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, fontSize: 11, color: preferences.theme === 'day' ? '#667085' : '#98a2b3' }}>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#ef4444', marginRight: 5 }} />Below 80%</span>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', marginRight: 5 }} />80–89.9%</span>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#22c55e', marginRight: 5 }} />90–100%</span>
+              </div>
+            </section>
+          )}
 
           {isAdmin && (
             <section style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054' }}>
