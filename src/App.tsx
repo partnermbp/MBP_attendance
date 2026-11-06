@@ -158,10 +158,13 @@ function getSessionDuration(item: Attendance, now: number) {
   const elapsedMilliseconds = end - start;
 
   if (!item.check_out) {
+    const liveBreakMilliseconds = elapsedMilliseconds >= BREAK_THRESHOLD_MINUTES * 60000
+      ? BREAK_MINUTES * 60000
+      : 0;
     return {
       elapsed: formatDuration(elapsedMilliseconds),
-      worked: 'Pending checkout',
-      breakDeduction: 'Not applied yet',
+      worked: formatDuration(Math.max(0, elapsedMilliseconds - liveBreakMilliseconds)),
+      breakDeduction: liveBreakMilliseconds > 0 ? formatDuration(liveBreakMilliseconds) : 'Not applied yet',
       status: 'Open session',
     };
   }
