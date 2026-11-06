@@ -236,7 +236,7 @@ async function createInvitedAccount(req: Request) {
     .eq("token_hash", tokenHash).maybeSingle();
   if (error || !invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Invitation is invalid, expired, or already used." }, 400);
   const { data: tg, error: tgError } = await supabase.from("manager_invitation_telegram_verifications")
-    .select("id, verified_at, ticket_used_at, ticket_expires_at")
+    .select("id, verified_at, ticket_used_at, ticket_expires_at, telegram_username")
     .eq("invitation_id", invite.id).eq("ticket_hash", await sha256Hex(telegramTicket)).maybeSingle();
   const { data: em, error: emError } = await supabase.from("manager_invitation_email_verifications")
     .select("id, verified_at, ticket_used_at, email_ticket_expires_at, email")
@@ -248,8 +248,21 @@ async function createInvitedAccount(req: Request) {
     user_metadata: { full_name: invite.admin_panel_name, admin_panel_name: invite.admin_panel_name, invitation_token: token, registration_ticket: telegramTicket, email_registration_ticket: emailTicket },
   });
   if (createError || !created.user) {
-    console.error("Invited account creation failed:", createError?.message || "No user returned");
-    return jsonResponse({ error: createError?.message?.includes("already been registered") ? "An account already exists for this email. Contact your administrator." : "Account creation failed. Please try again or contact your administrator." }, 409);
+    const failure = createError?.message || "No user returned";
+    console.error("Invited account creation failed:", failure);
+    const lowerFailure = failure.toLowerCase();
+    const publicMessage = lowerFailure.includes("already been registered")
+      ? "An account already exists for this email. Contact your administrator."
+      : lowerFailure.includes("telegram account is already linked")
+        ? "This Telegram account is already linked to another CRM account. Contact your administrator."
+        : lowerFailure.includes("email address is not permitted")
+          ? "This email address is not permitted by the CRM account policy. Contact your administrator."
+          : lowerFailure.includes("invitation is invalid")
+            ? "This invitation is invalid, expired, or already used. Ask your inviter for a new link."
+            : lowerFailure.includes("verification is missing") || lowerFailure.includes("verification is required")
+              ? "One of the verification checks has expired or is no longer valid. Restart the invitation registration."
+              : "Account creation failed: " + failure;
+    return jsonResponse({ error: publicMessage }, 409);
   }
   // The database trigger has already consumed both tickets. Remove raw bearer
   // tickets from Auth metadata immediately; only non-secret profile labels remain.
