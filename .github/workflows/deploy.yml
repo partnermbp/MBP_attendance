@@ -1,3 +1,4 @@
+# Rebuild Pages using the Vite production workflow.
 
 name: Build and deploy Attendance CRM
 
