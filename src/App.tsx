@@ -536,7 +536,7 @@ export default function App() {
     try {
       const profileResult = await supabase
         .from('profiles')
-        .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at')
+        .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username')
         .eq('id', userId)
         .maybeSingle();
 
