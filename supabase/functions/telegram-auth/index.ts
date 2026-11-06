@@ -95,7 +95,7 @@ async function getLinkStatus(req: Request) {
     .eq("id", authData.user.id).maybeSingle();
   if (error) return jsonResponse({ ok: false, error: "Unable to check your Telegram status." }, 500);
   if (!profile || profile.active !== true) return jsonResponse({ ok: false, error: "Your account is not active." }, 403);
-  const linked = profile.telegram_user_id != null && profile.telegram_verified_at != null;
+  const linked = profile.telegram_user_id != null || profile.telegram_verified_at != null;
   return jsonResponse({ ok: true, linked });
 }
 
