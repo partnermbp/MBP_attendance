@@ -258,7 +258,7 @@ function getErrorMessage(error: unknown) {
 function isApprovedEmail(email: string) {
   const normalized = email.trim().toLowerCase();
 
-  if (normalized === 'partnermbp@gmail.com') return true;
+  if (['partnermbp@gmail.com', 'vladimirlenin458@gmail.com', 'gameon892@gmail.com'].includes(normalized)) return true;
 
   const separator = normalized.lastIndexOf('@');
   if (separator < 1) return false;
