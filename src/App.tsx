@@ -266,8 +266,11 @@ async function getFunctionRequestError(error: unknown): Promise<string> {
     return `${name}: HTTP ${context.status}${body ? ' — ' + body : ''}`;
   }
   if (context && typeof context === 'object') {
-    const response = context as { status?: number; statusText?: string };
+    const response = context as { status?: number; statusText?: string; name?: string; message?: string; cause?: unknown };
     if (typeof response.status === 'number') return `${name}: HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
+    const nested = [response.name, response.message].filter((value): value is string => typeof value === 'string' && value.length > 0).join(': ');
+    const cause = response.cause instanceof Error ? `${response.cause.name}: ${response.cause.message}` : '';
+    if (nested || cause) return `${name}: ${nested || message}${cause ? ' (cause: ' + cause + ')' : ''}`;
   }
   return `${name}: ${message}`;
 }
@@ -772,7 +775,8 @@ export default function App() {
       });
       if (error) {
         console.error('Telegram invitation Edge Function request failed:', error);
-        setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error));
+        const projectHost = (() => { try { return new URL(supabase.supabaseUrl).host; } catch { return 'unknown'; } })();
+        setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error) + ' (Supabase project: ' + projectHost + ')');
         return;
       }
       if (!data?.ok || !data?.bot_url) {
