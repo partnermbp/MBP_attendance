@@ -66,6 +66,8 @@ type Coordinates = {
 const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
 const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/app-debug.apk';
 const BREAK_MINUTES = 60;
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000;
+const INACTIVITY_STORAGE_PREFIX = 'mbp_crm_last_activity_';
 const BREAK_THRESHOLD_MINUTES = 5 * 60;
 const DAILY_REQUIRED_WORK_MINUTES = 8 * 60;
 const APPROVED_EMAIL_DOMAINS = [
@@ -733,6 +735,9 @@ export default function App() {
 
       if (event === 'SIGNED_OUT') {
         if (mfaLoginInProgressRef.current) return;
+        if (nextSession?.user.id) {
+          try { localStorage.removeItem(INACTIVITY_STORAGE_PREFIX + nextSession.user.id); } catch { /* storage may be unavailable */ }
+        }
         setSession(null);
         setScreen('login');
         setAttendance([]);
@@ -748,6 +753,80 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [loadDashboard, passwordFlow]);
+
+  // Sign out after 60 minutes without real user interaction. The timestamp is
+  // shared between tabs so activity in one CRM tab keeps the others alive too.
+  useEffect(() => {
+    if (!supabase || screen !== 'signed-in' || !session?.user.id) return;
+
+    const storageKey = INACTIVITY_STORAGE_PREFIX + session.user.id;
+    let lastActivityAt = Date.now();
+    let lastStorageWriteAt = 0;
+    let signingOut = false;
+
+    try {
+      const saved = Number(localStorage.getItem(storageKey));
+      if (Number.isFinite(saved) && saved > 0) lastActivityAt = saved;
+      else localStorage.setItem(storageKey, String(lastActivityAt));
+    } catch {
+      // The in-memory timer still works when browser storage is unavailable.
+    }
+
+    const signOutForInactivity = async () => {
+      if (signingOut) return;
+      signingOut = true;
+      setProfileReady(false);
+      setMessage('You were signed out after 60 minutes of inactivity. Please sign in again.');
+      try { localStorage.removeItem(storageKey); } catch { /* storage may be unavailable */ }
+      await supabase!.auth.signOut({ scope: 'local' });
+      setSession(null);
+      setScreen('login');
+    };
+
+    const recordActivity = () => {
+      if (signingOut) return;
+      lastActivityAt = Date.now();
+      if (lastActivityAt - lastStorageWriteAt < 5000) return;
+      lastStorageWriteAt = lastActivityAt;
+      try { localStorage.setItem(storageKey, String(lastActivityAt)); } catch { /* storage may be unavailable */ }
+    };
+
+    const checkInactivity = () => {
+      if (Date.now() - lastActivityAt >= INACTIVITY_TIMEOUT_MS) {
+        void signOutForInactivity();
+      }
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel', 'scroll',
+    ];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, recordActivity, { passive: true }));
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkInactivity();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== storageKey) return;
+      if (event.newValue == null) {
+        void signOutForInactivity();
+        return;
+      }
+      const sharedActivityAt = Number(event.newValue);
+      if (Number.isFinite(sharedActivityAt)) lastActivityAt = Math.max(lastActivityAt, sharedActivityAt);
+    };
+    window.addEventListener('storage', handleStorage);
+
+    const interval = window.setInterval(checkInactivity, 5000);
+    checkInactivity();
+
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, recordActivity));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorage);
+      window.clearInterval(interval);
+    };
+  }, [screen, session?.user.id]);
 
   async function handleStartInviteTelegram() {
     if (!supabase || !inviteToken || !inviteDetails?.valid) return;
