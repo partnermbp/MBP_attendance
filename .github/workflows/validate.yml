@@ -3,7 +3,7 @@ name: Validate attendance app
 on:
   push:
     branches:
-      - feature/attendance-reports-v1
+      - main
   pull_request:
     branches:
       - main
