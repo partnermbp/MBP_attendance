@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import KnowMore from './KnowMore';
 import { createPortal } from 'react-dom';
 import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -589,12 +590,12 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   return <section className={"telegram-human-inbox" + (mobileExpanded ? " is-mobile-expanded" : "")} style={{ ...panel, overflow: 'hidden', color: '#e7e8ed' }}>
     <header className="telegram-inbox-header" style={{ padding: '8px 0 14px', borderBottom: '1px solid #26272d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><p style={{ ...muted, margin: '6px 0 0' }}>Private chats from the connected Telegram account. Messages refresh automatically.</p></div>
+      <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><KnowMore>Private conversations from the connected Telegram account. Messages refresh automatically while this inbox is open.</KnowMore></div>
       <button className="telegram-desktop-sync" type="button" disabled={loading || syncing} style={{ ...action, background: '#1d2939', border: '1px solid #475467', opacity: syncing ? 0.6 : 1 }} onClick={() => { void requestSync(); }}>{syncing ? 'Sync running…' : 'Sync Now'}</button>
     </header>
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
     {isAdmin && selected && <section className="telegram-page-assignment">
-      <div className="telegram-page-assignment-heading"><strong>Assign to CRM employees</strong><span>Current conversation: {selected.title}</span></div>
+      <div className="telegram-page-assignment-heading"><strong>Assign conversation</strong><span>{selected.title}</span></div>
       <div className="telegram-assignment-controls">
         <select aria-label="Choose employee for conversation" style={{ ...control, flex: '1 1 200px' }} value={assignee} onChange={event => setAssignee(event.target.value)}>
           <option value="">Choose employee…</option>
@@ -607,7 +608,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
           const person = profiles.find(p => p.id === item.profile_id);
           return <span key={item.profile_id} style={{ ...control, fontSize: 12 }}>{person?.full_name || person?.email || item.profile_id} <button type="button" aria-label="Remove assignment" onClick={() => void removeAssignment(item.profile_id)} style={{ border: 0, color: '#fda29b', background: 'transparent', cursor: 'pointer' }}>×</button></span>;
         })}
-        {!selectedAssignments.length && <span style={muted}>Not assigned yet.</span>}
+        {!selectedAssignments.length && <span style={muted}>Unassigned</span>}
       </div>
     </section>}
     <div className="telegram-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.72fr) minmax(260px, 1.9fr)', minHeight: 420 }}>
