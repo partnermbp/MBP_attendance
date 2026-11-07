@@ -10,6 +10,7 @@ import ManagementTools from './components/ManagementTools';
 import TeamAttendanceReport from './components/TeamAttendanceReport';
 import ManagerHierarchy from './components/ManagerHierarchy';
 import TelegramIdRequests from './components/TelegramIdRequests';
+import KnowMore from './components/KnowMore';
 
 type Attendance = {
   id: string;
@@ -1743,9 +1744,7 @@ export default function App() {
         <section style={{ ...panelStyle, maxWidth: 430 }}>
           {!inviteToken && <>
           <h1>Welcome back</h1>
-          <p style={{ color: '#b7c0d1' }}>
-            Sign in with your approved account.
-          </p>
+          <KnowMore>Use your registered work email and password. Email and Telegram verification may be required to protect your account.</KnowMore>
 
           {!otpRequested && !emailOtpRequested ? <form onSubmit={handleLogin}>
             <label htmlFor="email">Login ID / work email</label>
@@ -2043,9 +2042,9 @@ export default function App() {
                 {(() => { const elapsed = Math.max(0, clockNow - new Date(openRecord.check_in).getTime()); const h = Math.floor(elapsed / 3600000); const m = Math.floor((elapsed % 3600000) / 60000); const sec = Math.floor((elapsed % 60000) / 1000); return [h,m,sec].map(v => String(v).padStart(2,'0')).join(':'); })()}
               </div>
               <p style={{ color: '#b7c0d1', fontSize: 12, margin: '7px 0 0' }}>Started {formatDate(openRecord.check_in, openRecord.work_timezone)} · {openRecord.work_timezone}</p>
-              <p style={{ color: stopHoldArmed ? '#fbbf24' : '#98a2b3', fontSize: 12, margin: '14px 0 0', minHeight: 18 }}>{stopHoldArmed ? 'Keep holding… release to cancel' : 'Press and hold the circular button for 1.2 seconds to stop your shift.'}</p>
+              <p style={{ color: stopHoldArmed ? '#fbbf24' : '#98a2b3', fontSize: 12, margin: '14px 0 0', minHeight: 18 }}>{stopHoldArmed ? 'Keep holding… release to cancel' : 'Hold the button to end your shift.'}</p>
             </> : <div style={{ minHeight: 24, marginTop: 16, color: '#9ca3af', fontSize: 12 }}>Your shift timer will start after successful GPS check-in.</div>}
-            <p style={{ margin: '20px auto 0', color: '#98a2b3', fontSize: 12, maxWidth: 480 }}>GPS location is mandatory for both starting and stopping a shift. If location permission is denied or unavailable, the attendance action will not be recorded.</p>
+            <KnowMore>Location permission is required when starting and stopping a shift. If your device cannot provide a location fix, the attendance action will not be recorded.</KnowMore>
           </section>}
 
           {!isAdmin && (
@@ -2066,31 +2065,17 @@ export default function App() {
                   ? 'Monthly minimum attendance completed. Salary eligibility threshold achieved.'
                   : `${formatDuration(salaryRemainingMilliseconds)} remaining to complete this month’s required work time.`}
               </p>
-              <p style={{ margin: '8px 0 0', fontSize: 11, color: preferences.theme === 'day' ? '#667085' : '#98a2b3' }}>
-                {salaryWeekdays} weekdays × 8 work hours. Weekends excluded. Break deduction: 1 hour only on shifts lasting 5 hours or more.
-              </p>
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, fontSize: 11, color: preferences.theme === 'day' ? '#667085' : '#98a2b3' }}>
-                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#ef4444', marginRight: 5 }} />Below 80%</span>
-                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', marginRight: 5 }} />80–89.9%</span>
-                <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#22c55e', marginRight: 5 }} />90–100%</span>
-              </div>
+              <KnowMore>Monthly target: 8 work hours per weekday. Weekends are excluded. A fixed 1-hour break is deducted only from shifts lasting 5 hours or more. Progress colours indicate below 80%, 80–89.9%, and 90–100%.</KnowMore>
             </section>
           )}
 
-          <h1>{isAdmin ? 'Admin attendance dashboard' : 'Employee dashboard'}</h1>
-          <p
-            style={{
-              color: '#b7c0d1',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            Signed in as {profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}
-          </p>
+          <h1>{isAdmin ? 'Dashboard' : 'Dashboard'}</h1>
+          <p className="crm-account-context">{profile?.full_name || session.user.email} · {profile?.role || 'Role unavailable'}</p>
 
           {isAdmin && (
             <section style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054' }}>
               <h2 style={{ marginTop: 0 }}>Team overview</h2>
-              <p style={{ color: '#b7c0d1' }}>Attendance visibility is controlled by Supabase access policies.</p>
+              <KnowMore>Team visibility is restricted by your assigned permissions and database access policies.</KnowMore>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                 <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}>
                   <div style={{ color: '#b7c0d1' }}>Active employees</div>
