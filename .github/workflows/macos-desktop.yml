@@ -1,0 +1,79 @@
+name: Build MBP Attendance macOS DMG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'desktop/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/macos-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-desktop
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: Build universal macOS DMG
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create macOS icon from supplied CRM logo
+        run: |
+          python -m pip install Pillow
+          mkdir -p build
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          source = Path("public/icons/attendance-logo.png")
+          if not source.exists():
+              raise SystemExit("The supplied logo file public/icons/attendance-logo.png is missing.")
+          image = Image.open(source).convert("RGBA")
+          image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
+          image.save("build/icon.icns", format="ICNS")
+          PY
+
+      - name: Build universal macOS DMG
+        run: npx electron-builder --mac dmg --universal --publish never
+
+      - name: Upload macOS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MBP-Attendance-macOS-DMG
+          path: dist-electron/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish latest macOS installer
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: macos-latest
+          name: Latest MBP Attendance macOS Installer
+          prerelease: true
+          make_latest: false
+          files: dist-electron/*.dmg
+          overwrite_files: true
+          fail_on_unmatched_files: true
