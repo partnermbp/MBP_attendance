@@ -22,7 +22,7 @@ const input: CSSProperties = { display: 'block', width: '100%', marginTop: 6, pa
 const button: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, color: '#fff', background: 'var(--crm-accent-strong)', cursor: 'pointer', fontWeight: 600 };
 const muted: CSSProperties = { color: '#b7c0d1', fontSize: 13 };
 const cell: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top' };
-const CRM_WEB_APP_URL = 'https://partnermbp.github.io/MBP_attendance/';
+const CRM_WEB_APP_URL = 'https://attendence.dpdns.org/';
 const GROUP_MESSAGE_PAGE_SIZE = 150;
 
 function reactionIdentity(reaction: any): string {
