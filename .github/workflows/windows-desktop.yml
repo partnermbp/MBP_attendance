@@ -58,7 +58,7 @@ jobs:
           python make_icon.py
 
       - name: Build Windows installer
-        run: npx electron-builder --win nsis --x64
+        run: npx electron-builder --win nsis --x64 --publish never
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
