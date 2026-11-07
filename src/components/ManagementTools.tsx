@@ -1,4 +1,5 @@
 import TelegramHumanInbox from './TelegramHumanInbox';
+import KnowMore from './KnowMore';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -463,11 +464,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {page !== 'telegram-human' && page !== 'telegram-analytics' && <>
     {page === 'team' && <>
     <h2 style={{ marginTop: 0 }}>{isAdmin ? 'Team management' : 'My team'}</h2>
-    <p style={muted}>Manager access is determined by database assignments and row-level security, not by the screen alone.</p>
+    <KnowMore>Manager access follows saved reporting assignments and database permissions.</KnowMore>
     </>}
     {isAdmin && (page === 'team' || page === 'team-roles') && <>
       <h3>Human Telegram Chat access</h3>
-      <p style={muted}>Only active Telemarketing managers can be granted access. Enable each person individually; changing their role away from Telemarketing automatically removes eligibility.</p>
+      <KnowMore>Only active Telemarketing accounts can receive this permission. Eligibility is removed if the account role changes.</KnowMore>
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
         <thead><tr><th style={cell}>Telemarketing manager</th><th style={cell}>Access</th><th style={cell}>Permission</th></tr></thead>
         <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase().replaceAll('_',' ')==='telemarketing').map(person=><tr key={'human-access-'+person.id}>
@@ -479,7 +480,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     </>}
     {isAdmin && (page === 'team' || page === 'team-roles') && <>
       <h3>Employee role management</h3>
-      <p style={muted}>Admin accounts are protected and cannot be changed through this role selector.</p>
+      <KnowMore>Admin accounts are protected and cannot be changed here.</KnowMore>
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
         <thead><tr><th style={cell}>Employee</th><th style={cell}>Current role</th><th style={cell}>New role</th><th style={cell}>Action</th></tr></thead>
         <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase()!=='admin').map(p=><tr key={p.id}>
@@ -492,7 +493,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     </>}
     {isAdmin && (page === 'team' || page === 'team-links') && <>
       <h3>Link Telegram members to CRM employees</h3>
-      <p style={muted}>Verify the Telegram user ID against the employee before saving. These links control which Telegram analytics managers can see.</p>
+      <KnowMore>Link only after verifying the Telegram identity. These links determine which employee is attributed in group analytics.</KnowMore>
       <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr>{['Telegram group','Telegram user','User ID','CRM employee','Action'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
         <tbody>{telegramMembers.map(member => <tr key={member.id}>
@@ -525,7 +526,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {(isManager || isAdmin) && <>
       {(page === 'team' || page === 'team-invitations') && (isAdmin || (isManager && normalizedRole !== 'junior')) && <>
       <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
-      <p style={muted}>{isAdmin ? 'Admin can invite any role, including Telemarketing. Telemarketing is a separate track and does not join the reporting hierarchy.' : 'Generate a single-use registration link that expires in 24 hours. If registration has not happened, creating a replacement invitation for the same person invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</p>
+      <KnowMore>{isAdmin ? 'Admins can invite any role. Telemarketing is a separate track outside the reporting hierarchy.' : 'Invitation links are single-use and expire after 24 hours. Replacing an unused invitation invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</KnowMore>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
         <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from your Admin Panel"/></label>
         <label>Corporate Email<input style={input} type="email" value={inviteCorporateEmail} onChange={e=>setInviteCorporateEmail(e.target.value.trimStart())} maxLength={254} required placeholder="employee@company.com"/></label>
@@ -544,7 +545,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </>}
       {!isAdmin && page === 'team' && <>
       <h3>Reporting hierarchy</h3>
-      <p style={muted}>People below are loaded from saved manager-to-employee database relationships.</p>
+      <KnowMore>Reporting lines reflect saved manager-to-employee assignments.</KnowMore>
       <div style={{display:'grid',gap:8}}>{teamTree.filter(person=>person.manager_id===profile?.id).map(person=>renderTeamNode(person))}{teamTree.length===0&&<p style={muted}>No subordinate relationships found yet.</p>}</div>
       <h3>Assigned employees</h3>
       {myAssignments.length ? <ul>{myAssignments.map(a => <li key={a.employee_id}>{personName(a.employee_id)}</li>)}</ul> : <p>No employees have been assigned to you yet.</p>}
@@ -612,12 +613,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {page === 'telegram-human' && <TelegramHumanInbox supabase={supabase} profile={profile} profiles={profiles} />}
     {page === 'telegram-analytics' && <>
     <h2 style={{marginTop:0}}>Telegram group analytics</h2>
-    <p style={muted}>Messages and reply metrics collected after the bot is added to an authorized work group and its webhook is configured. Telegram does not provide group read receipts or arbitrary historic messages to bots.</p>
+    <KnowMore>Metrics begin after the analytics bot is added and receives new group messages. Telegram bots cannot read earlier group history or provide group read receipts.</KnowMore>
     <div style={{ padding: 14, margin: '12px 0 18px', border: '1px solid #344054', borderRadius: 12, background: 'var(--crm-card-bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 220, flex: '1 1 260px' }}>
           <strong style={{ display: 'block', fontSize: 15 }}>Connect your work groups</strong>
-          <p style={{ ...muted, margin: '5px 0 0' }}>Add the CRM analytics bot to the Telegram chats you manage. Once it receives new messages, those groups will appear in the selector below.</p>
+          <p style={{ ...muted, margin: '5px 0 0' }}>Add @md_shobbot to your work groups.</p>
         </div>
         <a href="https://t.me/md_shobbot?startgroup=crm_group_analytics" target="_blank" rel="noreferrer" style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', whiteSpace: 'nowrap' }}>
           <span aria-hidden="true">＋</span> Add the bot to your chats
