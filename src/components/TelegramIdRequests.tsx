@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import KnowMore from './KnowMore';
 import { supabase } from '../lib/supabase';
 
 type RequestRow = {
@@ -55,7 +56,7 @@ export default function TelegramIdRequests() {
   const button: React.CSSProperties = { border: '1px solid var(--crm-border)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', fontWeight: 600, margin: '3px' };
   return <section style={{ marginTop: 18 }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-      <div><h1>Telegram ID change requests</h1><p style={{ color: 'var(--crm-muted, #98a2b3)' }}>Review employee requests to replace their registered Telegram identity. Only Admin can take action.</p></div>
+      <div><h1>Telegram ID change requests</h1><KnowMore>Review and approve, reject or restrict employee requests to change their registered Telegram identity.</KnowMore></div>
       <button type="button" onClick={() => void load()} disabled={loading} style={button}>Refresh</button>
     </div>
     {message && <p role="status">{message}</p>}
