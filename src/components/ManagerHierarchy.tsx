@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, GitBranch, Mail, MessageCircle, CalendarDays, Clock3, Activity, Users, UserRound } from 'lucide-react';
+import KnowMore from './KnowMore';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean; telegram_user_id?: number | null; telegram_username?: string | null; telegram_verified_at?: string | null };
 type Assignment = { manager_id: string; employee_id: string };
@@ -134,7 +135,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
       <section style={panel}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',flexWrap:'wrap'}}><strong>Overall activity · last 30 days</strong><strong style={{fontSize:22,color:activity>=70?'#22c55e':activity>=35?'#f59e0b':'#ef4444'}}>{activity}%</strong></div>
         <div style={{height:9,background:'var(--crm-border)',borderRadius:99,overflow:'hidden',marginTop:12}}><div style={{height:'100%',width:activity+'%',background:'var(--crm-accent-strong)',borderRadius:99}}/></div>
-        <p style={{...muted,marginBottom:0}}>Attendance activity is based on days with recorded check-ins. Telegram activity is shown separately because message totals and private-chat activity are not fully available in the group analytics feed.</p>
+        <KnowMore>Attendance activity counts recorded check-ins. Telegram metrics cover tracked group activity only, not private chats.</KnowMore>
       </section>
       <section style={panel}><strong>Attendance overview · manager and reporting line</strong><p style={muted}>{ownAndTeam.length} total attendance sessions across {scope.size} people. Exact GPS coordinates are not displayed on manager profiles.</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10}}><div><strong style={{fontSize:21}}>{ownAndTeam.filter(a=>a.check_out).length}</strong><div style={muted}>Completed team sessions</div></div><div><strong style={{fontSize:21}}>{ownAndTeam.filter(a=>!a.check_out).length}</strong><div style={muted}>Open team sessions</div></div><div><strong style={{fontSize:21}}>{new Set(ownAndTeam.map(a=>a.employee_id)).size}</strong><div style={muted}>People with attendance</div></div></div></section>
       <section style={panel}><strong>Telegram response performance</strong><p style={muted}>Response delay uses tracked group questions and first replies linked to this manager's Telegram identity.</p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,marginTop:12}}><div><strong style={{fontSize:22}}>{sentReplies.length}</strong><div style={muted}>Attributed replies</div></div><div><strong style={{fontSize:22}}>{duration(replyAvg)}</strong><div style={muted}>Average first reply delay</div></div><div><strong style={{fontSize:22}}>{askedCount}</strong><div style={muted}>Tracked messages by manager</div></div></div></section>
@@ -143,8 +144,8 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   }
 
   return <section style={{display:'grid',gap:14,marginTop:18}}>
-    <header><h1 style={{margin:0,fontSize:25}}>Manager hierarchy</h1><p style={{...muted,marginTop:7,maxWidth:760}}>Explore the reporting structure from top to bottom. Select any manager to open their individual profile and performance statistics.</p></header>
+    <header><h1 style={{margin:0,fontSize:25}}>Manager hierarchy</h1><KnowMore>Select a manager to view their reporting line and activity.</KnowMore></header>
     {roots.length ? <div style={{...panel,display:'grid',gap:5}}>{roots.map(root=>renderNode(root,0,new Set()))}</div> : <div style={{...panel,textAlign:'center',padding:30}}><GitBranch size={28} color="var(--crm-accent)"/><strong style={{display:'block',marginTop:10}}>No manager hierarchy available</strong><p style={muted}>No active manager reporting lines are visible to this account yet.</p></div>}
-    <p style={muted}>GPS privacy: manager profiles show attendance and coarse activity only. Exact latitude, longitude and map pins remain restricted to Admin.</p>
+    <KnowMore>Manager profiles show attendance and coarse activity only. Exact GPS coordinates and map pins remain restricted to Admin.</KnowMore>
   </section>;
 }
