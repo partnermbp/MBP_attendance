@@ -1663,3 +1663,55 @@ body::after { content:none; }
   }
   .crm-layout > main > section section[style*="grid-template-columns: repeat(auto-fit, minmax(160px"] > article strong { font-size:22px !important; }
 }
+
+
+/* --- Minimal, consistent CRM layout and control alignment --- */
+.crm-know-more { display:inline-block; max-width:100%; margin:5px 0 10px; color:var(--crm-text-muted); font-size:11px; line-height:1.5; opacity:.78; }
+.crm-know-more summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; list-style:none; user-select:none; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px; }
+.crm-know-more summary::-webkit-details-marker { display:none; }
+.crm-know-more summary::after { content:'＋'; font-size:10px; opacity:.65; }
+.crm-know-more[open] summary::after { content:'−'; }
+.crm-know-more-content { max-width:720px; padding:8px 10px; margin-top:6px; border-left:2px solid var(--crm-border); color:var(--crm-text-muted); background:var(--crm-card-bg); border-radius:0 6px 6px 0; }
+.crm-account-context { margin:4px 0 14px; color:var(--crm-text-muted); font-size:12px; }
+.crm-app-footer { max-width:1440px; margin:20px auto 8px; padding:8px 16px; color:var(--crm-text-muted); opacity:.55; font-size:10px; text-align:center; }
+.crm-empty-state { display:flex; align-items:center; justify-content:center; gap:9px; min-height:100px; color:var(--crm-text-muted); font-size:13px; }
+.crm-layout > main > section { box-shadow:none !important; }
+.crm-layout article { box-shadow:none !important; }
+.crm-layout button, .crm-layout a[role="button"] { min-height:38px; }
+.crm-layout button:not([class*="telegram"]):not(.crm-mobile-bottom-nav button) { line-height:1.25; }
+.crm-layout :is(form, .crm-filter-row, .crm-toolbar) button { align-self:stretch; }
+.crm-layout input:not([type=checkbox]):not([type=radio]):not([type=file]), .crm-layout select, .crm-layout textarea { border-radius:7px !important; }
+.crm-layout :is(button,a[role=button]) { border-radius:7px; }
+.crm-layout h1 { letter-spacing:-.035em; }
+.crm-layout h2 { letter-spacing:-.02em; }
+.crm-layout p { max-width:100%; }
+.crm-layout .crm-know-more { display:block; }
+.crm-layout .crm-know-more-content { font-size:11px; }
+.crm-layout :is(.crm-report-stat-grid,.crm-report-rate-grid,.crm-report-chart-grid,.crm-report-secondary-grid) { gap:10px !important; }
+.crm-layout :is(.crm-report-stat-grid article,.crm-report-rate-grid article,.crm-report-secondary-grid section) { border-radius:9px !important; }
+@media (min-width:761px) {
+  .crm-layout { gap:18px !important; }
+  .crm-layout > main { min-width:0; }
+  .crm-layout > main > section { padding:22px !important; }
+  .crm-sidebar { border-radius:10px !important; }
+  .crm-layout :is(form,.crm-toolbar,.crm-filter-row) { align-items:end; }
+  .crm-layout :is(form,.crm-toolbar,.crm-filter-row) > button { min-width:110px; }
+}
+@media (max-width:760px) {
+  .crm-layout { padding-bottom:calc(70px + env(safe-area-inset-bottom)) !important; }
+  .crm-layout > main > section { padding:14px 13px !important; }
+  .crm-layout :is(form,.crm-toolbar,.crm-filter-row) { display:flex; flex-direction:column; align-items:stretch; gap:10px; }
+  .crm-layout :is(form,.crm-toolbar,.crm-filter-row) > button,
+  .crm-layout :is(form,.crm-toolbar,.crm-filter-row) > a[role=button] { width:100%; min-height:44px; justify-content:center; }
+  .crm-layout button { min-height:42px; }
+  .crm-layout .crm-know-more { margin:3px 0 8px; }
+  .crm-layout .crm-know-more-content { padding:7px 9px; }
+  .crm-layout .telegram-page-assignment { padding:10px !important; }
+  .crm-layout .telegram-page-assignment .telegram-assignment-controls { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:stretch; gap:8px !important; }
+  .crm-layout .telegram-page-assignment .telegram-assignment-controls button { width:auto !important; min-width:84px; }
+}
+@media (max-width:420px) {
+  .crm-layout > main > section { padding-left:11px !important; padding-right:11px !important; }
+  .crm-layout .telegram-page-assignment .telegram-assignment-controls { grid-template-columns:minmax(0,1fr); }
+  .crm-layout .telegram-page-assignment .telegram-assignment-controls button { width:100% !important; }
+}
