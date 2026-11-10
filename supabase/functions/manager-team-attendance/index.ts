@@ -84,11 +84,10 @@ Deno.serve(async (req: Request) => {
 
     if (!teamIds.size) return json({ records: [] });
     const ids = [...teamIds].map(encodeURIComponent).join(",");
-    const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
+    const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
       `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,auto_closed&order=check_in.desc&limit=10000`
     );
-    const shiftStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
     const shifts = await rest(
       `shifts?employee_id=in.(${ids})&ends_at=gte.${encodeURIComponent(since)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=10000`
