@@ -7,13 +7,14 @@ type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: str
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string };
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null };
-type TelegramMetric = { question_user_id?: number | null; first_reply_user_id?: number | null; response_seconds?: number | null; profile_id?: string; asked_count?: number; reply_count?: number; average_response_seconds?: number | null };
+type TelegramMetric = { question_user_id?: number | null; first_reply_user_id?: number | null; response_seconds?: number | null; calculated_at?: string | null; profile_id?: string; asked_count?: number; reply_count?: number; average_response_seconds?: number | null; response_samples?: Array<{response_seconds:number;calculated_at:string|null}>; question_samples?: Array<{calculated_at:string|null;answered:boolean}> };
 
 const panel: CSSProperties = { background: 'var(--crm-card-bg)', border: '1px solid var(--crm-border)', borderRadius: 14, padding: 18, minWidth: 0 };
 const muted: CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
 const metricValue: CSSProperties = { fontSize: 27, fontWeight: 800, letterSpacing: '-.04em', lineHeight: 1.15 };
 const dayKey = (value: string) => value.slice(0, 10);
 const attendanceDay = (a: Attendance) => a.work_date || (a.work_timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: a.work_timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(a.check_in)) : dayKey(a.check_in));
+const localMinuteOfDay = (a: Attendance) => { const d = new Date(a.check_in); const parts = a.work_timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: a.work_timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d).split(':').map(Number) : [d.getHours(), d.getMinutes()]; return parts[0] * 60 + parts[1]; };
 const creditedMinutes = (a: Attendance) => a.credited_work_minutes != null ? Math.max(0, Number(a.credited_work_minutes) || 0) : a.check_out ? Math.max(0, (new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) / 60000 - ((new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) >= 5 * 3600000 ? 60 : 0)) : 0;
 const dateLabel = (key: string) => new Date(key + 'T12:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 const pct = (n: number, d: number) => d ? Math.round(n / d * 100) : 0;
@@ -83,7 +84,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const expected = scopedShifts.length, signed = matchedShiftIds.size, absent = expected - signed, late = shiftRecords.filter(r => r.late).length;
   const onTime = Math.max(0, signed - late);
   const activeToday = appliedFrom <= today && appliedTo >= today ? new Set(scopedAttendance.filter(a => attendanceDay(a) === today && a.employee_id).map(a => a.employee_id)).size : 0;
-  const avgStart = scopedAttendance.length ? Math.round(scopedAttendance.reduce((sum, a) => { const d = new Date(a.check_in); return sum + d.getHours() * 60 + d.getMinutes(); }, 0) / scopedAttendance.length) : null;
+  const avgStart = scopedAttendance.length ? Math.round(scopedAttendance.reduce((sum, a) => sum + localMinuteOfDay(a), 0) / scopedAttendance.length) : null;
   const startText = avgStart == null ? '—' : `${String(Math.floor(avgStart / 60)).padStart(2,'0')}:${String(avgStart % 60).padStart(2,'0')}`;
   const memberProfile = new Map(telegramMembers.filter(m => m.profile_id && m.telegram_user_id != null).map(m => [m.telegram_user_id as number, m.profile_id as string]));
   const managerIds = new Set(assignments.map(a => a.manager_id));
@@ -91,22 +92,24 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   // keeps the existing detailed metric path. Both feed the same report card.
   const aggregateMetrics = telegramMetrics.filter(m => m.profile_id && personMap.has(m.profile_id) && (employeeFilter === 'all' || m.profile_id === employeeFilter));
   const hasAggregateMetrics = aggregateMetrics.length > 0;
-  const teamResponseMetrics = hasAggregateMetrics
-    ? aggregateMetrics.filter(m => (m.reply_count || 0) > 0)
-    : telegramMetrics.filter(m => m.question_user_id != null && m.first_reply_user_id != null && memberProfile.has(m.question_user_id) && memberProfile.has(m.first_reply_user_id) && personMap.has(memberProfile.get(m.first_reply_user_id)!));
-  const askedCount = hasAggregateMetrics
-    ? aggregateMetrics.reduce((sum, m) => sum + (m.asked_count || 0), 0)
-    : telegramMetrics.filter(m => m.question_user_id != null && memberProfile.has(m.question_user_id) && (employeeFilter === 'all' || memberProfile.get(m.question_user_id) === employeeFilter)).length;
-  const replyCount = hasAggregateMetrics
-    ? aggregateMetrics.reduce((sum, m) => sum + (m.reply_count || 0), 0)
-    : teamResponseMetrics.length;
+  const selectedResponses = hasAggregateMetrics
+    ? aggregateMetrics.flatMap(m => (m.response_samples || []).filter(s => s.calculated_at && s.calculated_at.slice(0, 10) >= appliedFrom && s.calculated_at.slice(0, 10) <= appliedTo).map(s => s.response_seconds))
+    : telegramMetrics.filter(m => m.question_user_id != null && m.first_reply_user_id != null && m.response_seconds != null && m.calculated_at && m.calculated_at.slice(0, 10) >= appliedFrom && m.calculated_at.slice(0, 10) <= appliedTo && memberProfile.has(m.question_user_id) && memberProfile.has(m.first_reply_user_id) && personMap.has(memberProfile.get(m.first_reply_user_id)!)).map(m => m.response_seconds || 0);
+  const selectedQuestions = hasAggregateMetrics
+    ? aggregateMetrics.flatMap(m => (m.question_samples || []).filter(s => s.calculated_at && s.calculated_at.slice(0, 10) >= appliedFrom && s.calculated_at.slice(0, 10) <= appliedTo).map(s => s.answered))
+    : telegramMetrics.filter(m => m.question_user_id != null && memberProfile.has(m.question_user_id) && (employeeFilter === 'all' || memberProfile.get(m.question_user_id) === employeeFilter) && m.calculated_at && m.calculated_at.slice(0, 10) >= appliedFrom && m.calculated_at.slice(0, 10) <= appliedTo).map(m => m.first_reply_user_id != null);
+  const askedCount = selectedQuestions.length;
+  const replyCount = selectedQuestions.filter(Boolean).length;
   const responseRate = pct(replyCount, askedCount);
-  const avgResponse = hasAggregateMetrics
-    ? (replyCount ? Math.round(aggregateMetrics.reduce((sum, m) => sum + (m.reply_count || 0) * (m.average_response_seconds || 0), 0) / replyCount) : null)
-    : teamResponseMetrics.length ? Math.round(teamResponseMetrics.reduce((sum,m) => sum + (m.response_seconds || 0), 0) / teamResponseMetrics.length) : null;
+  const sortedResponses = [...selectedResponses].sort((a, b) => a - b);
+  const medianResponse = sortedResponses.length ? Math.round(sortedResponses.length % 2 ? sortedResponses[Math.floor(sortedResponses.length / 2)] : (sortedResponses[sortedResponses.length / 2 - 1] + sortedResponses[sortedResponses.length / 2]) / 2) : null;
+  const avgResponse = sortedResponses.length ? Math.round(sortedResponses.reduce((sum, value) => sum + value, 0) / sortedResponses.length) : null;
+  const sla5 = pct(sortedResponses.filter(v => v <= 300).length, sortedResponses.length);
+  const sla15 = pct(sortedResponses.filter(v => v <= 900).length, sortedResponses.length);
+  const sla30 = pct(sortedResponses.filter(v => v <= 1800).length, sortedResponses.length);
   const days: string[] = []; const cursor = new Date(appliedFrom + 'T12:00:00'); const last = new Date(appliedTo + 'T12:00:00');
   while (cursor <= last && days.length < 62) { days.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
-  const dailyCounts = days.map(d => new Set(scopedAttendance.filter(a => dayKey(a.work_date || a.check_in) === d).map(a => a.employee_id)).size);
+  const dailyCounts = days.map(d => new Set(scopedAttendance.filter(a => attendanceDay(a) === d).map(a => a.employee_id)).size);
   const roleCounts = scopedPeople.reduce((acc, p) => { acc[roleLabel(p.role)] = (acc[roleLabel(p.role)] || 0) + 1; return acc; }, {} as Record<string, number>);
   const managerRows = scopedPeople.filter(p => managerIds.has(p.id)).map(manager => {
     const descendants: Person[] = []; const visited = new Set<string>([manager.id]); let frontier = [manager.id];
@@ -115,18 +118,19 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     const ids = new Set([manager.id, ...descendants.map(p => p.id)]);
     const logs = scopedAttendance.filter(a => ids.has(a.employee_id || ''));
     const teamMembers = [manager, ...descendants];
-    const teamDays = teamMembers.length * Math.max(1, days.length);
-    const loggedDays = new Set(logs.map(a => (a.employee_id || '') + '|' + dayKey(a.work_date || a.check_in))).size;
+    const teamDays = teamMembers.length * days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length;
+    const loggedDays = new Set(logs.map(a => (a.employee_id || '') + '|' + attendanceDay(a))).size;
     return { manager, teamMembers, directCount: descendants.filter(p => directIds.has(p.id)).length, indirectCount: descendants.filter(p => !directIds.has(p.id)).length, logs, activity: pct(loggedDays, teamDays) };
   });
   const lateHours = Array.from({ length: 8 }, (_, i) => ({ label: `${String(8 + i * 2).padStart(2,'0')}:00`, value: scopedAttendance.filter(a => { const h = new Date(a.check_in).getHours(); return h >= 8 + i * 2 && h < 10 + i * 2; }).length }));
-  const repeatedLatePeople = new Set(shiftRecords.filter(r => r.late).reduce((map, r) => map.set(r.shift.employee_id!, (map.get(r.shift.employee_id!) || 0) + 1), new Map<string, number>()).entries() ? [...shiftRecords.filter(r => r.late).reduce((map, r) => map.set(r.shift.employee_id!, (map.get(r.shift.employee_id!) || 0) + 1), new Map<string, number>())].filter(([, count]) => count >= 3).map(([id]) => id) : []);
+  const lateByPerson = shiftRecords.filter(r => r.late && r.shift.employee_id).reduce((map, r) => map.set(r.shift.employee_id!, (map.get(r.shift.employee_id!) || 0) + 1), new Map<string, number>());
+  const repeatedLatePeople = new Set([...lateByPerson].filter(([, count]) => count >= 3).map(([id]) => id));
   const autoClosedCount = scopedAttendance.filter(a => a.auto_closed).length;
   const creditedTotal = scopedAttendance.reduce((sum, a) => sum + creditedMinutes(a), 0);
   const creditedHoursPerWorkday = days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length ? creditedTotal / 60 / days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length / Math.max(1, scopedPeople.length) : 0;
   const overtimeHours = scopedAttendance.reduce((sum, a) => sum + Math.max(0, creditedMinutes(a) - 480), 0) / 60;
   const earlyDepartures = shiftRecords.filter(r => r.check?.check_out && new Date(r.check.check_out).getTime() < new Date(r.shift.ends_at).getTime() - 15 * 60000).length;
-  const noSchedule = shifts.length === 0;
+  const noSchedule = scopedShifts.length === 0;
   const card = (label: string, value: string | number, note: string, tone?: string) => <article style={{ ...panel, padding: 16 }}><div style={{ ...muted, marginBottom: 9 }}>{label}</div><div style={{ ...metricValue, color: tone || 'var(--crm-text)' }}>{value}</div><div style={{ ...muted, marginTop: 8 }}>{note}</div></article>;
 
   return <div style={{ display: 'grid', gap: 16, marginTop: 18 }}>
@@ -143,11 +147,11 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     </section>
     {loading && <p style={muted}>Loading team metrics…</p>}
     <div className="crm-report-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 12 }}>
-      {card('Active team members', scopedPeople.length, 'Active non-admin profiles')}
+      {card('Active team members', scopedPeople.length, 'Active non-admin / non-supervisor profiles')}
       {card('Logged in today', activeToday, 'Employees with a check-in today')}
       {card('Attendance records', scopedAttendance.length, 'Check-in sessions in selected range')}
       {card('Completed sessions', scopedAttendance.filter(a=>a.check_out).length, 'Sessions with both IN and OUT')}
-      {card('Average sign-in time', startText, 'Average local browser time of recorded check-ins')}
+      {card('Average sign-in time', startText, 'Average check-in time in employee work timezone')}
       {card('Late sign-ins', noSchedule ? '—' : late, noSchedule ? 'Requires assigned shift schedules' : `${pct(late,signed)}% of signed-in shifts were over 5 min late`, '#f59e0b')}
       {card('Repeated lateness', noSchedule ? '—' : repeatedLatePeople.size, 'People late on 3+ scheduled shifts')}
       {card('Auto-closed sessions', autoClosedCount, 'Sessions closed automatically')}
@@ -168,11 +172,11 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
       <MiniBarChart title="Check-in time distribution" subtitle="Recorded check-ins grouped by local hour" labels={lateHours.map(x=>x.label)} values={lateHours.map(x=>x.value)} color="#60a5fa"/>
     </div>
     <div className="crm-report-secondary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
-      <section style={panel}><strong>Telegram response rate</strong><div style={{ ...metricValue, marginTop: 12 }}>{replyCount ? responseRate + '%' : '—'}</div><p style={muted}>{replyCount ? `Average first response: ${avgResponse == null ? '—' : avgResponse < 60 ? avgResponse + ' sec' : Math.round(avgResponse/60) + ' min'}. Based on linked team identities in tracked Telegram groups.` : 'No attributable Telegram question/reply metrics are available for the selected team.'}</p></section>
-      <section style={panel}><strong>Role distribution</strong><div style={{ display: 'grid', gap: 9, marginTop: 13 }}>{Object.entries(roleCounts).map(([role,count])=><div key={role}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}><span>{role}</span><strong>{count}</strong></div><div style={{ height: 7, background: 'var(--crm-border)', borderRadius: 8, overflow: 'hidden' }}><div style={{ width: pct(count,activePeople.length)+'%', height: '100%', background: 'var(--crm-accent)', borderRadius: 8 }}/></div></div>)}</div></section>
+      <section style={panel}><strong>Telegram response performance</strong><div style={{ ...metricValue, marginTop: 12 }}>{askedCount ? responseRate + '%' : '—'}</div><p style={muted}>{askedCount ? `${replyCount} of ${askedCount} attributable questions answered · median ${medianResponse == null ? '—' : medianResponse < 60 ? medianResponse + ' sec' : Math.round(medianResponse/60) + ' min'} · average ${avgResponse == null ? '—' : avgResponse < 60 ? avgResponse + ' sec' : Math.round(avgResponse/60) + ' min'}.` : 'No attributable Telegram question/reply metrics are available for the selected period.'}</p><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12 }}>{[['≤5 min',sla5],['≤15 min',sla15],['≤30 min',sla30]].map(([label,value])=><div key={String(label)} style={{ background: 'var(--crm-card-raised)', borderRadius: 8, padding: 9 }}><strong>{askedCount && selectedResponses.length ? value + '%' : '—'}</strong><div style={muted}>{label} SLA</div></div>)}</div></section>
+      <section style={panel}><strong>Role distribution</strong><div style={{ display: 'grid', gap: 9, marginTop: 13 }}>{Object.entries(roleCounts).map(([role,count])=><div key={role}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}><span>{role}</span><strong>{count}</strong></div><div style={{ height: 7, background: 'var(--crm-border)', borderRadius: 8, overflow: 'hidden' }}><div style={{ width: pct(count,scopedPeople.length)+'%', height: '100%', background: 'var(--crm-accent)', borderRadius: 8 }}/></div></div>)}</div></section>
     </div>
     <section style={panel}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}><strong>Manager and reporting-line activity</strong><span style={muted}>Direct and second-level reports · check-in days / possible person-days</span></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}><strong>Manager and reporting-line activity</strong><span style={muted}>All reporting levels · weekday check-in days / possible person-days</span></div>
       {managerRows.length ? <div style={{ overflowX: 'auto', marginTop: 12 }}><table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 12 }}><thead><tr>{['Manager','Team size','Direct / indirect','Check-in activity','Check-ins','Details'].map(x=><th key={x} style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid var(--crm-border)', color: 'var(--crm-text-muted)' }}>{x}</th>)}</tr></thead><tbody>{managerRows.map(row=><><tr key={row.manager.id}><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><strong>{row.manager.full_name || row.manager.email}</strong><div style={muted}>{roleLabel(row.manager.role)}</div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.teamMembers.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.directCount} / {row.indirectCount}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)', minWidth: 170 }}><strong>{row.activity}%</strong><div style={{ height: 6, background: 'var(--crm-border)', borderRadius: 8, marginTop: 6 }}><div style={{ height: '100%', width: row.activity+'%', background: row.activity>=80?'#22c55e':row.activity>=50?'#f59e0b':'#ef4444', borderRadius: 8 }}/></div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.logs.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><button type="button" onClick={()=>setExpanded(expanded===row.manager.id?null:row.manager.id)} style={{ background: 'transparent', color: 'var(--crm-accent-strong)', border: 0, cursor: 'pointer' }}>{expanded===row.manager.id?'Hide':'View team'}</button></td></tr>{expanded===row.manager.id&&<tr key={row.manager.id+'-detail'}><td colSpan={6} style={{ padding: 12, background: 'var(--crm-card-raised)' }}>{row.teamMembers.map(p=>{const count=scopedAttendance.filter(a=>a.employee_id===p.id).length;return <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--crm-border)' }}><span>{p.full_name||p.email} <small style={muted}>· {roleLabel(p.role)}</small></span><strong>{count} check-ins</strong></div>;})}</td></tr>}</>)}</tbody></table></div> : <p style={muted}>No manager-to-employee assignments are available for this selection.</p>}
     </section>
     <KnowMore>Attendance activity counts saved check-ins, not online presence or work output. Late and not-signed-in rates require scheduled shifts; the late threshold is 5 minutes. Team activity is a trend indicator, not a contractual score. Telegram response rate includes only group questions and first replies attributable to linked CRM identities; it excludes private chats.</KnowMore>
