@@ -2072,10 +2072,10 @@ export default function App() {
               ].map(item=><article key={item.name} style={{display:'flex',flexDirection:'column',gap:12,minHeight:210,padding:18,border:'1px solid var(--crm-border,#343b49)',borderRadius:10,background:'var(--crm-card-bg,#151b29)',color:'var(--crm-text,#e5e7eb)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,color:'var(--crm-accent,#ff9b45)'}}>{item.icon}<strong style={{fontSize:17,color:'var(--crm-text,#fff)'}}>{item.name}</strong></div>
                 <div style={{fontSize:12,fontWeight:700,color:'var(--crm-accent,#ffb36b)'}}>{item.detail}</div>
-                <p style={{fontSize:13,lineHeight:1.55,color:'var(--crm-muted,#b7c0d1)',margin:'0 0 4px',flex:1}}>{item.description}</p>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',marginTop:'auto'}}>
-                  <a href={item.url} download={item.name==='iPhone / iPad'} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 13px',borderRadius:7,background:'var(--crm-accent,#e87924)',color:'#111827',fontWeight:800,textDecoration:'none',whiteSpace:'nowrap'}}><Download size={16}/>{item.action}</a>
+                <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',marginTop:'auto'}}>
+                  <p style={{fontSize:13,lineHeight:1.55,color:'var(--crm-muted,#b7c0d1)',margin:0,flex:'1 1 220px'}}>{item.description}</p>
                   {item.guide&&<button type="button" onClick={()=>{setInstallationStep(0);setInstallationGuide(item.guide);}} style={{padding:'4px 0',border:0,background:'transparent',color:'var(--crm-muted,#98a2b3)',fontSize:11,textDecoration:'underline',textUnderlineOffset:3,cursor:'pointer',whiteSpace:'nowrap'}}>Installation instructions</button>}
+                  <a href={item.url} download={item.name==='iPhone / iPad'} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 13px',borderRadius:7,background:'var(--crm-accent,#e87924)',color:'#111827',fontWeight:800,textDecoration:'none',whiteSpace:'nowrap'}}><Download size={16}/>{item.action}</a>
                 </div>
               </article>)}
             </div>
