@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
     let frontier = [String(user.id)];
     for (let depth = 0; depth < 12 && frontier.length; depth++) {
       const managerFilter = frontier.map(id => encodeURIComponent(id)).join(",");
-      const assignments = await rest(`manager_employee_assignments?manager_id=in.(${managerFilter})&select=manager_id,employee_id&limit=2000`);
+      const assignments = await restPaged(`manager_employee_assignments?manager_id=in.(${managerFilter})&select=manager_id,employee_id&order=manager_id.asc,employee_id.asc`);
       const next: string[] = [];
       for (const assignment of assignments || []) {
         const employeeId = String(assignment.employee_id);
@@ -110,8 +110,8 @@ Deno.serve(async (req: Request) => {
 
     // Profile-verified IDs are used server-side only. Admin-only ID exposure is not part of this API. Return usernames only when
     // the group membership row matches both the profile and verified Telegram ID.
-    const linkedProfiles = await rest(
-      `profiles?id=in.(${ids})&select=id,telegram_user_id,telegram_verified_at&limit=5000`
+    const linkedProfiles = await restPaged(
+      `profiles?id=in.(${ids})&select=id,telegram_user_id,telegram_verified_at&order=id.asc`
     ) || [];
     const verifiedLinks = linkedProfiles
       .filter((linked: any) => linked.telegram_user_id != null && linked.telegram_verified_at != null)
@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
         verified_at: linked.telegram_verified_at,
       }));
     const groupMembers = verifiedLinks.length
-      ? await rest(`telegram_group_members?profile_id=in.(${verifiedLinks.map((link: any) => encodeURIComponent(link.profile_id)).join(",")})&select=profile_id,telegram_user_id,username,display_name&limit=5000`) || []
+      ? await restPaged(`telegram_group_members?profile_id=in.(${verifiedLinks.map((link: any) => encodeURIComponent(link.profile_id)).join(",")})&select=profile_id,telegram_user_id,username,display_name&order=profile_id.asc,telegram_user_id.asc`) || []
       : [];
     const telegramMembers = verifiedLinks.map((link: any) => {
       const matched = groupMembers.find((member: any) =>
@@ -141,8 +141,8 @@ Deno.serve(async (req: Request) => {
     let rawTelegramMetrics: any[] = [];
     if (telegramIds.length) {
       const telegramIdFilter = telegramIds.join(",");
-      rawTelegramMetrics = await rest(
-        `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds,calculated_at&order=calculated_at.desc&limit=10000`
+      rawTelegramMetrics = await restPaged(
+        `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds,calculated_at&order=calculated_at.desc,id.asc`
       ) || [];
     }
     const telegramMetrics = verifiedLinks.map((link: any) => {
