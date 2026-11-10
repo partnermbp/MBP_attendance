@@ -44,16 +44,21 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
   useEffect(() => {
     let alive = true;
     let heartbeat: ReturnType<typeof setInterval> | undefined;
+    let activeId: string | null = null;
     void (async () => {
       const { data, error } = await supabase.rpc('start_device_security_session', { p_metadata: deviceMetadata() });
-      if (!alive) return;
+      if (!alive) {
+        if (data) void supabase.rpc('end_device_security_session', { p_session_id: String(data) });
+        return;
+      }
       if (error || !data) { setNotice('Device registration is currently unavailable.'); return; }
-      const id = String(data); setSessionId(id);
+      const id = String(data); activeId = id; setSessionId(id);
       heartbeat = setInterval(() => { void supabase.rpc('heartbeat_device_security_session', { p_session_id: id }); }, 60000);
     })();
     return () => {
       alive = false;
       if (heartbeat) clearInterval(heartbeat);
+      if (activeId) void supabase.rpc('end_device_security_session', { p_session_id: activeId });
     };
   }, [supabase, userId]);
   useEffect(() => {
@@ -89,7 +94,7 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
     setBusy(true); setNotice('');
     try {
       if (Capacitor.isNativePlatform()) {
-        const permission = await Geolocation.requestPermissions({ permissions:['location'] });
+        const permission = await Geolocation.requestPermissions();
         if (permission.location !== 'granted' && permission.location !== 'granted') throw new Error('Location permission was not granted.');
       } else {
         if (!navigator.geolocation) throw new Error('This browser does not support location.');
