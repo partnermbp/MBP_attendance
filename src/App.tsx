@@ -2104,6 +2104,14 @@ export default function App() {
         /* Keep the workspace-preparation loader completely unboxed while preserving its rocket animation. */
         .auth-loading-stage,
         .auth-loading-stage .vector-loader,
+        /* Loading scene: keep the decorative rocket/debris behind all loading copy. */
+        .auth-screen-root{position:relative;isolation:isolate;min-height:100vh}
+        .auth-screen-root>.auth-vector-scene{z-index:0!important;pointer-events:none!important}
+        .auth-loading-stage,.auth-permission-loading{position:relative;z-index:2!important;background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+        .auth-loading-stage .vector-loader{position:relative;z-index:3!important;background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+        .auth-loading-stage .vector-loader span{position:relative;z-index:4!important;display:block}
+        .auth-screen-root>.auth-vector-scene .auth-vector-art{position:relative;z-index:0!important}
+        .auth-screen-root>.auth-vector-scene:before,.auth-screen-root>.auth-vector-scene:after{pointer-events:none}
         .auth-loading-stage .vector-loader svg {
           background: transparent !important;
           background-color: transparent !important;
