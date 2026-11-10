@@ -27,6 +27,8 @@ type Attendance = {
   check_in_country?: string | null;
   check_out_region?: string | null;
   check_out_country?: string | null;
+  credited_work_minutes?: number | null;
+  auto_closed?: boolean;
   check_in_gps_recorded?: boolean;
   check_out_gps_recorded?: boolean;
 };
@@ -137,56 +139,31 @@ function csvCell(value: string | number | null | undefined) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function creditedMinutesForSession(item: Attendance, now = Date.now()) {
+  if (typeof item.credited_work_minutes === 'number') return Math.max(0, item.credited_work_minutes);
+  const start = new Date(item.check_in).getTime();
+  const end = item.check_out ? new Date(item.check_out).getTime() : now;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0;
+  const elapsed = Math.floor((end - start) / 60000);
+  if (item.auto_closed || (!item.check_out && elapsed >= 9 * 60)) return 8 * 60;
+  if (elapsed >= 9 * 60) return 8 * 60 + Math.min(2 * 60, elapsed - 9 * 60);
+  return Math.max(0, elapsed - (elapsed >= BREAK_THRESHOLD_MINUTES ? BREAK_MINUTES : 0));
+}
+
 function getSessionDuration(item: Attendance, now: number) {
   const start = new Date(item.check_in).getTime();
-
-  if (!Number.isFinite(start)) {
-    return {
-      elapsed: 'Unavailable',
-      worked: 'Unavailable',
-      breakDeduction: 'Not applied',
-      status: 'Invalid timestamp',
-    };
-  }
-
-  const end = item.check_out
-    ? new Date(item.check_out).getTime()
-    : now;
-
-  if (!Number.isFinite(end) || end < start) {
-    return {
-      elapsed: 'Unavailable',
-      worked: 'Unavailable',
-      breakDeduction: 'Not applied',
-      status: 'Invalid timestamp',
-    };
-  }
-
+  if (!Number.isFinite(start)) return { elapsed: 'Unavailable', worked: 'Unavailable', breakDeduction: 'Not applied', status: 'Invalid timestamp' };
+  const end = item.check_out ? new Date(item.check_out).getTime() : now;
+  if (!Number.isFinite(end) || end < start) return { elapsed: 'Unavailable', worked: 'Unavailable', breakDeduction: 'Not applied', status: 'Invalid timestamp' };
   const elapsedMilliseconds = end - start;
-
-  if (!item.check_out) {
-    const liveBreakMilliseconds = elapsedMilliseconds >= BREAK_THRESHOLD_MINUTES * 60000
-      ? BREAK_MINUTES * 60000
-      : 0;
-    return {
-      elapsed: formatDuration(elapsedMilliseconds),
-      worked: formatDuration(Math.max(0, elapsedMilliseconds - liveBreakMilliseconds)),
-      breakDeduction: liveBreakMilliseconds > 0 ? formatDuration(liveBreakMilliseconds) : 'Not applied yet',
-      status: 'Open session',
-    };
-  }
-
-  const breakMilliseconds = elapsedMilliseconds >= BREAK_THRESHOLD_MINUTES * 60000
-    ? BREAK_MINUTES * 60000
-    : 0;
-
-  const workedMilliseconds = Math.max(0, elapsedMilliseconds - breakMilliseconds);
-
+  const elapsedMinutes = Math.floor(elapsedMilliseconds / 60000);
+  const breakMinutes = elapsedMinutes >= BREAK_THRESHOLD_MINUTES ? BREAK_MINUTES : 0;
+  const credited = creditedMinutesForSession(item, now);
   return {
     elapsed: formatDuration(elapsedMilliseconds),
-    worked: formatDuration(workedMilliseconds),
-    breakDeduction: formatDuration(breakMilliseconds),
-    status: 'Completed',
+    worked: formatDuration(credited * 60000),
+    breakDeduction: formatDuration(breakMinutes * 60000),
+    status: item.auto_closed ? 'Auto-closed · standard shift credited' : item.check_out ? 'Completed' : 'Open session',
   };
 }
 
@@ -1680,7 +1657,7 @@ export default function App() {
         const elapsedMinutes = Number.isFinite(start) && Number.isFinite(end) && end >= start
           ? Math.floor((end - start) / 60000)
           : '';
-        const workedMinutes = elapsedMinutes === '' ? '' : Math.max(0, Number(elapsedMinutes) - (Number(elapsedMinutes) >= BREAK_THRESHOLD_MINUTES ? BREAK_MINUTES : 0));
+        const workedMinutes = elapsedMinutes === '' ? '' : creditedMinutesForSession(item);
         const checkInMap = item.check_in_lat != null && item.check_in_lng != null
           ? `https://www.google.com/maps?q=${item.check_in_lat},${item.check_in_lng}`
           : '';
@@ -1841,12 +1818,7 @@ export default function App() {
       ? getLocalDate(item.work_timezone, new Date(item.check_in))
       : item.check_in.slice(0, 10));
     if (!workDate.startsWith(salaryMonthPrefix)) return total;
-    const start = new Date(item.check_in).getTime();
-    const end = item.check_out ? new Date(item.check_out).getTime() : Date.now();
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return total;
-    const elapsed = end - start;
-    const breakMs = elapsed >= BREAK_THRESHOLD_MINUTES * 60000 ? BREAK_MINUTES * 60000 : 0;
-    return total + Math.max(0, elapsed - breakMs);
+    return total + creditedMinutesForSession(item) * 60000;
   }, 0);
   const salaryProgress = salaryRequiredMilliseconds > 0
     ? Math.min(100, salaryWorkedMilliseconds / salaryRequiredMilliseconds * 100)
