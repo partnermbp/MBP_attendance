@@ -406,16 +406,36 @@ function AuthVectorScene() {
       <g className="auth-star auth-star-one" fill="var(--crm-accent,#d9874e)"><path d="M370 125l5 16 16 5-16 5-5 16-5-16-16-5 16-5 5-16Z"/></g>
       <g className="auth-star auth-star-two" fill="var(--crm-vector-cool,#9dbbd0)"><path d="M1080 95l4 12 12 4-12 4-4 12-4-12-12-4 12-4 4-12Z"/></g>
       <g className="auth-star auth-star-three" fill="var(--crm-accent,#d9874e)"><path d="M1115 505l4 11 11 4-11 4-4 11-4-11-11-4 11-4 4-11Z"/></g>
-      <g transform="translate(205 430) rotate(-25)" className="auth-rocket">
-        <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
-        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="var(--crm-text,#e5e7eb)" fillOpacity=".9"/>
-        <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
-        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="var(--crm-vector-cool-strong,#648ca8)" stroke="var(--crm-vector-cool,#9dbbd0)" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="var(--crm-accent-strong,#b96b38)" fillOpacity=".78"/><path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="var(--crm-text,#e5e7eb)"/>
+      <g transform="translate(145 470) rotate(-34)" className="auth-rocket" opacity=".58">
+        <path d="M0 52C-5 12 7-35 28-62C49-35 61 12 56 52L28 72 0 52Z" fill="#8796A8" fillOpacity=".22" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".72" strokeWidth="1.5"/>
+        <path d="M28-62C39-43 47-20 50 2L28 13 6 2C9-20 17-43 28-62Z" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".18" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".45" strokeWidth="1"/>
+        <path d="M0 36L-13 58 7 52M56 36L69 58 49 52" fill="#71849A" fillOpacity=".2" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".55" strokeWidth="1.4" strokeLinejoin="round"/>
+        <path d="M20 71L28 92 36 71" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".42" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M28-43V-20" stroke="#E7EEF6" strokeOpacity=".45" strokeWidth="1.2"/>
       </g>
-      <circle cx="205" cy="430" r="112" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".13" strokeWidth="1"/><circle cx="205" cy="430" r="130" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 10"/>
+      <circle cx="145" cy="470" r="94" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".09" strokeWidth="1"/><circle cx="145" cy="470" r="112" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".07" strokeWidth="1" strokeDasharray="2 12"/>
       <circle cx="560" cy="115" r="3.5" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".75"/><circle cx="1120" cy="350" r="3" fill="var(--crm-accent,#d9874e)" fillOpacity=".8"/><circle cx="95" cy="280" r="3" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".8"/>
     </svg>
+  </div>;
+}
+
+function CrmAmbientBackdrop() {
+  return <div className="crm-ambient-backdrop" aria-hidden="true">
+    <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="crmAmbientLine" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-accent,#d9874e)" stopOpacity="0"/><stop offset=".48" stopColor="var(--crm-accent,#d9874e)" stopOpacity=".26"/><stop offset="1" stopColor="var(--crm-vector-cool,#9dbbd0)" stopOpacity="0"/></linearGradient>
+        <linearGradient id="crmShootingStar" x1="0" y1="0" x2="1" y2="0"><stop stopColor="var(--crm-vector-cool,#9dbbd0)" stopOpacity="0"/><stop offset=".72" stopColor="var(--crm-vector-cool,#9dbbd0)" stopOpacity=".7"/><stop offset="1" stopColor="#fff" stopOpacity=".9"/></linearGradient>
+      </defs>
+      <path d="M-80 710C250 430 570 350 850 430S1260 690 1530 390" fill="none" stroke="url(#crmAmbientLine)" strokeWidth="1"/>
+      <path d="M-90 790C270 530 570 490 860 550S1250 770 1510 520" fill="none" stroke="url(#crmAmbientLine)" strokeWidth=".7" strokeDasharray="2 12"/>
+      <circle cx="78%" cy="23%" r="1.6" fill="var(--crm-vector-cool,#9dbbd0)" opacity=".38"/>
+      <circle cx="24%" cy="72%" r="1.4" fill="var(--crm-accent,#d9874e)" opacity=".32"/>
+      <circle cx="88%" cy="76%" r="1.2" fill="var(--crm-vector-cool,#9dbbd0)" opacity=".3"/>
+      <path className="crm-shooting-star crm-shooting-star-a" d="M0 0L-94 30" stroke="url(#crmShootingStar)" strokeWidth="1.2" strokeLinecap="round"/>
+      <path className="crm-shooting-star crm-shooting-star-b" d="M0 0L-72 23" stroke="url(#crmShootingStar)" strokeWidth="1" strokeLinecap="round"/>
+      <path className="crm-shooting-star crm-shooting-star-c" d="M0 0L-82 26" stroke="url(#crmShootingStar)" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+    <div className="crm-ambient-grain"/>
   </div>;
 }
 
@@ -1864,6 +1884,39 @@ export default function App() {
         @media(max-width:390px){.auth-vector-art{width:195%;transform:translateY(3vh)}.auth-login-panel{margin-top:18px!important;padding:18px 14px!important}.auth-vector-scene{inset:52px -12% 0}}
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
+        /* Restrained, corporate space ambience: decorative layers never intercept or cover CRM content. */
+        .crm-layout{position:relative;isolation:isolate;background:transparent}
+        .crm-layout>.crm-sidebar,.crm-layout>main{position:relative;z-index:1}
+        .crm-ambient-backdrop{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;opacity:.72}
+        .crm-ambient-backdrop svg{position:absolute;inset:0;width:100%;height:100%;opacity:.72}
+        .crm-ambient-grain{position:absolute;inset:0;opacity:.035;background-image:radial-gradient(rgba(160,180,205,.8) .55px,transparent .7px);background-size:5px 5px;mask-image:linear-gradient(135deg,transparent 8%,#000 48%,transparent 92%)}
+        .crm-shooting-star{opacity:0;transform-box:fill-box;transform-origin:center;animation:crmShootingStar 18s linear infinite}
+        .crm-shooting-star-a{animation-delay:2s}.crm-shooting-star-b{animation-delay:8.5s}.crm-shooting-star-c{animation-delay:14s}
+        @keyframes crmShootingStar{0%,72%,100%{opacity:0;translate:0 0;scale:.72}74%{opacity:.72}79%{opacity:0;translate:-210px 70px;scale:1}}
+        .auth-vector-scene{z-index:0;opacity:.78}
+        .auth-vector-art{pointer-events:none}
+        .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 18s ease-in-out infinite;filter:drop-shadow(0 8px 18px rgba(0,0,0,.12))}
+        .auth-vector-scene:after{z-index:0}
+        .auth-login-panel{z-index:3!important;position:relative}
+        .crm-brand-header{z-index:3!important}
+        .auth-login-panel form,.auth-login-panel h1,.auth-login-panel p,.auth-login-panel label{position:relative;z-index:2}
+        @media(max-width:700px){
+          .auth-vector-scene{z-index:0;opacity:.58;inset:56px 0 0}
+          .auth-vector-art{width:150%;max-width:none;transform:translate(-7%,2vh)}
+          .auth-rocket{opacity:.34}
+          .auth-login-panel{z-index:3!important}
+          .crm-ambient-backdrop{opacity:.46}
+          .crm-ambient-backdrop svg{width:150%;left:-22%;opacity:.7}
+        }
+        @media(max-width:390px){
+          .auth-vector-art{width:142%;transform:translate(-10%,3vh)}
+          .auth-rocket{opacity:.25}
+        }
+        @media(prefers-reduced-motion:reduce){
+          .crm-shooting-star,.auth-rocket{animation:none!important}
+          .crm-ambient-backdrop{opacity:.3}
+        }
+        .crm-reduced-motion .crm-shooting-star,.crm-reduced-motion .auth-rocket{animation:none!important}
         /* Glass appearance is opt-in from Settings and layers over either base theme. */
         .crm-glassy .crm-layout main > section,
         .crm-glassy .crm-layout main > div > section{
@@ -2105,6 +2158,7 @@ export default function App() {
 
       {screen === 'signed-in' && session && profileReady && (
         <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'232px minmax(0,1fr)':'58px minmax(0,1fr)',gap:0,alignItems:'stretch',width:'100%',maxWidth:'none',margin:0,minHeight:'100vh'}}>
+          <CrmAmbientBackdrop />
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
