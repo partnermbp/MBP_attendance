@@ -62,7 +62,7 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     };
     try {
       const [leaveRows, correctionRows, followupRows, holidayRows] = await Promise.all([
-        fetchPaged((from,to) => supabase.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase!.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase.from('manager_followups').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).range(from,to)),
