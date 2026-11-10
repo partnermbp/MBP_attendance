@@ -51,6 +51,37 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
+      - name: Sign iOS Web Clip configuration profile
+        env:
+          IOS_PROFILE_SIGNING_CERT_PEM: ${{ secrets.IOS_PROFILE_SIGNING_CERT_PEM }}
+          IOS_PROFILE_SIGNING_KEY_PEM: ${{ secrets.IOS_PROFILE_SIGNING_KEY_PEM }}
+          IOS_PROFILE_SIGNING_KEY_PASSWORD: ${{ secrets.IOS_PROFILE_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          PROFILE="dist/mbp-attendance-ios.mobileconfig"
+          if [ -z "${IOS_PROFILE_SIGNING_CERT_PEM:-}" ] && [ -z "${IOS_PROFILE_SIGNING_KEY_PEM:-}" ]; then
+            echo "::warning::iOS profile signing secrets are not configured. The Web Clip profile remains unsigned."
+            exit 0
+          fi
+          if [ -z "${IOS_PROFILE_SIGNING_CERT_PEM:-}" ] || [ -z "${IOS_PROFILE_SIGNING_KEY_PEM:-}" ]; then
+            echo "::error::Both IOS_PROFILE_SIGNING_CERT_PEM and IOS_PROFILE_SIGNING_KEY_PEM must be configured."
+            exit 1
+          fi
+          test -s "$PROFILE" || { echo "::error::Expected Web Clip profile not found at $PROFILE"; exit 1; }
+          printf '%s' "$IOS_PROFILE_SIGNING_CERT_PEM" > "$RUNNER_TEMP/ios-profile-cert.pem"
+          printf '%s' "$IOS_PROFILE_SIGNING_KEY_PEM" > "$RUNNER_TEMP/ios-profile-key.pem"
+          chmod 600 "$RUNNER_TEMP/ios-profile-cert.pem" "$RUNNER_TEMP/ios-profile-key.pem"
+          if [ -n "${IOS_PROFILE_SIGNING_KEY_PASSWORD:-}" ]; then
+            openssl cms -sign -binary -in "$PROFILE" -signer "$RUNNER_TEMP/ios-profile-cert.pem" -inkey "$RUNNER_TEMP/ios-profile-key.pem" -passin env:IOS_PROFILE_SIGNING_KEY_PASSWORD -outform DER -out "$RUNNER_TEMP/mbp-attendance-ios-signed.mobileconfig" -nodetach -md sha256
+          else
+            openssl cms -sign -binary -in "$PROFILE" -signer "$RUNNER_TEMP/ios-profile-cert.pem" -inkey "$RUNNER_TEMP/ios-profile-key.pem" -outform DER -out "$RUNNER_TEMP/mbp-attendance-ios-signed.mobileconfig" -nodetach -md sha256
+          fi
+          openssl cms -verify -binary -inform DER -in "$RUNNER_TEMP/mbp-attendance-ios-signed.mobileconfig" -noverify -out "$RUNNER_TEMP/mbp-attendance-ios-verified.mobileconfig"
+          cmp "$PROFILE" "$RUNNER_TEMP/mbp-attendance-ios-verified.mobileconfig"
+          mv "$RUNNER_TEMP/mbp-attendance-ios-signed.mobileconfig" "$PROFILE"
+          rm -f "$RUNNER_TEMP/ios-profile-cert.pem" "$RUNNER_TEMP/ios-profile-key.pem" "$RUNNER_TEMP/mbp-attendance-ios-verified.mobileconfig"
+          echo "CMS signature created and cryptographically verified."
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
