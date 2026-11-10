@@ -38,6 +38,7 @@ begin
     from public.manager_employee_assignments a
     join public.profiles parent on parent.id = a.manager_id
     where a.employee_id = new.id
+      and lower(parent.role::text) <> 'admin'
       and (next_rank = 0 or public.crm_role_rank(parent.role::text) <= next_rank)
   ) then
     raise exception 'Role change would violate reporting hierarchy: this employee must remain below the assigned manager';
