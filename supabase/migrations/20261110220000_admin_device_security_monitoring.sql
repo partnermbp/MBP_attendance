@@ -74,6 +74,101 @@ drop policy if exists device_locations_admin_read on public.device_location_poin
 create policy device_locations_admin_read on public.device_location_points
 for select to authenticated using (public.is_active_admin());
 
+create or replace function public.start_device_security_session(p_metadata jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_user uuid := auth.uid(); v_id uuid;
+begin
+  if v_user is null or not exists(select 1 from public.profiles p where p.id=v_user and p.active=true) then
+    raise exception 'Active authenticated profile required' using errcode='42501';
+  end if;
+  insert into public.device_security_sessions(
+    user_id,app_platform,app_runtime,app_version,os_name,os_version,device_model,
+    browser_name,user_agent,language,timezone,screen_width,screen_height
+  ) values (
+    v_user,
+    coalesce(p_metadata->>'app_platform','web'),
+    coalesce(p_metadata->>'app_runtime','browser'),
+    nullif(p_metadata->>'app_version',''),
+    nullif(p_metadata->>'os_name',''),
+    nullif(p_metadata->>'os_version',''),
+    nullif(p_metadata->>'device_model',''),
+    nullif(p_metadata->>'browser_name',''),
+    nullif(p_metadata->>'user_agent',''),
+    nullif(p_metadata->>'language',''),
+    nullif(p_metadata->>'timezone',''),
+    nullif(p_metadata->>'screen_width','')::integer,
+    nullif(p_metadata->>'screen_height','')::integer
+  ) returning id into v_id;
+  return v_id;
+end;
+$function$;
+
+create or replace function public.record_device_location(
+  p_session_id uuid,p_latitude double precision,p_longitude double precision,
+  p_accuracy_m double precision default null,p_altitude_m double precision default null,
+  p_heading_deg double precision default null,p_speed_mps double precision default null,
+  p_source text default 'browser'
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_user uuid := auth.uid();
+begin
+  if v_user is null or not exists(
+    select 1 from public.device_security_sessions s
+    where s.id=p_session_id and s.user_id=v_user and s.ended_at is null
+      and s.location_tracking_enabled=true
+  ) then raise exception 'Location tracking is not enabled for this session' using errcode='42501'; end if;
+  if not exists(select 1 from public.attendance a where a.employee_id=v_user and a.check_out is null) then
+    raise exception 'Location can only be recorded during an active attendance session' using errcode='42501';
+  end if;
+  insert into public.device_location_points(session_id,user_id,latitude,longitude,accuracy_m,altitude_m,heading_deg,speed_mps,source)
+  values(p_session_id,v_user,p_latitude,p_longitude,p_accuracy_m,p_altitude_m,p_heading_deg,p_speed_mps,
+    case when p_source in ('browser','capacitor','electron') then p_source else 'browser' end);
+end;
+$function$;
+
+create or replace function public.set_device_location_consent(p_session_id uuid,p_enabled boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_user uuid := auth.uid();
+begin
+  update public.device_security_sessions
+  set location_tracking_enabled=p_enabled,
+      location_consent_at=case when p_enabled then now() else location_consent_at end
+  where id=p_session_id and user_id=v_user and ended_at is null;
+  if not found then raise exception 'Device session not found' using errcode='42501'; end if;
+end;
+$function$;
+
+create or replace function public.end_device_security_session(p_session_id uuid)
+returns void
+language sql
+security definer
+set search_path = ''
+as $function$
+  update public.device_security_sessions set ended_at=now(),last_seen_at=now(),location_tracking_enabled=false
+  where id=p_session_id and user_id=auth.uid() and ended_at is null;
+$function$;
+
+revoke all on function public.start_device_security_session(jsonb) from public,anon;
+revoke all on function public.record_device_location(uuid,double precision,double precision,double precision,double precision,double precision,double precision,text) from public,anon;
+revoke all on function public.set_device_location_consent(uuid,boolean) from public,anon;
+revoke all on function public.end_device_security_session(uuid) from public,anon;
+grant execute on function public.start_device_security_session(jsonb) to authenticated;
+grant execute on function public.record_device_location(uuid,double precision,double precision,double precision,double precision,double precision,double precision,text) to authenticated;
+grant execute on function public.set_device_location_consent(uuid,boolean) to authenticated;
+grant execute on function public.end_device_security_session(uuid) to authenticated;
+
 create or replace function public.admin_device_security_overview()
 returns table (
   session_id uuid,user_id uuid,full_name text,email text,role text,app_platform text,
