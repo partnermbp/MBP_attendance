@@ -2101,6 +2101,47 @@ export default function App() {
         :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"] div{color:#356d98!important}
         :root[data-crm-theme="night"] .telegram-group-messages-surface{background-color:rgba(13,19,29,.45)!important}
         :root[data-crm-theme="night"] .telegram-group-message-card{background:rgba(27,43,64,.94)!important;color:#edf4ff!important}
+
+        /* High-contrast Telegram group messages, tuned to the active CRM theme. */
+        :root[data-crm-theme="day"] .telegram-group-messages-surface{
+          background-color:rgba(239,245,252,.92)!important;
+          background-image:radial-gradient(rgba(75,105,140,.16) .7px,transparent .7px)!important;
+          border-color:#c5d3e3!important;
+        }
+        :root[data-crm-theme="day"] .telegram-group-message-card{
+          background:rgba(255,255,255,.98)!important;color:#172b43!important;
+          border-color:#c3d3e5!important;box-shadow:0 2px 9px rgba(27,52,82,.09)!important;
+        }
+        :root[data-crm-theme="day"] .telegram-group-message-card .telegram-group-message-author{color:#155b91!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card .telegram-group-message-body{color:#172b43!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card :is(label,select){color:#263d58!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card select{background:#fff!important;color:#172b43!important;border-color:#aebfd3!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card select option{background:#fff;color:#172b43}
+        :root[data-crm-theme="day"] .telegram-group-message-card button{color:#174b78!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"]{border-color:#c4d2e2!important;color:#203a56!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"] div{color:#155b91!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"] + div{color:#263d58!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card [style*="background:#132033"]{background:#f0f5fb!important;border-color:#c7d5e4!important;color:#20364f!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card [style*="#9aaec5"]{color:#536a83!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card [style*="background:#2a3d55"]{background:#e7f0fa!important;border-color:#b8cce1!important;color:#24425f!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card [style*="textAlign:right"]{color:#52677f!important}
+        :root[data-crm-theme="night"] .telegram-group-messages-surface{
+          background-color:rgba(10,18,31,.72)!important;
+          background-image:radial-gradient(rgba(126,165,210,.13) .7px,transparent .7px)!important;
+          border-color:rgba(130,157,190,.3)!important;
+        }
+        :root[data-crm-theme="night"] .telegram-group-message-card{
+          background:rgba(24,39,59,.96)!important;color:#f4f7fc!important;
+          border-color:#3b5573!important;box-shadow:0 2px 10px rgba(0,0,0,.22)!important;
+        }
+        :root[data-crm-theme="night"] .telegram-group-message-card .telegram-group-message-author{color:#8fcaff!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card .telegram-group-message-body{color:#f4f7fc!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card :is(label,select){color:#d5e4f5!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card select{background:#122238!important;color:#eaf3ff!important;border-color:#49627f!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card select option{background:#122238;color:#eaf3ff}
+        :root[data-crm-theme="night"] .telegram-group-message-card > div[style*="borderTop"]{border-color:#49627f!important;color:#e2ecf8!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card > div[style*="borderTop"] div{color:#9bd2ff!important}
+
         @media(prefers-reduced-motion:reduce){.crm-layout *{scroll-behavior:auto!important;transition:none!important}}
 
 
