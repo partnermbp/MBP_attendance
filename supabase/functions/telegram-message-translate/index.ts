@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
     const target = String(body?.target_lang || "").toUpperCase();
-    const allowedTargets = new Set(["EN", "BN", "RU"]);
+    const allowedTargets = new Set(["EN-US", "BN", "RU"]);
     if (!allowedTargets.has(target)) return json({ error: "Choose English, Bengali or Russian." }, 400);
     if (!Array.isArray(body?.messages) || body.messages.length < 1 || body.messages.length > 150) {
       return json({ error: "Send between 1 and 150 loaded messages per request." }, 400);
