@@ -2100,6 +2100,29 @@ export default function App() {
         :root[data-crm-theme="night"] .telegram-group-message-card{background:rgba(27,43,64,.94)!important;color:#edf4ff!important}
         @media(prefers-reduced-motion:reduce){.crm-layout *{scroll-behavior:auto!important;transition:none!important}}
 
+
+        /* Keep the workspace-preparation loader completely unboxed while preserving its rocket animation. */
+        .auth-loading-stage,
+        .auth-loading-stage .vector-loader,
+        .auth-loading-stage .vector-loader svg {
+          background: transparent !important;
+          background-color: transparent !important;
+          border: 0 !important;
+          outline: 0 !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+        .auth-loading-stage::before,
+        .auth-loading-stage::after,
+        .auth-loading-stage .vector-loader::before,
+        .auth-loading-stage .vector-loader::after {
+          content: none !important;
+          display: none !important;
+        }
+        .auth-loading-stage .vector-loader svg {
+          filter: drop-shadow(0 0 14px color-mix(in srgb, var(--crm-accent, #d9874e) 24%, transparent));
+        }
       `}</style>
       <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1,display:'flex',justifyContent:'center',alignItems:'center',width:'100%',padding:'20px 16px 14px' }}>
         <p className="crm-brand-title" style={{ fontWeight: 800, textAlign:'center',margin:0,letterSpacing:'0.18em',fontSize:'clamp(18px,2.5vw,25px)',lineHeight:1.2 }}>ATTENDANCE <span style={{fontWeight:400,opacity:.82}}>CRM</span></p>
