@@ -368,34 +368,53 @@ function SecurityActivityPanel() {
 
 function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
-    <svg className="auth-vector-art" viewBox="0 0 1000 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="auth-vector-art" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
+        <radialGradient id="authPlanetSurface" cx="32%" cy="24%" r="78%"><stop stopColor="#FFD5A2"/><stop offset=".42" stopColor="#E99A59"/><stop offset="1" stopColor="#8F4C2D"/></radialGradient>
+        <radialGradient id="authMoonSurface" cx="30%" cy="24%" r="78%"><stop stopColor="#F1F3F6"/><stop offset=".48" stopColor="#AEB7C5"/><stop offset="1" stopColor="#566174"/></radialGradient>
+        <radialGradient id="authPlanetHalo"><stop stopColor="#E99A59" stopOpacity=".24"/><stop offset="1" stopColor="#E99A59" stopOpacity="0"/></radialGradient>
         <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-accent, #d9874e)"/><stop offset="1" stopColor="var(--crm-accent-strong, #b96b38)"/></linearGradient>
         <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-vector-cool, #9dbbd0)"/><stop offset="1" stopColor="var(--crm-vector-cool-strong, #648ca8)"/></linearGradient>
-        <radialGradient id="planetGlow"><stop stopColor="var(--crm-accent, #d9874e)" stopOpacity=".3"/><stop offset="1" stopColor="var(--crm-accent, #d9874e)" stopOpacity="0"/></radialGradient>
+        <clipPath id="authPlanetClip"><circle cx="900" cy="265" r="174"/></clipPath>
+        <clipPath id="authMoonClip"><circle cx="900" cy="265" r="164"/></clipPath>
       </defs>
-      <circle cx="710" cy="270" r="205" fill="url(#planetGlow)"/>
-      <path d="M105 400C245 130 570 90 850 245" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".23" strokeWidth="1.5" strokeDasharray="5 10"/>
-      <path d="M140 455C330 230 590 205 875 365" stroke="#8BB9D5" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 12"/>
-      <ellipse cx="690" cy="270" rx="120" ry="34" transform="rotate(-20 690 270)" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".45" strokeWidth="2"/>
-      <circle cx="690" cy="270" r="66" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".18" stroke="var(--crm-vector-cool, #9dbbd0)" strokeOpacity=".4"/>
-      <path d="M650 270C668 239 712 238 731 268C711 300 669 302 650 270Z" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".24"/>
-      <g className="auth-star auth-star-one" fill="var(--crm-accent, #d9874e)"><path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/></g>
-      <g className="auth-star auth-star-two" fill="var(--crm-vector-cool, #9dbbd0)"><path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/></g>
-      <g className="auth-star auth-star-three" fill="var(--crm-accent, #d9874e)"><path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/></g>
-      <g transform="translate(310 250) rotate(-28)" className="auth-rocket">
-        <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
-        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="var(--crm-text, #e5e7eb)" fillOpacity=".88"/>
-        <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
-        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="var(--crm-vector-cool-strong, #648ca8)" stroke="var(--crm-vector-cool, #9dbbd0)" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="var(--crm-accent-strong, #b96b38)" fillOpacity=".75"/>
-        <path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="var(--crm-text, #e5e7eb)"/>
+      <path d="M35 570C210 260 440 130 730 150" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".13" strokeWidth="1.4" strokeDasharray="3 12"/>
+      <path d="M360 670C600 510 900 490 1160 590" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".12" strokeWidth="1.4" strokeDasharray="3 13"/>
+      <g className="auth-planet-orange">
+        <circle cx="900" cy="265" r="255" fill="url(#authPlanetHalo)"/>
+        <ellipse cx="900" cy="278" rx="242" ry="62" transform="rotate(-17 900 278)" stroke="#E9B17F" strokeOpacity=".48" strokeWidth="2"/>
+        <circle cx="900" cy="265" r="174" fill="url(#authPlanetSurface)" stroke="#F7C99D" strokeOpacity=".58" strokeWidth="1.5"/>
+        <g clipPath="url(#authPlanetClip)" opacity=".42">
+          <path d="M690 205C770 165 850 184 930 166C1000 150 1060 174 1100 198" stroke="#FFE1B8" strokeWidth="23" strokeLinecap="round" opacity=".42"/>
+          <path d="M720 310C810 275 875 298 950 276C1020 254 1060 278 1090 302" stroke="#713E2B" strokeWidth="28" strokeLinecap="round" opacity=".34"/>
+          <path d="M740 390C810 358 900 375 970 347C1020 328 1060 340 1090 356" stroke="#FFE1B8" strokeWidth="13" strokeLinecap="round" opacity=".3"/>
+          <circle cx="830" cy="210" r="32" fill="#8D4D30" opacity=".22"/><circle cx="1005" cy="325" r="44" fill="#743D2B" opacity=".2"/>
+        </g>
+        <ellipse cx="900" cy="278" rx="242" ry="62" transform="rotate(-17 900 278)" stroke="#F4C89F" strokeOpacity=".75" strokeWidth="8"/>
       </g>
-      <circle cx="310" cy="250" r="102" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".14" strokeWidth="1"/>
-      <circle cx="310" cy="250" r="118" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 9"/>
-      <circle cx="490" cy="130" r="4" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".75"/>
-      <circle cx="900" cy="250" r="3" fill="var(--crm-accent, #d9874e)" fillOpacity=".8"/>
-      <circle cx="130" cy="270" r="3" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".8"/>
+      <g className="auth-moon-night">
+        <circle cx="900" cy="265" r="235" fill="#AAB8CC" fillOpacity=".08"/>
+        <circle cx="900" cy="265" r="164" fill="url(#authMoonSurface)" stroke="#E7EDF6" strokeOpacity=".5" strokeWidth="1.5"/>
+        <g clipPath="url(#authMoonClip)">
+          <circle cx="840" cy="200" r="30" fill="#667286" fillOpacity=".34"/><circle cx="840" cy="200" r="21" stroke="#E5EAF1" strokeOpacity=".28" strokeWidth="5"/>
+          <circle cx="955" cy="220" r="19" fill="#657186" fillOpacity=".28"/><circle cx="955" cy="220" r="13" stroke="#E5EAF1" strokeOpacity=".24" strokeWidth="4"/>
+          <circle cx="920" cy="330" r="38" fill="#647086" fillOpacity=".24"/><circle cx="920" cy="330" r="28" stroke="#E7EBF1" strokeOpacity=".24" strokeWidth="6"/>
+          <circle cx="1020" cy="290" r="13" fill="#566276" fillOpacity=".25"/><circle cx="805" cy="310" r="11" fill="#566276" fillOpacity=".2"/><circle cx="875" cy="390" r="9" fill="#566276" fillOpacity=".22"/>
+          <path d="M780 130C830 90 925 82 1000 125" stroke="#FFF" strokeOpacity=".18" strokeWidth="14" strokeLinecap="round"/>
+        </g>
+      </g>
+      <g className="auth-star auth-star-one" fill="var(--crm-accent,#d9874e)"><path d="M370 125l5 16 16 5-16 5-5 16-5-16-16-5 16-5 5-16Z"/></g>
+      <g className="auth-star auth-star-two" fill="var(--crm-vector-cool,#9dbbd0)"><path d="M1080 95l4 12 12 4-12 4-4 12-4-12-12-4 12-4 4-12Z"/></g>
+      <g className="auth-star auth-star-three" fill="var(--crm-accent,#d9874e)"><path d="M1115 505l4 11 11 4-11 4-4 11-4-11-11-4 11-4 4-11Z"/></g>
+      <g transform="translate(205 430) rotate(-25)" className="auth-rocket">
+        <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
+        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="var(--crm-text,#e5e7eb)" fillOpacity=".9"/>
+        <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
+        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="var(--crm-vector-cool-strong,#648ca8)" stroke="var(--crm-vector-cool,#9dbbd0)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="var(--crm-accent-strong,#b96b38)" fillOpacity=".78"/><path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="var(--crm-text,#e5e7eb)"/>
+      </g>
+      <circle cx="205" cy="430" r="112" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".13" strokeWidth="1"/><circle cx="205" cy="430" r="130" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 10"/>
+      <circle cx="560" cy="115" r="3.5" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".75"/><circle cx="1120" cy="350" r="3" fill="var(--crm-accent,#d9874e)" fillOpacity=".8"/><circle cx="95" cy="280" r="3" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".8"/>
     </svg>
   </div>;
 }
@@ -1812,10 +1831,14 @@ export default function App() {
       <style>{`@media (max-width: 760px) { .crm-layout { display:block !important; } .crm-sidebar { position:relative !important; top:auto !important; min-height:0 !important; width:100% !important; margin:0 !important; padding:7px 8px !important; overflow:visible !important; } .crm-sidebar nav { flex-direction:row !important; flex-wrap:wrap !important; gap:4px !important; overflow:visible !important; position:relative !important; z-index:50; } .crm-sidebar nav button { width:auto !important; flex:0 0 auto !important; min-width:44px; justify-content:flex-start !important; padding:9px !important; gap:6px !important; font-size:12px !important; } .crm-sidebar nav button svg { flex-shrink:0; } .crm-menu-label { display:inline !important; white-space:nowrap; } .crm-sidebar > button[title="Sign out"] { width:auto !important; min-height:38px !important; padding:7px 9px !important; margin-top:4px !important; position:relative; z-index:1; } .crm-sidebar > div:first-child { margin-bottom:5px !important; } .crm-sidebar nav > div { position:relative !important; flex:0 0 auto; } .crm-sidebar nav > div > div { position:absolute !important; z-index:1000 !important; left:0 !important; right:auto !important; top:100% !important; min-width:min(290px, calc(100vw - 24px)); max-height:60vh; overflow-y:auto; display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px !important; margin:0 !important; padding:8px !important; border:1px solid var(--crm-border) !important; border-radius:0 0 7px 7px; background:var(--crm-panel-bg) !important; color:var(--crm-text) !important; box-shadow:0 8px 20px rgba(0,0,0,.22); } .crm-sidebar nav > div > div button { width:100% !important; min-width:0 !important; min-height:42px; padding:8px !important; justify-content:flex-start !important; font-size:12px !important; text-align:left; white-space:normal; overflow-wrap:anywhere; } .crm-sidebar > div:last-child { display:none; } .crm-layout > main { width:100%; padding:0 !important; min-width:0; } .crm-layout > main > section { margin:0 !important; width:100%; max-width:none !important; padding:8px !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; } .crm-layout > :not(.crm-sidebar) { min-width:0; } .crm-layout table { max-width:100%; } } @media (max-width: 480px) { main { padding:0 !important; } .crm-layout { gap:0 !important; } .crm-layout section { padding:8px !important; } .crm-layout input[type=date] { font-size:16px; min-height:44px; } }`}</style>
       {(screen === 'loading' || screen === 'login' || screen === 'set-password') && <AuthVectorScene />}
       <style>{`
-        .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-vector-scene{position:fixed;inset:74px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.9}
-        .auth-vector-art{width:min(100%,1100px);height:auto;max-height:calc(100vh - 90px);overflow:visible}
-        .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 6s ease-in-out infinite}
-        .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
+        .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-vector-scene{position:fixed;inset:64px 0 0;z-index:1;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.96}
+        .auth-vector-art{position:relative;width:min(100%,1280px);height:auto;max-height:calc(100vh - 72px);overflow:visible}
+        .auth-planet-orange,.auth-moon-night{transform-box:fill-box;transform-origin:900px 265px;animation:authCelestialFloat 18s ease-in-out infinite}
+        .auth-planet-orange{display:block}.auth-moon-night{display:none}
+        :root[data-crm-theme="night"] .auth-planet-orange{display:none}
+        :root[data-crm-theme="night"] .auth-moon-night{display:block}
+        .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 10s ease-in-out infinite}
+        .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 5.5s ease-in-out infinite}
         .auth-star-two{animation-delay:-1.2s}.auth-star-three{animation-delay:-2.4s}
         .auth-vector-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--crm-bg,#101114) 0%,transparent 25%,transparent 75%,var(--crm-bg,#101114) 100%);opacity:.38}
         .auth-loading-stage{position:relative;z-index:1;display:grid;place-items:center;min-height:clamp(220px,42vh,390px);margin:10px auto 28px;padding:18px 12px;background:transparent;border:0;box-shadow:none}
@@ -1831,12 +1854,14 @@ export default function App() {
         .auth-login-panel button[type="submit"]{border-radius:10px!important;box-shadow:0 7px 22px color-mix(in srgb,var(--crm-accent,#d9874e) 22%,transparent)}
         .auth-login-panel label{font-size:13px;letter-spacing:.01em}
         .auth-login-panel p{line-height:1.55}
-        @keyframes installGuideFlow{0%,100%{opacity:.45;translate:0 0}50%{opacity:1;translate:5px 0}}\n        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -11px;rotate:2deg}}
-        @keyframes authTwinkle{0%,100%{opacity:.35;scale:.8}50%{opacity:1;scale:1.18}}
+        @keyframes installGuideFlow{0%,100%{opacity:.45;translate:0 0}50%{opacity:1;translate:5px 0}}\n        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -9px;rotate:1.5deg}}
+        @keyframes authCelestialFloat{0%,100%{translate:0 0}50%{translate:0 -7px}}
+        @keyframes authTwinkle{0%,100%{opacity:.38;scale:.94}50%{opacity:.9;scale:1.04}}
         @keyframes loaderOrbit{0%,100%{translate:0 0;rotate:-5deg}50%{translate:0 -5px;rotate:5deg}}
         @keyframes loaderSpin{to{rotate:360deg}}
         @keyframes loaderPulse{0%,100%{opacity:.35;scale:.7}50%{opacity:1;scale:1.2}}
-        @media(max-width:700px){.auth-vector-scene{inset:58px -10% 0;opacity:.88}.auth-vector-art{width:140%;max-width:none;max-height:82vh;transform:translateX(3%)}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 14%,transparent 82%,var(--crm-bg,#101114) 100%);opacity:.12}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:16px auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 25%,transparent)!important;backdrop-filter:blur(4px) saturate(125%);-webkit-backdrop-filter:blur(4px) saturate(125%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.auth-permission-loading{min-height:clamp(220px,55vh,420px);margin:0 auto;padding:20px 12px}.vector-loader svg{width:124px;height:94px}}
+        @media(max-width:700px){.auth-vector-scene{inset:56px -8% 0;place-items:start center;opacity:.9}.auth-vector-art{width:175%;max-width:none;max-height:none;height:auto;transform:translateY(1vh)}.auth-planet-orange,.auth-moon-night{transform-origin:900px 265px}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 10%,transparent 88%,var(--crm-bg,#101114) 100%);opacity:.08}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:clamp(18px,4vh,32px) auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 25%,transparent)!important;backdrop-filter:blur(4px) saturate(125%);-webkit-backdrop-filter:blur(4px) saturate(125%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.auth-permission-loading{min-height:clamp(220px,55vh,420px);margin:0 auto;padding:20px 12px}.vector-loader svg{width:124px;height:94px}}
+        @media(max-width:390px){.auth-vector-art{width:195%;transform:translateY(3vh)}.auth-login-panel{margin-top:18px!important;padding:18px 14px!important}.auth-vector-scene{inset:52px -12% 0}}
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
         /* Glass appearance is opt-in from Settings and layers over either base theme. */
