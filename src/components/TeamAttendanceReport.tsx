@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import KnowMore from './KnowMore';
 import type { CSSProperties } from 'react';
 
-type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null };
+type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null; credited_work_minutes?: number | null; auto_closed?: boolean | null };
 type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: string };
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string };
@@ -13,6 +13,8 @@ const panel: CSSProperties = { background: 'var(--crm-card-bg)', border: '1px so
 const muted: CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
 const metricValue: CSSProperties = { fontSize: 27, fontWeight: 800, letterSpacing: '-.04em', lineHeight: 1.15 };
 const dayKey = (value: string) => value.slice(0, 10);
+const attendanceDay = (a: Attendance) => a.work_date || (a.work_timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: a.work_timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(a.check_in)) : dayKey(a.check_in));
+const creditedMinutes = (a: Attendance) => a.credited_work_minutes != null ? Math.max(0, Number(a.credited_work_minutes) || 0) : a.check_out ? Math.max(0, (new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) / 60000 - ((new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) >= 5 * 3600000 ? 60 : 0)) : 0;
 const dateLabel = (key: string) => new Date(key + 'T12:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
 const pct = (n: number, d: number) => d ? Math.round(n / d * 100) : 0;
 const roleLabel = (role: string) => role.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -58,18 +60,18 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const [appliedTo, setAppliedTo] = useState(to);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const activePeople = useMemo(() => profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin'), [profiles]);
+  const activePeople = useMemo(() => profiles.filter(p => p.active && !['admin', 'supervisor'].includes(p.role.toLowerCase().replaceAll('_', ' '))), [profiles]);
   const personMap = useMemo(() => new Map(activePeople.map(p => [p.id, p])), [activePeople]);
   const scopedPeople = useMemo(() => employeeFilter === 'all' ? activePeople : activePeople.filter(p => p.id === employeeFilter), [activePeople, employeeFilter]);
   const scopedAttendance = useMemo(() => attendance.filter(a => {
-    const date = a.work_date || (a.work_timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: a.work_timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(a.check_in)) : dayKey(a.check_in));
+    const date = attendanceDay(a);
     return date >= appliedFrom && date <= appliedTo && (employeeFilter === 'all' || a.employee_id === employeeFilter);
   }), [attendance, appliedFrom, appliedTo, employeeFilter]);
-  const scopedShifts = useMemo(() => shifts.filter(s => s.employee_id && personMap.has(s.employee_id) && dayKey(s.starts_at) >= appliedFrom && dayKey(s.starts_at) <= appliedTo && (employeeFilter === 'all' || s.employee_id === employeeFilter)), [shifts, personMap, appliedFrom, appliedTo, employeeFilter]);
+  const scopedShifts = useMemo(() => shifts.filter(s => { if (!s.employee_id || !personMap.has(s.employee_id) || (employeeFilter !== 'all' && s.employee_id !== employeeFilter)) return false; const timezone = attendance.find(a => a.employee_id === s.employee_id && a.work_timezone)?.work_timezone; const date = timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(s.starts_at)) : dayKey(s.starts_at); return date >= appliedFrom && date <= appliedTo; }), [shifts, personMap, attendance, appliedFrom, appliedTo, employeeFilter]);
   const matchedShiftIds = useMemo(() => {
     const matched = new Set<string>();
     scopedShifts.forEach(s => {
-      const check = scopedAttendance.find(a => a.employee_id === s.employee_id && dayKey(a.work_date || a.check_in) === dayKey(s.starts_at) && new Date(a.check_in).getTime() <= new Date(s.ends_at).getTime() && new Date(a.check_in).getTime() >= new Date(s.starts_at).getTime() - 6 * 3600000);
+      const check = scopedAttendance.find(a => a.employee_id === s.employee_id && attendanceDay(a) === (a.work_timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: a.work_timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(s.starts_at)) : dayKey(s.starts_at)) && new Date(a.check_in).getTime() <= new Date(s.ends_at).getTime() && new Date(a.check_in).getTime() >= new Date(s.starts_at).getTime() - 6 * 3600000);
       if (check) matched.add(s.id);
     });
     return matched;
@@ -80,7 +82,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   }), [scopedShifts, scopedAttendance]);
   const expected = scopedShifts.length, signed = matchedShiftIds.size, absent = expected - signed, late = shiftRecords.filter(r => r.late).length;
   const onTime = Math.max(0, signed - late);
-  const activeToday = new Set(attendance.filter(a => dayKey(a.work_date || a.check_in) === today && a.employee_id).map(a => a.employee_id)).size;
+  const activeToday = appliedFrom <= today && appliedTo >= today ? new Set(scopedAttendance.filter(a => attendanceDay(a) === today && a.employee_id).map(a => a.employee_id)).size : 0;
   const avgStart = scopedAttendance.length ? Math.round(scopedAttendance.reduce((sum, a) => { const d = new Date(a.check_in); return sum + d.getHours() * 60 + d.getMinutes(); }, 0) / scopedAttendance.length) : null;
   const startText = avgStart == null ? '—' : `${String(Math.floor(avgStart / 60)).padStart(2,'0')}:${String(avgStart % 60).padStart(2,'0')}`;
   const memberProfile = new Map(telegramMembers.filter(m => m.profile_id && m.telegram_user_id != null).map(m => [m.telegram_user_id as number, m.profile_id as string]));
@@ -105,18 +107,25 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const days: string[] = []; const cursor = new Date(appliedFrom + 'T12:00:00'); const last = new Date(appliedTo + 'T12:00:00');
   while (cursor <= last && days.length < 62) { days.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
   const dailyCounts = days.map(d => new Set(scopedAttendance.filter(a => dayKey(a.work_date || a.check_in) === d).map(a => a.employee_id)).size);
-  const roleCounts = activePeople.reduce((acc, p) => { acc[roleLabel(p.role)] = (acc[roleLabel(p.role)] || 0) + 1; return acc; }, {} as Record<string, number>);
+  const roleCounts = scopedPeople.reduce((acc, p) => { acc[roleLabel(p.role)] = (acc[roleLabel(p.role)] || 0) + 1; return acc; }, {} as Record<string, number>);
   const managerRows = scopedPeople.filter(p => managerIds.has(p.id)).map(manager => {
-    const children = assignments.filter(a => a.manager_id === manager.id).map(a => personMap.get(a.employee_id)).filter(Boolean) as Person[];
-    const descendants = children.flatMap(c => [c, ...assignments.filter(a => a.manager_id === c.id).map(a => personMap.get(a.employee_id)).filter(Boolean) as Person[]]);
+    const descendants: Person[] = []; const visited = new Set<string>([manager.id]); let frontier = [manager.id];
+    for (let depth = 0; depth < 12 && frontier.length; depth++) { const next: string[] = []; for (const parentId of frontier) for (const assignment of assignments.filter(a => a.manager_id === parentId)) { if (visited.has(assignment.employee_id)) continue; visited.add(assignment.employee_id); const child = personMap.get(assignment.employee_id); if (child) { descendants.push(child); next.push(child.id); } } frontier = next; }
+    const directIds = new Set(assignments.filter(a => a.manager_id === manager.id).map(a => a.employee_id));
     const ids = new Set([manager.id, ...descendants.map(p => p.id)]);
     const logs = scopedAttendance.filter(a => ids.has(a.employee_id || ''));
     const teamMembers = [manager, ...descendants];
     const teamDays = teamMembers.length * Math.max(1, days.length);
     const loggedDays = new Set(logs.map(a => (a.employee_id || '') + '|' + dayKey(a.work_date || a.check_in))).size;
-    return { manager, teamMembers, logs, activity: pct(loggedDays, teamDays) };
+    return { manager, teamMembers, directCount: descendants.filter(p => directIds.has(p.id)).length, indirectCount: descendants.filter(p => !directIds.has(p.id)).length, logs, activity: pct(loggedDays, teamDays) };
   });
   const lateHours = Array.from({ length: 8 }, (_, i) => ({ label: `${String(8 + i * 2).padStart(2,'0')}:00`, value: scopedAttendance.filter(a => { const h = new Date(a.check_in).getHours(); return h >= 8 + i * 2 && h < 10 + i * 2; }).length }));
+  const repeatedLatePeople = new Set(shiftRecords.filter(r => r.late).reduce((map, r) => map.set(r.shift.employee_id!, (map.get(r.shift.employee_id!) || 0) + 1), new Map<string, number>()).entries() ? [...shiftRecords.filter(r => r.late).reduce((map, r) => map.set(r.shift.employee_id!, (map.get(r.shift.employee_id!) || 0) + 1), new Map<string, number>())].filter(([, count]) => count >= 3).map(([id]) => id) : []);
+  const autoClosedCount = scopedAttendance.filter(a => a.auto_closed).length;
+  const creditedTotal = scopedAttendance.reduce((sum, a) => sum + creditedMinutes(a), 0);
+  const creditedHoursPerWorkday = days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length ? creditedTotal / 60 / days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length / Math.max(1, scopedPeople.length) : 0;
+  const overtimeHours = scopedAttendance.reduce((sum, a) => sum + Math.max(0, creditedMinutes(a) - 480), 0) / 60;
+  const earlyDepartures = shiftRecords.filter(r => r.check?.check_out && new Date(r.check.check_out).getTime() < new Date(r.shift.ends_at).getTime() - 15 * 60000).length;
   const noSchedule = shifts.length === 0;
   const card = (label: string, value: string | number, note: string, tone?: string) => <article style={{ ...panel, padding: 16 }}><div style={{ ...muted, marginBottom: 9 }}>{label}</div><div style={{ ...metricValue, color: tone || 'var(--crm-text)' }}>{value}</div><div style={{ ...muted, marginTop: 8 }}>{note}</div></article>;
 
@@ -140,6 +149,11 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
       {card('Completed sessions', scopedAttendance.filter(a=>a.check_out).length, 'Sessions with both IN and OUT')}
       {card('Average sign-in time', startText, 'Average local browser time of recorded check-ins')}
       {card('Late sign-ins', noSchedule ? '—' : late, noSchedule ? 'Requires assigned shift schedules' : `${pct(late,signed)}% of signed-in shifts were over 5 min late`, '#f59e0b')}
+      {card('Repeated lateness', noSchedule ? '—' : repeatedLatePeople.size, 'People late on 3+ scheduled shifts')}
+      {card('Auto-closed sessions', autoClosedCount, 'Sessions closed automatically')}
+      {card('Early departures', noSchedule ? '—' : earlyDepartures, 'Checkout over 15 minutes before shift end')}
+      {card('Credited hours / workday', creditedHoursPerWorkday.toFixed(1), 'Average per active person and weekday')}
+      {card('Overtime credited', overtimeHours.toFixed(1) + ' h', 'Credited time above 8 hours per session')}
     </div>
     {noSchedule ? <section style={{ ...panel, borderColor: '#b7791f' }}><strong>Shift compliance needs shift schedules</strong><p style={muted}>No shift records are currently available to the Admin dashboard. The report can show recorded check-ins, but it cannot fairly calculate missed sign-ins, late sign-ins or a not-signed-in rate without each employee’s scheduled shift start and end. Once shifts are available, these metrics will calculate automatically.</p></section> : <>
       <div className="crm-report-rate-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 12 }}>
@@ -159,7 +173,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     </div>
     <section style={panel}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}><strong>Manager and reporting-line activity</strong><span style={muted}>Direct and second-level reports · check-in days / possible person-days</span></div>
-      {managerRows.length ? <div style={{ overflowX: 'auto', marginTop: 12 }}><table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 12 }}><thead><tr>{['Manager','Team size','Check-in activity','Check-ins','Details'].map(x=><th key={x} style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid var(--crm-border)', color: 'var(--crm-text-muted)' }}>{x}</th>)}</tr></thead><tbody>{managerRows.map(row=><><tr key={row.manager.id}><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><strong>{row.manager.full_name || row.manager.email}</strong><div style={muted}>{roleLabel(row.manager.role)}</div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.teamMembers.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)', minWidth: 170 }}><strong>{row.activity}%</strong><div style={{ height: 6, background: 'var(--crm-border)', borderRadius: 8, marginTop: 6 }}><div style={{ height: '100%', width: row.activity+'%', background: row.activity>=80?'#22c55e':row.activity>=50?'#f59e0b':'#ef4444', borderRadius: 8 }}/></div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.logs.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><button type="button" onClick={()=>setExpanded(expanded===row.manager.id?null:row.manager.id)} style={{ background: 'transparent', color: 'var(--crm-accent-strong)', border: 0, cursor: 'pointer' }}>{expanded===row.manager.id?'Hide':'View team'}</button></td></tr>{expanded===row.manager.id&&<tr key={row.manager.id+'-detail'}><td colSpan={5} style={{ padding: 12, background: 'var(--crm-card-raised)' }}>{row.teamMembers.map(p=>{const count=scopedAttendance.filter(a=>a.employee_id===p.id).length;return <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--crm-border)' }}><span>{p.full_name||p.email} <small style={muted}>· {roleLabel(p.role)}</small></span><strong>{count} check-ins</strong></div>;})}</td></tr>}</>)}</tbody></table></div> : <p style={muted}>No manager-to-employee assignments are available for this selection.</p>}
+      {managerRows.length ? <div style={{ overflowX: 'auto', marginTop: 12 }}><table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 12 }}><thead><tr>{['Manager','Team size','Direct / indirect','Check-in activity','Check-ins','Details'].map(x=><th key={x} style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid var(--crm-border)', color: 'var(--crm-text-muted)' }}>{x}</th>)}</tr></thead><tbody>{managerRows.map(row=><><tr key={row.manager.id}><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><strong>{row.manager.full_name || row.manager.email}</strong><div style={muted}>{roleLabel(row.manager.role)}</div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.teamMembers.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.directCount} / {row.indirectCount}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)', minWidth: 170 }}><strong>{row.activity}%</strong><div style={{ height: 6, background: 'var(--crm-border)', borderRadius: 8, marginTop: 6 }}><div style={{ height: '100%', width: row.activity+'%', background: row.activity>=80?'#22c55e':row.activity>=50?'#f59e0b':'#ef4444', borderRadius: 8 }}/></div></td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}>{row.logs.length}</td><td style={{ padding: 10, borderBottom: '1px solid var(--crm-border)' }}><button type="button" onClick={()=>setExpanded(expanded===row.manager.id?null:row.manager.id)} style={{ background: 'transparent', color: 'var(--crm-accent-strong)', border: 0, cursor: 'pointer' }}>{expanded===row.manager.id?'Hide':'View team'}</button></td></tr>{expanded===row.manager.id&&<tr key={row.manager.id+'-detail'}><td colSpan={6} style={{ padding: 12, background: 'var(--crm-card-raised)' }}>{row.teamMembers.map(p=>{const count=scopedAttendance.filter(a=>a.employee_id===p.id).length;return <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--crm-border)' }}><span>{p.full_name||p.email} <small style={muted}>· {roleLabel(p.role)}</small></span><strong>{count} check-ins</strong></div>;})}</td></tr>}</>)}</tbody></table></div> : <p style={muted}>No manager-to-employee assignments are available for this selection.</p>}
     </section>
     <KnowMore>Attendance activity counts saved check-ins, not online presence or work output. Late and not-signed-in rates require scheduled shifts; the late threshold is 5 minutes. Team activity is a trend indicator, not a contractual score. Telegram response rate includes only group questions and first replies attributable to linked CRM identities; it excludes private chats.</KnowMore>
   </div>;
