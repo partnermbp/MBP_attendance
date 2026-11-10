@@ -5,7 +5,7 @@ import KnowMore from './KnowMore';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean; telegram_user_id?: number | null; telegram_username?: string | null; telegram_verified_at?: string | null };
 type Assignment = { manager_id: string; employee_id: string };
-type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null };
+type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null; credited_work_minutes?: number | null; auto_closed?: boolean };
 type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: string };
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
@@ -100,7 +100,14 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     const ownAndTeam = attendance.filter(a => scope.has(a.employee_id || ''));
     const own = attendance.filter(a => a.employee_id === selected.id);
     const completed = own.filter(a => a.check_out);
-    const workedSeconds = completed.reduce((sum,a) => sum + Math.max(0,(new Date(a.check_out!).getTime()-new Date(a.check_in).getTime())/1000-3600),0);
+    const creditedSeconds = (a: Attendance) => {
+      if (typeof a.credited_work_minutes === 'number') return a.credited_work_minutes * 60;
+      const elapsed = Math.max(0, Math.floor((new Date(a.check_out || Date.now()).getTime() - new Date(a.check_in).getTime()) / 60000));
+      if (a.auto_closed) return 8 * 3600;
+      if (elapsed >= 540) return (480 + Math.min(120, elapsed - 540)) * 60;
+      return Math.max(0, elapsed - (elapsed >= 300 ? 60 : 0)) * 60;
+    };
+    const workedSeconds = completed.reduce((sum,a) => sum + creditedSeconds(a),0);
     const avgShift = completed.length ? workedSeconds/completed.length : null;
     // Only registration-verified identities are authoritative. Group membership usernames are not account identity.
     const ownTelegramMembers = telegramMembers.filter(m => m.profile_id === selected.id && Boolean(m.verified_at));
