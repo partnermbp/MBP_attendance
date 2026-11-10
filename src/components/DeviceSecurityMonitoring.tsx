@@ -20,12 +20,15 @@ function deviceMetadata() {
   const native = Capacitor.isNativePlatform();
   const capPlatform = Capacitor.getPlatform();
   const electron = /Electron\//i.test(ua);
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & {standalone?:boolean}).standalone);
   let appPlatform = 'web';
   let runtime = 'browser';
   if (native && capPlatform === 'android') { appPlatform = 'android'; runtime = 'capacitor'; }
   else if (native && capPlatform === 'ios') { appPlatform = 'ios'; runtime = 'capacitor'; }
   else if (electron) { appPlatform = /Macintosh|Mac OS/i.test(ua) ? 'macos' : 'windows'; runtime = 'electron'; }
   const osName = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Windows NT/i.test(ua) ? 'Windows' : /Mac OS X|Macintosh/i.test(ua) ? 'macOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
+  if (!native && !electron && standalone && osName === 'Android') appPlatform = 'android';
+  if (!native && !electron && standalone && osName === 'iOS') appPlatform = 'ios';
   const osVersion = (ua.match(/Android ([\d.]+)/i)?.[1] || ua.match(/OS ([\d_]+)/i)?.[1]?.replaceAll('_','.') || ua.match(/Windows NT ([\d.]+)/i)?.[1] || ua.match(/Mac OS X ([\d_]+)/i)?.[1]?.replaceAll('_','.') || null);
   const browserName = /Edg\//i.test(ua) ? 'Edge' : /Firefox\//i.test(ua) ? 'Firefox' : /Chrome\//i.test(ua) ? 'Chrome' : /Safari\//i.test(ua) ? 'Safari' : electron ? 'Electron' : 'Unknown';
   return {
@@ -75,7 +78,12 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
       });
       if (error && !cancelled) setNotice('Location updates are temporarily unavailable: ' + error.message);
     };
-    const fail = () => { if (!cancelled) setNotice('Location permission or positioning is unavailable. Attendance continues normally.'); };
+    const fail = () => {
+      if (cancelled) return;
+      setTracking(false);
+      void supabase.rpc('set_device_location_consent',{p_session_id:sessionId,p_enabled:false});
+      setNotice('Location permission or positioning is unavailable. Tracking was paused; attendance continues normally.');
+    };
     if (Capacitor.isNativePlatform()) {
       void Geolocation.watchPosition({ enableHighAccuracy:true, timeout:20000, maximumAge:15000 }, (position, error) => {
         if (error) { fail(); return; }
