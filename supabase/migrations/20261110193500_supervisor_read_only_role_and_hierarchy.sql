@@ -313,3 +313,11 @@ as $function$
 $function$;
 revoke all on function public.get_supervisor_telegram_metrics() from public,anon;
 grant execute on function public.get_supervisor_telegram_metrics() to authenticated;
+
+-- Telegram account-change requests and audit rows contain raw Telegram identifiers; keep them Admin-only.
+drop policy if exists "Admins and Supervisors read telegram audit" on public.telegram_admin_audit;
+create policy "Admins read telegram audit" on public.telegram_admin_audit for select to authenticated
+using (is_active_admin() and is_auth_mfa_current());
+drop policy if exists "telegram_id_change_requests_admin_supervisor_read" on public.telegram_id_change_requests;
+create policy "telegram_id_change_requests_admin_read" on public.telegram_id_change_requests for select to authenticated
+using (is_active_admin() and is_auth_mfa_current());
