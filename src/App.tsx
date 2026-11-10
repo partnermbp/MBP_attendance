@@ -1818,19 +1818,25 @@ export default function App() {
         .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
         .auth-star-two{animation-delay:-1.2s}.auth-star-three{animation-delay:-2.4s}
         .auth-vector-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--crm-bg,#101114) 0%,transparent 25%,transparent 75%,var(--crm-bg,#101114) 100%);opacity:.38}
-        .vector-loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;color:var(--crm-muted,#98a2b3);font-size:13px;letter-spacing:.02em}
-        .vector-loader svg{width:112px;height:84px;overflow:visible}
+        .auth-loading-stage{position:relative;z-index:1;display:grid;place-items:center;min-height:clamp(220px,42vh,390px);margin:10px auto 28px;padding:18px 12px;background:transparent;border:0;box-shadow:none}
+        .vector-loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:150px;padding:0;background:transparent;border:0;box-shadow:none;color:var(--crm-muted,#98a2b3);font-size:13px;letter-spacing:.04em;text-align:center}
+        .vector-loader svg{width:136px;height:102px;overflow:visible;filter:drop-shadow(0 0 16px color-mix(in srgb,var(--crm-accent,#d9874e) 25%,transparent))}
         .loader-rocket{transform-box:fill-box;transform-origin:center;animation:loaderOrbit 2.8s ease-in-out infinite}
         .loader-orbit{animation:loaderSpin 9s linear infinite;transform-origin:60px 45px}
         .loader-dot{animation:loaderPulse 1.8s ease-in-out infinite}
-        .auth-login-panel{position:relative;z-index:1;backdrop-filter:blur(14px);background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 91%,transparent)!important;border-color:color-mix(in srgb,var(--crm-border,#343944) 75%,#d9874e)!important;box-shadow:0 24px 80px rgba(0,0,0,.28)!important}
-        .auth-login-panel h1{letter-spacing:-.035em}
+        .auth-login-panel{position:relative;z-index:2;width:min(460px,calc(100% - 32px))!important;margin:clamp(18px,4vh,42px) auto 28px!important;padding:clamp(20px,3.5vw,32px)!important;backdrop-filter:blur(7px) saturate(125%);-webkit-backdrop-filter:blur(7px) saturate(125%);background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 48%,transparent)!important;border:1px solid color-mix(in srgb,var(--crm-accent,#d9874e) 38%,var(--crm-border,#343944))!important;border-radius:18px!important;box-shadow:0 18px 60px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08)!important}
+        .auth-login-panel h1{letter-spacing:-.045em;font-size:clamp(25px,3vw,32px);margin:0 0 14px}
+        .auth-login-panel form{position:relative;z-index:1}
+        .auth-login-panel input{background:color-mix(in srgb,var(--crm-bg,#101114) 62%,transparent)!important;border-color:color-mix(in srgb,var(--crm-vector-cool,#9dbbd0) 34%,var(--crm-border,#343944))!important;border-radius:10px!important}
+        .auth-login-panel button[type="submit"]{border-radius:10px!important;box-shadow:0 7px 22px color-mix(in srgb,var(--crm-accent,#d9874e) 22%,transparent)}
+        .auth-login-panel label{font-size:13px;letter-spacing:.01em}
+        .auth-login-panel p{line-height:1.55}
         @keyframes installGuideFlow{0%,100%{opacity:.45;translate:0 0}50%{opacity:1;translate:5px 0}}\n        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -11px;rotate:2deg}}
         @keyframes authTwinkle{0%,100%{opacity:.35;scale:.8}50%{opacity:1;scale:1.18}}
         @keyframes loaderOrbit{0%,100%{translate:0 0;rotate:-5deg}50%{translate:0 -5px;rotate:5deg}}
         @keyframes loaderSpin{to{rotate:360deg}}
         @keyframes loaderPulse{0%,100%{opacity:.35;scale:.7}50%{opacity:1;scale:1.2}}
-        @media(max-width:700px){.auth-vector-scene{inset:65px -35% 0;opacity:.48}.auth-vector-art{width:145%;max-width:none}.auth-login-panel{margin-top:10px!important}}
+        @media(max-width:700px){.auth-vector-scene{inset:58px -10% 0;opacity:.72}.auth-vector-art{width:125%;max-width:none;max-height:78vh}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 18%,transparent 78%,var(--crm-bg,#101114) 100%);opacity:.2}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:16px auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 40%,transparent)!important;backdrop-filter:blur(5px) saturate(120%);-webkit-backdrop-filter:blur(5px) saturate(120%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.vector-loader svg{width:124px;height:94px}}
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
       `}</style>
@@ -1839,7 +1845,7 @@ export default function App() {
       </header>
 
       {screen === 'loading' && (
-        <section style={{...panelStyle,position:'relative',zIndex:1}}><VectorLoader label="Checking your session" /></section>
+        <div className="auth-loading-stage"><VectorLoader label="Preparing your workspace" /></div>
       )}
 
       {screen === 'login' && (
