@@ -99,17 +99,28 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const overdueFollowups = followups.filter(item => item.status !== 'resolved' && item.due_date && item.due_date < todayKey).length;
   const pendingLeave = leaves.filter(item => item.status === 'pending').length;
   const pendingCorrections = corrections.filter(item => item.status === 'pending').length;
-  const teamTodayKey = new Intl.DateTimeFormat('en-CA',{timeZone:attendance.find(x=>x.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const todayShifts = shifts.filter(shift => {
     if (!shift.employee_id) return false;
     const timezone = attendance.find(item=>item.employee_id===shift.employee_id && item.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(shift.starts_at)) === teamTodayKey;
+    const todayForEmployee = new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    return new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(shift.starts_at)) === todayForEmployee;
   });
   const missedCheckins = todayShifts.filter(shift => {
     if (new Date(shift.starts_at).getTime() > Date.now()-15*60000) return false;
-    return !attendance.some(item => item.employee_id===shift.employee_id && (item.work_date || (item.work_timezone ? new Intl.DateTimeFormat('en-CA',{timeZone:item.work_timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.check_in)) : item.check_in.slice(0,10)))===teamTodayKey && new Date(item.check_in).getTime() >= new Date(shift.starts_at).getTime()-6*3600000 && new Date(item.check_in).getTime() <= new Date(shift.ends_at).getTime());
+    const timezone = attendance.find(item=>item.employee_id===shift.employee_id && item.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const shiftDate = new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(shift.starts_at));
+    return !attendance.some(item => {
+      if (item.employee_id !== shift.employee_id) return false;
+      const recordDate = item.work_date || (item.work_timezone ? new Intl.DateTimeFormat('en-CA',{timeZone:item.work_timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.check_in)) : item.check_in.slice(0,10));
+      return recordDate === shiftDate && new Date(item.check_in).getTime() >= new Date(shift.starts_at).getTime()-6*3600000 && new Date(item.check_in).getTime() <= new Date(shift.ends_at).getTime();
+    });
   }).length;
-  const autoClosedToday = attendance.filter(item => item.auto_closed && (item.work_date || item.check_in.slice(0,10)) === teamTodayKey).length;
+  const autoClosedToday = attendance.filter(item => {
+    if (!item.auto_closed) return false;
+    const timezone = item.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const todayForEmployee = new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    return (item.work_date || item.check_in.slice(0,10)) === todayForEmployee;
+  }).length;
 
   return <div style={{display:'grid',gap:14}}>
     <div><h1 style={{margin:'0 0 5px'}}>Workforce operations</h1><p style={muted}>Leave, attendance corrections, manager follow-ups and public holidays.</p></div>
