@@ -85,9 +85,21 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     run(() => supabase!.from(table).update({status,reviewed_by:profile?.id,reviewed_at:new Date().toISOString()}).eq('id',id), status === 'approved' ? 'Request approved.' : 'Request rejected.');
   const button = (label: string, onClick: () => void, disabled = busy) => <button type="button" disabled={disabled} onClick={onClick} style={{...action,opacity:disabled ? 0.55 : 1}}>{label}</button>;
 
+  const todayKey = new Date().toISOString().slice(0,10);
+  const openFollowups = followups.filter(item => item.status !== 'resolved').length;
+  const overdueFollowups = followups.filter(item => item.status !== 'resolved' && item.due_date && item.due_date < todayKey).length;
+  const pendingLeave = leaves.filter(item => item.status === 'pending').length;
+  const pendingCorrections = corrections.filter(item => item.status === 'pending').length;
+
   return <div style={{display:'grid',gap:14}}>
     <div><h1 style={{margin:'0 0 5px'}}>Workforce operations</h1><p style={muted}>Leave, attendance corrections, manager follow-ups and public holidays.</p></div>
     <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>{([['leave','Leave'],['corrections','Attendance corrections'],['followups','Manager follow-ups'],['holidays','Holidays']] as const).map(([id,label])=><button key={id} type="button" onClick={()=>setTab(id)} aria-pressed={tab===id} style={{...action,background:tab===id?'var(--crm-accent-strong)':'var(--crm-card-raised)',color:tab===id?'#fff':'var(--crm-text)',border:'1px solid var(--crm-border)'}}>{label}</button>)}</div>
+    <section style={{...panel,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:12}}>
+      <div><div style={muted}>Pending leave</div><strong style={{fontSize:23}}>{pendingLeave}</strong></div>
+      <div><div style={muted}>Pending corrections</div><strong style={{fontSize:23}}>{pendingCorrections}</strong></div>
+      <div><div style={muted}>Open follow-ups</div><strong style={{fontSize:23}}>{openFollowups}</strong></div>
+      <div><div style={muted}>Overdue follow-ups</div><strong style={{fontSize:23,color:overdueFollowups?'#f87171':'var(--crm-text)'}}>{overdueFollowups}</strong></div>
+    </section>
     {message && <p role="status" style={{...muted,color:message.includes('could not')?'#f87171':'var(--crm-accent-strong)'}}>{message}</p>}
     {loading ? <p style={muted}>Loading workforce records…</p> : <>
     {tab==='leave' && <>
