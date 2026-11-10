@@ -88,6 +88,11 @@ Deno.serve(async (req: Request) => {
     const rows = await rest(
       `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone&order=check_in.desc&limit=1000`
     );
+    const shiftStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
+    const shifts = await rest(
+      `shifts?employee_id=in.(${ids})&starts_at=gte.${encodeURIComponent(shiftStart)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=3000`
+    );
 
     // Managers receive attendance times only. GPS coordinates and derived
     // location labels remain exclusively in the Admin attendance interface.
@@ -150,7 +155,7 @@ Deno.serve(async (req: Request) => {
       work_date: row.work_date,
       work_timezone: row.work_timezone,
     }));
-    return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
+    return json({ records, shifts: shifts || [], telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
   } catch (error) {
     console.error("Manager attendance lookup failed:", error);
     return json({ error: "Could not load team attendance. Check the manager-team-attendance Edge Function logs." }, 500);
