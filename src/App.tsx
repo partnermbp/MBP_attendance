@@ -370,32 +370,32 @@ function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
     <svg className="auth-vector-art" viewBox="0 0 1000 560" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F5B477"/><stop offset="1" stopColor="#D66B36"/></linearGradient>
-        <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#B9E5FF"/><stop offset="1" stopColor="#4B8FB8"/></linearGradient>
-        <radialGradient id="planetGlow"><stop stopColor="#D88B54" stopOpacity=".3"/><stop offset="1" stopColor="#D88B54" stopOpacity="0"/></radialGradient>
+        <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-accent, #d9874e)"/><stop offset="1" stopColor="var(--crm-accent-strong, #b96b38)"/></linearGradient>
+        <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-vector-cool, #9dbbd0)"/><stop offset="1" stopColor="var(--crm-vector-cool-strong, #648ca8)"/></linearGradient>
+        <radialGradient id="planetGlow"><stop stopColor="var(--crm-accent, #d9874e)" stopOpacity=".3"/><stop offset="1" stopColor="var(--crm-accent, #d9874e)" stopOpacity="0"/></radialGradient>
       </defs>
       <circle cx="710" cy="270" r="205" fill="url(#planetGlow)"/>
-      <path d="M105 400C245 130 570 90 850 245" stroke="#D9A477" strokeOpacity=".23" strokeWidth="1.5" strokeDasharray="5 10"/>
+      <path d="M105 400C245 130 570 90 850 245" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".23" strokeWidth="1.5" strokeDasharray="5 10"/>
       <path d="M140 455C330 230 590 205 875 365" stroke="#8BB9D5" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 12"/>
-      <ellipse cx="690" cy="270" rx="120" ry="34" transform="rotate(-20 690 270)" stroke="#DDA16F" strokeOpacity=".45" strokeWidth="2"/>
-      <circle cx="690" cy="270" r="66" fill="#54758C" fillOpacity=".18" stroke="#9CC5D8" strokeOpacity=".4"/>
-      <path d="M650 270C668 239 712 238 731 268C711 300 669 302 650 270Z" fill="#7195A8" fillOpacity=".24"/>
-      <g className="auth-star auth-star-one" fill="#F6C58F"><path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/></g>
-      <g className="auth-star auth-star-two" fill="#A9D4E9"><path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/></g>
-      <g className="auth-star auth-star-three" fill="#F6C58F"><path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/></g>
+      <ellipse cx="690" cy="270" rx="120" ry="34" transform="rotate(-20 690 270)" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".45" strokeWidth="2"/>
+      <circle cx="690" cy="270" r="66" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".18" stroke="var(--crm-vector-cool, #9dbbd0)" strokeOpacity=".4"/>
+      <path d="M650 270C668 239 712 238 731 268C711 300 669 302 650 270Z" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".24"/>
+      <g className="auth-star auth-star-one" fill="var(--crm-accent, #d9874e)"><path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/></g>
+      <g className="auth-star auth-star-two" fill="var(--crm-vector-cool, #9dbbd0)"><path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/></g>
+      <g className="auth-star auth-star-three" fill="var(--crm-accent, #d9874e)"><path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/></g>
       <g transform="translate(310 250) rotate(-28)" className="auth-rocket">
         <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
-        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="#F3D8BE" fillOpacity=".88"/>
+        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="var(--crm-text, #e5e7eb)" fillOpacity=".88"/>
         <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
-        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="#7B9FB3" stroke="#A9C8D8" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="#E9A15F" fillOpacity=".75"/>
-        <path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="#F8D9A9"/>
+        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="var(--crm-vector-cool-strong, #648ca8)" stroke="var(--crm-vector-cool, #9dbbd0)" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="var(--crm-accent-strong, #b96b38)" fillOpacity=".75"/>
+        <path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="var(--crm-text, #e5e7eb)"/>
       </g>
-      <circle cx="310" cy="250" r="102" stroke="#E9B17F" strokeOpacity=".14" strokeWidth="1"/>
-      <circle cx="310" cy="250" r="118" stroke="#E9B17F" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 9"/>
-      <circle cx="490" cy="130" r="4" fill="#B6D8E8" fillOpacity=".75"/>
-      <circle cx="900" cy="250" r="3" fill="#F1B57C" fillOpacity=".8"/>
-      <circle cx="130" cy="270" r="3" fill="#B6D8E8" fillOpacity=".8"/>
+      <circle cx="310" cy="250" r="102" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".14" strokeWidth="1"/>
+      <circle cx="310" cy="250" r="118" stroke="var(--crm-accent, #d9874e)" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 9"/>
+      <circle cx="490" cy="130" r="4" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".75"/>
+      <circle cx="900" cy="250" r="3" fill="var(--crm-accent, #d9874e)" fillOpacity=".8"/>
+      <circle cx="130" cy="270" r="3" fill="var(--crm-vector-cool, #9dbbd0)" fillOpacity=".8"/>
     </svg>
   </div>;
 }
@@ -405,12 +405,12 @@ function VectorLoader({ label = 'Loading your workspace' }: { label?: string }) 
     <svg viewBox="0 0 120 90" aria-hidden="true">
       <path className="loader-orbit" d="M12 55C25 10 95 10 108 55C95 100 25 100 12 55Z" fill="none" stroke="currentColor" strokeOpacity=".28" strokeWidth="1.5" strokeDasharray="4 6"/>
       <g className="loader-rocket" transform="translate(60 43) rotate(35)">
-        <path d="M0-28C11-17 14-1 11 15L0 24-11 15C-14-1-11-17 0-28Z" fill="#D9874E" stroke="#F5BD8C" strokeWidth="1.5"/>
-        <circle cy="-3" r="5" fill="#B9E2F3" stroke="#EDF8FC" strokeWidth="1.5"/>
-        <path d="M-10 9L-20 20-8 18M10 9L20 20 8 18" fill="#789CAF"/>
-        <path d="M-4 24Q0 38 4 24" stroke="#F3B36F" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M0-28C11-17 14-1 11 15L0 24-11 15C-14-1-11-17 0-28Z" fill="var(--crm-accent, #d9874e)" stroke="var(--crm-accent-strong, #b96b38)" strokeWidth="1.5"/>
+        <circle cy="-3" r="5" fill="var(--crm-vector-cool, #9dbbd0)" stroke="var(--crm-text, #e5e7eb)" strokeWidth="1.5"/>
+        <path d="M-10 9L-20 20-8 18M10 9L20 20 8 18" fill="var(--crm-vector-cool-strong, #648ca8)"/>
+        <path d="M-4 24Q0 38 4 24" stroke="var(--crm-accent-strong, #b96b38)" strokeWidth="3" strokeLinecap="round"/>
       </g>
-      <circle className="loader-dot" cx="60" cy="5" r="3" fill="#A9D6E8"/>
+      <circle className="loader-dot" cx="60" cy="5" r="3" fill="var(--crm-vector-cool, #9dbbd0)"/>
     </svg>
     <span>{label}</span>
   </div>;
@@ -499,6 +499,7 @@ export default function App() {
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [installationGuide, setInstallationGuide] = useState<'ios' | 'macos' | null>(null);
   const [preferences, setPreferences] = useState<CrmPreferences>(loadCrmPreferences);
   const [settingsNotice, setSettingsNotice] = useState('');
   const updatePreference = <K extends keyof CrmPreferences>(key: K, value: CrmPreferences[K]) => { setPreferences(current => { const next = { ...current, [key]: value }; try { localStorage.setItem('mbp_crm_preferences', JSON.stringify(next)); } catch { /* Browser storage may be disabled. */ } return next; }); setSettingsNotice('Your preferences have been saved on this device.'); };
@@ -1810,7 +1811,7 @@ export default function App() {
       <style>{`@media (max-width: 760px) { .crm-layout { display:block !important; } .crm-sidebar { position:relative !important; top:auto !important; min-height:0 !important; width:100% !important; margin:0 !important; padding:7px 8px !important; overflow:visible !important; } .crm-sidebar nav { flex-direction:row !important; flex-wrap:wrap !important; gap:4px !important; overflow:visible !important; position:relative !important; z-index:50; } .crm-sidebar nav button { width:auto !important; flex:0 0 auto !important; min-width:44px; justify-content:flex-start !important; padding:9px !important; gap:6px !important; font-size:12px !important; } .crm-sidebar nav button svg { flex-shrink:0; } .crm-menu-label { display:inline !important; white-space:nowrap; } .crm-sidebar > button[title="Sign out"] { width:auto !important; min-height:38px !important; padding:7px 9px !important; margin-top:4px !important; position:relative; z-index:1; } .crm-sidebar > div:first-child { margin-bottom:5px !important; } .crm-sidebar nav > div { position:relative !important; flex:0 0 auto; } .crm-sidebar nav > div > div { position:absolute !important; z-index:1000 !important; left:0 !important; right:auto !important; top:100% !important; min-width:min(290px, calc(100vw - 24px)); max-height:60vh; overflow-y:auto; display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px !important; margin:0 !important; padding:8px !important; border:1px solid var(--crm-border) !important; border-radius:0 0 7px 7px; background:var(--crm-panel-bg) !important; color:var(--crm-text) !important; box-shadow:0 8px 20px rgba(0,0,0,.22); } .crm-sidebar nav > div > div button { width:100% !important; min-width:0 !important; min-height:42px; padding:8px !important; justify-content:flex-start !important; font-size:12px !important; text-align:left; white-space:normal; overflow-wrap:anywhere; } .crm-sidebar > div:last-child { display:none; } .crm-layout > main { width:100%; padding:0 !important; min-width:0; } .crm-layout > main > section { margin:0 !important; width:100%; max-width:none !important; padding:8px !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; } .crm-layout > :not(.crm-sidebar) { min-width:0; } .crm-layout table { max-width:100%; } } @media (max-width: 480px) { main { padding:0 !important; } .crm-layout { gap:0 !important; } .crm-layout section { padding:8px !important; } .crm-layout input[type=date] { font-size:16px; min-height:44px; } }`}</style>
       {(screen === 'loading' || screen === 'login' || screen === 'set-password') && <AuthVectorScene />}
       <style>{`
-        .auth-vector-scene{position:fixed;inset:74px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.9}
+        .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-vector-scene{position:fixed;inset:74px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.9}
         .auth-vector-art{width:min(100%,1100px);height:auto;max-height:calc(100vh - 90px);overflow:visible}
         .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 6s ease-in-out infinite}
         .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
@@ -1823,7 +1824,7 @@ export default function App() {
         .loader-dot{animation:loaderPulse 1.8s ease-in-out infinite}
         .auth-login-panel{position:relative;z-index:1;backdrop-filter:blur(14px);background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 91%,transparent)!important;border-color:color-mix(in srgb,var(--crm-border,#343944) 75%,#d9874e)!important;box-shadow:0 24px 80px rgba(0,0,0,.28)!important}
         .auth-login-panel h1{letter-spacing:-.035em}
-        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -11px;rotate:2deg}}
+        @keyframes installGuideFlow{0%,100%{opacity:.45;translate:0 0}50%{opacity:1;translate:5px 0}}\n        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -11px;rotate:2deg}}
         @keyframes authTwinkle{0%,100%{opacity:.35;scale:.8}50%{opacity:1;scale:1.18}}
         @keyframes loaderOrbit{0%,100%{translate:0 0;rotate:-5deg}50%{translate:0 -5px;rotate:5deg}}
         @keyframes loaderSpin{to{rotate:360deg}}
@@ -1995,10 +1996,10 @@ export default function App() {
 
       {screen === 'signed-in' && session && profileReady && (
         <div className="crm-layout" style={{display:'grid',gridTemplateColumns:navOpen?'232px minmax(0,1fr)':'58px minmax(0,1fr)',gap:0,alignItems:'stretch',width:'100%',maxWidth:'none',margin:0,minHeight:'100vh'}}>
-          <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
+          <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
-            <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
-              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Downloads',icon:<Download size={18}/>,id:'downloads' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Requests',icon:<MessageCircle size={18}/>,id:'requests' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='downloads'||item.id==='attendance'||((item.id==='security'||item.id==='requests')&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
+            <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3,flex:1}}>
+              {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Requests',icon:<MessageCircle size={18}/>,id:'requests' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='downloads'||item.id==='attendance'||((item.id==='security'||item.id==='requests')&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||canManageTeam))||(item.id==='telegram'&&(isAdmin||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
                 <button type="button" title={item.label} aria-current={activePage===item.id || (item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance')) || (item.id==='team' && ['manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage))?'page':undefined} aria-expanded={item.id==='attendance'?attendanceMenuOpen:item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:undefined} data-branch-active={(item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance')) || (item.id==='team' && ['team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage)) ? 'true' : undefined} onClick={()=>{if(item.id==='team'){if(!navOpen){setNavOpen(true);setTeamMenuOpen(true);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}else{setTeamMenuOpen(!teamMenuOpen);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='telegram'){if(!navOpen){setNavOpen(true);setTelegramMenuOpen(true);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}else{setTelegramMenuOpen(!telegramMenuOpen);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='attendance'){if(!navOpen){setNavOpen(true);setAttendanceMenuOpen(true);setTeamMenuOpen(false);setTelegramMenuOpen(false);}else{setAttendanceMenuOpen(!attendanceMenuOpen);setTeamMenuOpen(false);setTelegramMenuOpen(false);}}else{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(item.id);}setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:activePage===item.id?'var(--crm-accent-soft)':'transparent',color:activePage===item.id?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{(item.id==='team'||item.id==='telegram'||item.id==='attendance')&&((item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:attendanceMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}</button>
                 {item.id==='attendance'&&navOpen&&attendanceMenuOpen&&<div style={{margin:'3px 0 7px 13px',paddingLeft:10,borderLeft:'1px solid var(--crm-border)',display:'grid',gap:2}}>
                   {[{label:'Attendance records',id:'attendance-records' as CrmPage,icon:<CalendarDays size={15}/>},...(isAdmin?[{label:'Team attendance report',id:'team-attendance' as CrmPage,icon:<Users size={15}/>}]:[])].map(sub=><button key={sub.id} type="button" title={sub.label} aria-current={activePage===sub.id?'page':undefined} onClick={()=>{const isMobile=window.matchMedia('(max-width: 760px)').matches;setAttendanceMenuOpen(!isMobile);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(sub.id);setMapPreview(null);window.scrollTo(0,0)}} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 7px',textAlign:'left',border:0,borderRadius:5,background:activePage===sub.id?'var(--crm-accent-soft)':'transparent',color:activePage===sub.id?'var(--crm-accent)':'#b8bbc5',fontSize:12,cursor:'pointer'}}>{sub.icon}<span>{sub.label}</span></button>)}
@@ -2012,6 +2013,7 @@ export default function App() {
               </div>)}
             </nav>
 
+            <button type="button" title="Downloads" aria-current={activePage==='downloads'?'page':undefined} onClick={()=>{setActivePage('downloads');setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setMapPreview(null);window.scrollTo(0,0);}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',marginTop:12,marginBottom:8,textAlign:'left',border:0,borderRadius:6,background:activePage==='downloads'?'var(--crm-accent-soft)':'transparent',color:activePage==='downloads'?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}><Download size={18}/>{navOpen&&<span className="crm-menu-label">Downloads</span>}</button>
             <button type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={() => void handleLogout()} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?10:'10px 0',marginTop:18,border:'1px solid var(--crm-accent-strong)',borderRadius:6,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:busy?'wait':'pointer'}}><LogOut size={18}/>{navOpen&&(busy?'Please wait…':'Sign out')}</button>
             {navOpen&&<div style={{marginTop:16,paddingTop:12,borderTop:'1px solid #24252c',color:'#98a2b3',fontSize:11,overflowWrap:'anywhere'}}>{profile?.full_name||session.user.email}</div>}
           </aside>
@@ -2063,16 +2065,44 @@ export default function App() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,260px),1fr))',gap:14,marginTop:20}}>
               {[
                 {name:'Android',detail:'Android APK · Latest build',description:'Install the APK on Android. You may need to allow installation from your browser or file manager.',url:ANDROID_APK_DOWNLOAD_URL,action:'Download APK',icon:<Smartphone size={24}/>},
-                {name:'iPhone / iPad',detail:'iOS Home Screen Web Clip',description:'Download the configuration profile, then install it in Settings → Profile Downloaded. This adds the CRM shortcut to your Home Screen.',url:IOS_WEBCLIP_DOWNLOAD_URL,action:'Download iOS profile',icon:<Smartphone size={24}/>},
+                {name:'iPhone / iPad',detail:'iOS Home Screen Web Clip',description:'Add a secure MBP Attendance shortcut to your iPhone or iPad Home Screen.',url:IOS_WEBCLIP_DOWNLOAD_URL,action:'Download iOS profile',icon:<Smartphone size={24}/>,guide:'ios' as const},
                 {name:'Windows',detail:'Windows 10 / 11 · 64-bit installer',description:'Desktop app installer with Start Menu and optional Desktop shortcut.',url:WINDOWS_EXE_DOWNLOAD_URL,action:'Download EXE',icon:<Monitor size={24}/>},
-                {name:'macOS',detail:'Universal DMG · Apple Silicon and Intel',description:'Drag MBP Attendance into Applications after opening the disk image. The first launch may require approval in Privacy & Security because the app is not notarized.',url:MACOS_DMG_DOWNLOAD_URL,action:'Download DMG',icon:<Monitor size={24}/>}
+                {name:'macOS',detail:'Universal DMG · Apple Silicon and Intel',description:'Install the MBP Attendance desktop app on an Intel or Apple Silicon Mac.',url:MACOS_DMG_DOWNLOAD_URL,action:'Download DMG',icon:<Monitor size={24}/>,guide:'macos' as const}
               ].map(item=><article key={item.name} style={{display:'flex',flexDirection:'column',gap:12,minHeight:210,padding:18,border:'1px solid var(--crm-border,#343b49)',borderRadius:10,background:'var(--crm-card-bg,#151b29)',color:'var(--crm-text,#e5e7eb)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,color:'var(--crm-accent,#ff9b45)'}}>{item.icon}<strong style={{fontSize:17,color:'var(--crm-text,#fff)'}}>{item.name}</strong></div>
                 <div style={{fontSize:12,fontWeight:700,color:'var(--crm-accent,#ffb36b)'}}>{item.detail}</div>
                 <p style={{fontSize:13,lineHeight:1.55,color:'var(--crm-muted,#b7c0d1)',margin:'0 0 4px',flex:1}}>{item.description}</p>
                 <a href={item.url} download={item.name==='iPhone / iPad'} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 13px',borderRadius:7,background:'var(--crm-accent,#e87924)',color:'#111827',fontWeight:800,textDecoration:'none'}}><Download size={16}/>{item.action}</a>
+                {item.guide&&<button type="button" onClick={()=>setInstallationGuide(item.guide)} style={{alignSelf:'flex-start',padding:'2px 0',border:0,background:'transparent',color:'var(--crm-muted,#98a2b3)',fontSize:11,textDecoration:'underline',textUnderlineOffset:3,cursor:'pointer'}}>Installation instructions</button>}
               </article>)}
             </div>
+            {installationGuide && <div role="presentation" onClick={()=>setInstallationGuide(null)} style={{position:'fixed',inset:0,zIndex:3000,display:'grid',placeItems:'center',padding:16,background:'rgba(3,8,16,.72)',backdropFilter:'blur(8px)'}}>
+              <section role="dialog" aria-modal="true" aria-labelledby="installation-guide-title" onClick={event=>event.stopPropagation()} style={{width:'min(100%,620px)',maxHeight:'min(86vh,760px)',overflowY:'auto',padding:22,border:'1px solid var(--crm-border,#3b4657)',borderRadius:16,background:'var(--crm-panel-bg,#171d29)',color:'var(--crm-text,#e5e7eb)',boxShadow:'0 28px 90px rgba(0,0,0,.48)'}}>
+                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:14}}>
+                  <div><div style={{fontSize:11,fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--crm-accent)'}}>SETUP GUIDE</div><h2 id="installation-guide-title" style={{margin:'6px 0 0',fontSize:22}}>{installationGuide==='ios'?'Install on iPhone or iPad':'Install on macOS'}</h2></div>
+                  <button type="button" aria-label="Close installation instructions" onClick={()=>setInstallationGuide(null)} style={{width:34,height:34,borderRadius:9,border:'1px solid var(--crm-border)',background:'transparent',color:'var(--crm-text)',fontSize:20,cursor:'pointer'}}>×</button>
+                </div>
+                <div style={{display:'grid',placeItems:'center',margin:'18px 0 20px',padding:12,borderRadius:12,background:'var(--crm-card-bg,#111827)',color:'var(--crm-accent)'}}>
+                  {installationGuide==='ios'?<svg viewBox="0 0 320 112" width="100%" style={{maxWidth:340}} aria-hidden="true"><rect x="128" y="8" width="64" height="96" rx="13" fill="none" stroke="currentColor" strokeWidth="2"/><rect x="135" y="20" width="50" height="70" rx="5" fill="currentColor" opacity=".1"/><path d="M160 36v28m-10-10 10 10 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><circle cx="160" cy="80" r="3" fill="currentColor"/><path d="M36 56h65m-8-8 8 8-8 8M219 56h65m-8-8 8 8-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 5" className="install-guide-flow"/></svg>:<svg viewBox="0 0 320 112" width="100%" style={{maxWidth:340}} aria-hidden="true"><rect x="58" y="8" width="204" height="96" rx="9" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M58 24h204" stroke="currentColor" opacity=".55"/><circle cx="72" cy="16" r="2.5" fill="currentColor"/><circle cx="82" cy="16" r="2.5" fill="currentColor"/><circle cx="92" cy="16" r="2.5" fill="currentColor"/><rect x="91" y="38" width="45" height="42" rx="6" fill="currentColor" opacity=".13"/><path d="M113 48v22m-8-8 8 8 8-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="170" y="42" width="48" height="34" rx="5" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M176 69h36" stroke="currentColor" strokeWidth="2"/><path d="M138 59h25m-7-7 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="install-guide-flow"/></svg>}
+                </div>
+                {installationGuide==='ios'?<ol style={{paddingLeft:22,display:'grid',gap:12,fontSize:13,lineHeight:1.6,color:'var(--crm-muted,#b7c0d1)'}}>
+                  <li><strong style={{color:'var(--crm-text)'}}>Use Safari on your iPhone or iPad.</strong> Sign in to the CRM website and open Downloads.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Download the iOS profile.</strong> Tap “Download iOS profile” and allow the configuration profile download.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Open Settings.</strong> Tap “Profile Downloaded” near the top. If it is not shown, go to Settings → General → VPN & Device Management.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Install the profile.</strong> Select the MBP Attendance Web Clip profile, tap Install, and enter your device passcode if requested. Review the profile details before confirming.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Find the icon on your Home Screen.</strong> Tap MBP Attendance to open the CRM in its app-style window. Sign in with your existing CRM credentials.</li>
+                </ol>:<ol style={{paddingLeft:22,display:'grid',gap:12,fontSize:13,lineHeight:1.6,color:'var(--crm-muted,#b7c0d1)'}}>
+                  <li><strong style={{color:'var(--crm-text)'}}>Download the DMG.</strong> Choose Downloads → macOS → Download DMG. The universal installer supports Apple Silicon and Intel Macs.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Open the disk image.</strong> Open the downloaded <code>.dmg</code> file from Downloads.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Install the app.</strong> In the installer window, drag MBP Attendance into the Applications folder. Wait for the copy to finish.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Eject the installer.</strong> In Finder, eject the MBP Attendance disk image. Open Applications and launch MBP Attendance.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>If macOS blocks the first launch.</strong> The current app build is not notarized. First try Control-clicking the app in Applications and choosing Open, then confirm. If that option is unavailable, open System Settings → Privacy & Security, scroll to Security, and choose Open Anyway for MBP Attendance. Only approve the app downloaded from your organisation's CRM Downloads page.</li>
+                  <li><strong style={{color:'var(--crm-text)'}}>Sign in.</strong> Use your normal CRM credentials. The desktop app connects to the same live CRM and requires an internet connection.</li>
+                </ol>}
+                <p style={{margin:'16px 0 0',fontSize:11,lineHeight:1.5,color:'var(--crm-muted)'}}>These instructions apply to the current Web Clip profile and desktop installer. Keep your device and CRM sign-in credentials secure.</p>
+                <button type="button" onClick={()=>setInstallationGuide(null)} style={{marginTop:16,width:'100%',padding:'11px 14px',border:0,borderRadius:8,background:'var(--crm-accent)',color:'#101114',fontWeight:800,cursor:'pointer'}}>Got it</button>
+              </section>
+            </div>}
             <p style={{marginTop:18,fontSize:12,lineHeight:1.6,color:'var(--crm-muted,#98a2b3)'}}>Security note: the Windows and macOS desktop installers are currently unsigned. Your operating system may show a first-launch security warning.</p>
           </>}
           {activePage === 'requests' && isAdmin && <TelegramIdRequests/>}
