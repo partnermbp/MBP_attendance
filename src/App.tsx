@@ -368,53 +368,74 @@ function SecurityActivityPanel() {
 
 function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
-    <svg className="auth-vector-art" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="auth-vector-art" viewBox="0 0 1440 820" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="authPlanetSurface" cx="32%" cy="24%" r="78%"><stop stopColor="#FFD5A2"/><stop offset=".42" stopColor="#E99A59"/><stop offset="1" stopColor="#8F4C2D"/></radialGradient>
-        <radialGradient id="authMoonSurface" cx="30%" cy="24%" r="78%"><stop stopColor="#F1F3F6"/><stop offset=".48" stopColor="#AEB7C5"/><stop offset="1" stopColor="#566174"/></radialGradient>
-        <radialGradient id="authPlanetHalo"><stop stopColor="#E99A59" stopOpacity=".24"/><stop offset="1" stopColor="#E99A59" stopOpacity="0"/></radialGradient>
-        <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-accent, #d9874e)"/><stop offset="1" stopColor="var(--crm-accent-strong, #b96b38)"/></linearGradient>
-        <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="var(--crm-vector-cool, #9dbbd0)"/><stop offset="1" stopColor="var(--crm-vector-cool-strong, #648ca8)"/></linearGradient>
-        <clipPath id="authPlanetClip"><circle cx="900" cy="265" r="174"/></clipPath>
-        <clipPath id="authMoonClip"><circle cx="900" cy="265" r="164"/></clipPath>
+        <radialGradient id="authWorldAmber" cx="34%" cy="27%" r="76%"><stop stopColor="#F7D6B2"/><stop offset=".38" stopColor="#B9784E"/><stop offset=".78" stopColor="#503F42"/><stop offset="1" stopColor="#202B3B"/></radialGradient>
+        <radialGradient id="authWorldLunar" cx="30%" cy="24%" r="80%"><stop stopColor="#E2E7EC"/><stop offset=".48" stopColor="#929EAE"/><stop offset="1" stopColor="#303D50"/></radialGradient>
+        <linearGradient id="authMetal" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#E3EAF0"/><stop offset=".5" stopColor="#8294A8"/><stop offset="1" stopColor="#394B60"/></linearGradient>
+        <linearGradient id="authSolar" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#A8C5D8" stopOpacity=".8"/><stop offset="1" stopColor="#496B89" stopOpacity=".35"/></linearGradient>
+        <linearGradient id="authTrail" x1="0" y1="0" x2="1" y2="0"><stop stopColor="#A8C5D8" stopOpacity="0"/><stop offset="1" stopColor="#DCE8F2" stopOpacity=".8"/></linearGradient>
+        <radialGradient id="authHalo"><stop stopColor="#C28B65" stopOpacity=".22"/><stop offset="1" stopColor="#C28B65" stopOpacity="0"/></radialGradient>
+        <clipPath id="authWorldClip"><circle cx="1080" cy="360" r="225"/></clipPath>
       </defs>
-      <path d="M35 570C210 260 440 130 730 150" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".13" strokeWidth="1.4" strokeDasharray="3 12"/>
-      <path d="M360 670C600 510 900 490 1160 590" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".12" strokeWidth="1.4" strokeDasharray="3 13"/>
-      <g className="auth-planet-orange">
-        <circle cx="900" cy="265" r="255" fill="url(#authPlanetHalo)"/>
-        <ellipse cx="900" cy="278" rx="242" ry="62" transform="rotate(-17 900 278)" stroke="#E9B17F" strokeOpacity=".48" strokeWidth="2"/>
-        <circle cx="900" cy="265" r="174" fill="url(#authPlanetSurface)" stroke="#F7C99D" strokeOpacity=".58" strokeWidth="1.5"/>
-        <g clipPath="url(#authPlanetClip)" opacity=".42">
-          <path d="M690 205C770 165 850 184 930 166C1000 150 1060 174 1100 198" stroke="#FFE1B8" strokeWidth="23" strokeLinecap="round" opacity=".42"/>
-          <path d="M720 310C810 275 875 298 950 276C1020 254 1060 278 1090 302" stroke="#713E2B" strokeWidth="28" strokeLinecap="round" opacity=".34"/>
-          <path d="M740 390C810 358 900 375 970 347C1020 328 1060 340 1090 356" stroke="#FFE1B8" strokeWidth="13" strokeLinecap="round" opacity=".3"/>
-          <circle cx="830" cy="210" r="32" fill="#8D4D30" opacity=".22"/><circle cx="1005" cy="325" r="44" fill="#743D2B" opacity=".2"/>
+      <path d="M40 665C270 370 500 290 790 355S1190 570 1470 275" stroke="#9CB3C8" strokeOpacity=".13" strokeWidth="1.2"/>
+      <path d="M-40 760C280 560 550 510 790 555S1220 700 1500 530" stroke="#C18C69" strokeOpacity=".12" strokeWidth="1" strokeDasharray="2 13"/>
+      <g className="auth-world-amber">
+        <circle cx="1080" cy="360" r="320" fill="url(#authHalo)"/>
+        <circle cx="1080" cy="360" r="225" fill="url(#authWorldAmber)" stroke="#E5C3A5" strokeOpacity=".48"/>
+        <g clipPath="url(#authWorldClip)" opacity=".32">
+          <path d="M820 255C925 210 1025 238 1130 195S1300 214 1370 260" stroke="#F0D6BE" strokeWidth="24" strokeLinecap="round"/>
+          <path d="M815 400C930 355 1030 395 1145 350S1300 370 1370 420" stroke="#242D3B" strokeWidth="36" strokeLinecap="round"/>
+          <path d="M860 520C970 480 1080 510 1190 468S1320 485 1380 520" stroke="#F0D6BE" strokeWidth="13" strokeLinecap="round"/>
         </g>
-        <ellipse cx="900" cy="278" rx="242" ry="62" transform="rotate(-17 900 278)" stroke="#F4C89F" strokeOpacity=".75" strokeWidth="8"/>
+        <ellipse cx="1080" cy="375" rx="300" ry="70" transform="rotate(-17 1080 375)" stroke="#D4B39A" strokeOpacity=".4" strokeWidth="1.5"/>
+        <ellipse cx="1080" cy="375" rx="300" ry="70" transform="rotate(-17 1080 375)" stroke="#D4B39A" strokeOpacity=".16" strokeWidth="10"/>
       </g>
-      <g className="auth-moon-night">
-        <circle cx="900" cy="265" r="235" fill="#AAB8CC" fillOpacity=".08"/>
-        <circle cx="900" cy="265" r="164" fill="url(#authMoonSurface)" stroke="#E7EDF6" strokeOpacity=".5" strokeWidth="1.5"/>
-        <g clipPath="url(#authMoonClip)">
-          <circle cx="840" cy="200" r="30" fill="#667286" fillOpacity=".34"/><circle cx="840" cy="200" r="21" stroke="#E5EAF1" strokeOpacity=".28" strokeWidth="5"/>
-          <circle cx="955" cy="220" r="19" fill="#657186" fillOpacity=".28"/><circle cx="955" cy="220" r="13" stroke="#E5EAF1" strokeOpacity=".24" strokeWidth="4"/>
-          <circle cx="920" cy="330" r="38" fill="#647086" fillOpacity=".24"/><circle cx="920" cy="330" r="28" stroke="#E7EBF1" strokeOpacity=".24" strokeWidth="6"/>
-          <circle cx="1020" cy="290" r="13" fill="#566276" fillOpacity=".25"/><circle cx="805" cy="310" r="11" fill="#566276" fillOpacity=".2"/><circle cx="875" cy="390" r="9" fill="#566276" fillOpacity=".22"/>
-          <path d="M780 130C830 90 925 82 1000 125" stroke="#FFF" strokeOpacity=".18" strokeWidth="14" strokeLinecap="round"/>
+      <g className="auth-world-lunar">
+        <circle cx="1080" cy="360" r="225" fill="url(#authWorldLunar)" stroke="#E0E7F0" strokeOpacity=".48"/>
+        <g clipPath="url(#authWorldClip)" opacity=".48">
+          <g fill="#46566B" fillOpacity=".32" stroke="#E6EBF2" strokeOpacity=".22" strokeWidth="5">
+            <circle cx="1000" cy="270" r="36"/><circle cx="1165" cy="292" r="22"/><circle cx="1115" cy="440" r="48"/><circle cx="1250" cy="400" r="16"/><circle cx="940" cy="420" r="13"/>
+          </g>
+          <path d="M900 180C1010 120 1160 130 1260 205" stroke="#fff" strokeOpacity=".22" strokeWidth="18" strokeLinecap="round"/>
         </g>
       </g>
-      <g className="auth-star auth-star-one" fill="var(--crm-accent,#d9874e)"><path d="M370 125l5 16 16 5-16 5-5 16-5-16-16-5 16-5 5-16Z"/></g>
-      <g className="auth-star auth-star-two" fill="var(--crm-vector-cool,#9dbbd0)"><path d="M1080 95l4 12 12 4-12 4-4 12-4-12-12-4 12-4 4-12Z"/></g>
-      <g className="auth-star auth-star-three" fill="var(--crm-accent,#d9874e)"><path d="M1115 505l4 11 11 4-11 4-4 11-4-11-11-4 11-4 4-11Z"/></g>
-      <g transform="translate(145 470) rotate(-34)" className="auth-rocket" opacity=".58">
-        <path d="M0 52C-5 12 7-35 28-62C49-35 61 12 56 52L28 72 0 52Z" fill="#8796A8" fillOpacity=".22" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".72" strokeWidth="1.5"/>
-        <path d="M28-62C39-43 47-20 50 2L28 13 6 2C9-20 17-43 28-62Z" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".18" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".45" strokeWidth="1"/>
-        <path d="M0 36L-13 58 7 52M56 36L69 58 49 52" fill="#71849A" fillOpacity=".2" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".55" strokeWidth="1.4" strokeLinejoin="round"/>
-        <path d="M20 71L28 92 36 71" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".42" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M28-43V-20" stroke="#E7EEF6" strokeOpacity=".45" strokeWidth="1.2"/>
+      <g className="auth-satellite-orbit">
+        <path d="M235 210L275 170L315 210L275 250Z" stroke="#9DB4C9" strokeOpacity=".2" strokeDasharray="3 7"/>
+        <g transform="translate(275 210)">
+          <rect x="-20" y="-12" width="40" height="24" rx="4" fill="url(#authMetal)" stroke="#D8E2EC" strokeOpacity=".65"/>
+          <rect x="-73" y="-17" width="47" height="34" rx="2" fill="url(#authSolar)" stroke="#A9C3D7" strokeOpacity=".72"/>
+          <path d="M-65-17V17M-51-17V17M-37-17V17M-73 0H-26" stroke="#D7E4EF" strokeOpacity=".45"/>
+          <rect x="26" y="-17" width="47" height="34" rx="2" fill="url(#authSolar)" stroke="#A9C3D7" strokeOpacity=".72"/>
+          <path d="M37-17V17M51-17V17M65-17V17M26 0H73" stroke="#D7E4EF" strokeOpacity=".45"/>
+          <path d="M0-12L8-38L16-12M0 12L-8 35" stroke="#C9D6E3" strokeWidth="2" strokeLinecap="round"/>
+          <circle r="4" fill="#E6EEF5"/>
+        </g>
       </g>
-      <circle cx="145" cy="470" r="94" stroke="var(--crm-vector-cool,#9dbbd0)" strokeOpacity=".09" strokeWidth="1"/><circle cx="145" cy="470" r="112" stroke="var(--crm-accent,#d9874e)" strokeOpacity=".07" strokeWidth="1" strokeDasharray="2 12"/>
-      <circle cx="560" cy="115" r="3.5" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".75"/><circle cx="1120" cy="350" r="3" fill="var(--crm-accent,#d9874e)" fillOpacity=".8"/><circle cx="95" cy="280" r="3" fill="var(--crm-vector-cool,#9dbbd0)" fillOpacity=".8"/>
+      <g className="auth-rocket-flight" transform="translate(450 500) rotate(-34)">
+        <path d="M0 92C-13 48-10-28 0-92C10-28 13 48 0 92Z" fill="url(#authMetal)" stroke="#D8E3ED" strokeOpacity=".85" strokeWidth="1.6"/>
+        <path d="M0-92C-8-59-12-29-12 0L0 13L12 0C12-29 8-59 0-92Z" fill="#B8C8D7" fillOpacity=".38"/>
+        <path d="M-8 32L-38 67L-8 59M8 32L38 67L8 59" fill="#61758B" stroke="#B6C8D9" strokeOpacity=".65" strokeWidth="1.4"/>
+        <ellipse cy="-18" rx="7" ry="11" fill="#405B73" stroke="#D9E5EF" strokeWidth="2"/>
+        <path d="M-4 92Q0 118 4 92" stroke="#D7A47E" strokeOpacity=".72" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M0 124L-3 148M0 124L4 143" stroke="url(#authTrail)" strokeWidth="1.5" strokeLinecap="round"/>
+      </g>
+      <g className="auth-debris auth-debris-a" transform="translate(650 250) rotate(24)">
+        <path d="M-18-9L7-15L20 3L-4 15L-18-9Z" fill="#A6B6C6" fillOpacity=".24" stroke="#D6E0EA" strokeOpacity=".55"/>
+        <path d="M-8-7L8 7" stroke="#DCE5ED" strokeOpacity=".4"/>
+      </g>
+      <g className="auth-debris auth-debris-b" transform="translate(760 610) rotate(-18)">
+        <path d="M-13-8L5-13L15 2L-2 12L-13-8Z" fill="#A6B6C6" fillOpacity=".2" stroke="#D6E0EA" strokeOpacity=".48"/>
+      </g>
+      <g className="auth-debris auth-debris-c" transform="translate(190 360) rotate(42)">
+        <path d="M-8-12L12-4L5 13L-12 5Z" fill="#A6B6C6" fillOpacity=".22" stroke="#D6E0EA" strokeOpacity=".48"/>
+      </g>
+      <g className="auth-star auth-star-one" fill="#D8E3ED"><path d="M570 130l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/></g>
+      <g className="auth-star auth-star-two" fill="#C69A78"><path d="M1280 145l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/></g>
+      <g className="auth-star auth-star-three" fill="#B9CCDD"><path d="M1320 620l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/></g>
+      <g fill="#DDE7F0">
+        <circle cx="90" cy="180" r="1.8"/><circle cx="390" cy="110" r="1.3"/><circle cx="840" cy="115" r="1.5"/><circle cx="1380" cy="340" r="1.6"/><circle cx="590" cy="700" r="1.3"/><circle cx="105" cy="580" r="1.2"/>
+      </g>
     </svg>
   </div>;
 }
@@ -1893,6 +1914,21 @@ export default function App() {
         .crm-shooting-star{opacity:0;transform-box:fill-box;transform-origin:center;animation:crmShootingStar 18s linear infinite}
         .crm-shooting-star-a{animation-delay:2s}.crm-shooting-star-b{animation-delay:8.5s}.crm-shooting-star-c{animation-delay:14s}
         @keyframes crmShootingStar{0%,72%,100%{opacity:0;translate:0 0;scale:.72}74%{opacity:.72}79%{opacity:0;translate:-210px 70px;scale:1}}
+        .auth-world-amber{display:block}.auth-world-lunar{display:none}
+        :root[data-crm-theme="night"] .auth-world-amber{display:none}
+        :root[data-crm-theme="night"] .auth-world-lunar{display:block}
+        .auth-satellite-orbit{transform-origin:275px 210px;animation:authSatelliteDrift 38s ease-in-out infinite}
+        .auth-rocket-flight{transform-origin:450px 500px;animation:authRocketCruise 24s ease-in-out infinite}
+        .auth-debris{transform-box:fill-box;transform-origin:center;animation:authDebrisDrift 19s ease-in-out infinite}
+        .auth-debris-b{animation-delay:-7s;animation-duration:23s}.auth-debris-c{animation-delay:-12s;animation-duration:27s}
+        .auth-star{animation:authStarPulse 6s ease-in-out infinite}
+        @keyframes authSatelliteDrift{0%,100%{translate:0 0;rotate:-2deg}50%{translate:24px -12px;rotate:3deg}}
+        @keyframes authRocketCruise{0%,100%{translate:0 0;rotate:0deg}50%{translate:12px -18px;rotate:1.5deg}}
+        @keyframes authDebrisDrift{0%,100%{translate:0 0;rotate:0deg;opacity:.55}50%{translate:14px -18px;rotate:24deg;opacity:.9}}
+        @keyframes authStarPulse{0%,100%{opacity:.25;scale:.82}50%{opacity:.9;scale:1.12}}
+        @media(max-width:700px){.auth-vector-art{width:175%;transform:translate(-9%,2vh)}.auth-rocket-flight{opacity:.55}.auth-satellite-orbit{opacity:.7}}
+        @media(prefers-reduced-motion:reduce){.auth-satellite-orbit,.auth-rocket-flight,.auth-debris,.auth-star{animation:none!important}}
+        .crm-reduced-motion .auth-satellite-orbit,.crm-reduced-motion .auth-rocket-flight,.crm-reduced-motion .auth-debris,.crm-reduced-motion .auth-star{animation:none!important}
         .auth-vector-scene{z-index:0;opacity:.78}
         .auth-vector-art{pointer-events:none}
         .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 18s ease-in-out infinite;filter:drop-shadow(0 8px 18px rgba(0,0,0,.12))}
