@@ -676,10 +676,12 @@ export default function App() {
             .select('id, employee_id, starts_at, ends_at')
             .order('starts_at', { ascending: false })
             .limit(3000),
-          supabase.from('telegram_group_members')
-            .select('telegram_user_id, profile_id, username, display_name')
-            .not('profile_id', 'is', null)
-            .limit(5000),
+          isAdmin
+            ? supabase.from('telegram_group_members')
+                .select('telegram_user_id, profile_id, username, display_name')
+                .not('profile_id', 'is', null)
+                .limit(5000)
+            : Promise.resolve({ data: [], error: null }),
           isAdmin
             ? supabase.from('telegram_response_metrics')
                 .select('question_user_id, first_reply_user_id, response_seconds')
