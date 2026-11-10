@@ -1832,8 +1832,8 @@ export default function App() {
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
       `}</style>
-      <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1 }}>
-        <p className="crm-brand-title" style={{ fontWeight: 700 }}>ATTENDANCE CRM</p>
+      <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1,display:'flex',justifyContent:'center',alignItems:'center',width:'100%',padding:'20px 16px 14px' }}>
+        <p className="crm-brand-title" style={{ fontWeight: 800, textAlign:'center',margin:0,letterSpacing:'0.18em',fontSize:'clamp(18px,2.5vw,25px)',lineHeight:1.2 }}>ATTENDANCE <span style={{fontWeight:400,opacity:.82}}>CRM</span></p>
       </header>
 
       {screen === 'loading' && (
@@ -2584,7 +2584,7 @@ export default function App() {
           fontSize: 13,
         }}
       >
-        Authorized accounts only. Employees are asked for browser location permission when they check in or out. Active sessions show elapsed time; completed sessions deduct the fixed one-hour break.
+        Authorized accounts only. Contact your manager in case you do not have access.
       </p>
     </main>
   );
