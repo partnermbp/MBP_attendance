@@ -680,9 +680,11 @@ export default function App() {
             .select('telegram_user_id, profile_id, username, display_name')
             .not('profile_id', 'is', null)
             .limit(5000),
-          supabase.from('telegram_response_metrics')
-            .select('question_user_id, first_reply_user_id, response_seconds')
-            .limit(10000),
+          isAdmin
+            ? supabase.from('telegram_response_metrics')
+                .select('question_user_id, first_reply_user_id, response_seconds')
+                .limit(10000)
+            : supabase.rpc('get_supervisor_telegram_metrics'),
         ]);
 
         if (peopleResult.error) {
@@ -714,7 +716,7 @@ export default function App() {
           });
         const verifiedKeys = new Set(verifiedProfileLinks.map(member => member.profile_id + ':' + member.telegram_user_id));
         setTelegramMembers([...groupTelegramMembers.filter(member => !verifiedKeys.has(member.profile_id + ':' + member.telegram_user_id)), ...verifiedProfileLinks]);
-        setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
+        setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null}>);
       } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         const [hierarchyResult, teamAttendanceResult, shiftsResult, ownAttendanceResult] = await Promise.all([
