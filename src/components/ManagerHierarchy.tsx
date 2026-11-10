@@ -6,6 +6,7 @@ import KnowMore from './KnowMore';
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean; telegram_user_id?: number | null; telegram_username?: string | null; telegram_verified_at?: string | null };
 type Assignment = { manager_id: string; employee_id: string };
 type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null };
+type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: string };
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
 
@@ -21,11 +22,12 @@ const duration = (seconds: number | null) => {
 const panel = { padding: 16, border: '1px solid var(--crm-border)', borderRadius: 12, background: 'var(--crm-card-bg)' } as const;
 const muted = { color: 'var(--crm-text-muted)', fontSize: 12 } as const;
 
-export default function ManagerHierarchy({ profile, profiles, assignments, attendance, telegramMembers, telegramMetrics, isAdmin }: {
+export default function ManagerHierarchy({ profile, profiles, assignments, attendance, shifts, telegramMembers, telegramMetrics, isAdmin }: {
   profile: Person | null;
   profiles: Person[];
   assignments: Assignment[];
   attendance: Attendance[];
+  shifts: Shift[];
   telegramMembers: TelegramMember[];
   telegramMetrics: TelegramMetric[];
   isAdmin: boolean;
@@ -136,6 +138,28 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
         {stat('Average reply delay',duration(replyAvg),'Across tracked group replies attributed to this account',<Clock3 size={15}/> )}
         {stat('Reporting team',teamSize,'All direct and indirect reports',<Users size={15}/> )}
       </div>
+      <section style={panel}>
+        <strong>Today's team attendance</strong>
+        <p style={muted}>Live shift status for this manager and everyone in their reporting line. Exact GPS data is not included.</p>
+        <div style={{display:'grid',gap:8,marginTop:12}}>
+          {[...scope].map(id => {
+            const person = people.get(id);
+            if (!person) return null;
+            const personShifts = shifts.filter(s => s.employee_id === id);
+            const todayShift = personShifts.find(s => new Date(s.starts_at).toDateString() === new Date().toDateString());
+            const todayAttendance = attendance.filter(a => a.employee_id === id && (a.work_date || (a.work_timezone ? new Intl.DateTimeFormat('en-CA',{timeZone:a.work_timezone}).format(new Date(a.check_in)) : a.check_in.slice(0,10))) === (todayShift ? todayShift.starts_at.slice(0,10) : new Date().toLocaleDateString('en-CA')));
+            const open = todayAttendance.find(a => !a.check_out);
+            const latest = todayAttendance[0];
+            const now = Date.now();
+            const status = open ? 'Checked in' : latest?.check_out ? 'Checked out' : todayShift && now >= new Date(todayShift.starts_at).getTime() ? 'Not checked in' : todayShift ? 'Upcoming' : 'No shift scheduled';
+            const tone = status === 'Checked in' ? '#22c55e' : status === 'Not checked in' ? '#ef4444' : status === 'Checked out' ? '#60a5fa' : 'var(--crm-text-muted)';
+            return <div key={id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'9px 0',borderBottom:'1px solid var(--crm-border)'}}>
+              <span style={{minWidth:0}}><strong>{person.full_name || person.email || 'Team member'}</strong><small style={{display:'block',...muted}}>{roleName(person.role)}{todayShift ? ' · Shift '+new Date(todayShift.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</small></span>
+              <strong style={{fontSize:12,color:tone,whiteSpace:'nowrap'}}>{status}</strong>
+            </div>;
+          })}
+        </div>
+      </section>
       <section style={panel}>
         <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',flexWrap:'wrap'}}><strong>Overall activity · last 30 days</strong><strong style={{fontSize:22,color:activity>=70?'#22c55e':activity>=35?'#f59e0b':'#ef4444'}}>{activity}%</strong></div>
         <div style={{height:9,background:'var(--crm-border)',borderRadius:99,overflow:'hidden',marginTop:12}}><div style={{height:'100%',width:activity+'%',background:'var(--crm-accent-strong)',borderRadius:99}}/></div>
