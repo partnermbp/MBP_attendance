@@ -1643,6 +1643,30 @@ export default function App() {
   const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
   const canUseHumanTelegram = isAdmin || (profile?.active === true && normalizedRole === 'telemarketing' && humanTelegramAccess);
   useEffect(() => {
+    if (!supabase || !isAdmin || screen !== 'signed-in' || !['team', 'team-assignments', 'team-roles'].includes(activePage)) return;
+    let cancelled = false;
+    const refreshAssignments = async () => {
+      const [peopleResult, assignmentsResult] = await Promise.all([
+        supabase.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).limit(500),
+        supabase.from('manager_employee_assignments').select('manager_id, employee_id').limit(2000),
+      ]);
+      if (cancelled) return;
+      if (!peopleResult.error) setProfiles((peopleResult.data ?? []) as Profile[]);
+      if (!assignmentsResult.error) setManagerAssignments((assignmentsResult.data ?? []) as ManagerAssignment[]);
+    };
+    void refreshAssignments();
+    const channel = supabase.channel('admin-team-hierarchy-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'manager_employee_assignments' }, () => { void refreshAssignments(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void refreshAssignments(); })
+      .subscribe();
+    const fallback = window.setInterval(() => { void refreshAssignments(); }, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(fallback);
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, screen, activePage, profile?.id]);
+  useEffect(() => {
     let cancelled = false;
     setHumanTelegramAccess(false);
     if (!supabase || !profile?.active || normalizedRole !== 'telemarketing') return;
