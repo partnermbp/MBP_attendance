@@ -10,8 +10,8 @@ type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: str
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
 
-const managerRoles = new Set(['junior', 'middle', 'senior', 'team_leader', 'team leader']);
-const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+const managerRoles = new Set(['supervisor', 'junior', 'middle', 'senior', 'team_leader', 'team leader']);
+const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4, supervisor: 5 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
 const roleName = (role: string) => role.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 const duration = (seconds: number | null) => {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
