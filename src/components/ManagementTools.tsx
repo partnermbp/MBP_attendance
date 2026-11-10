@@ -587,8 +587,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         </tr>;})}</tbody></table></div>
     </>}
     {isAdmin && (page === 'team' || page === 'team-links') && <>
-      <h3>Link Telegram members to CRM employees</h3>
-      <KnowMore>Link only after verifying the Telegram identity. These links determine which employee is attributed in group analytics.</KnowMore>
+      <h3>Connect Telegram group members to CRM profiles</h3>
+      <KnowMore>This is an analytics identity link, not Telegram login or Human Telegram access. It matches a person posting in a monitored Telegram group to their CRM employee profile. Managers can then see group analytics for groups containing members in their reporting team. It does not grant anyone permission to use the shared Telegram account; Human Telegram access is managed separately for Telemarketing staff.</KnowMore>
       <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr>{['Telegram group','Telegram user','User ID','CRM employee','Action'].map(x => <th key={x} style={cell}>{x}</th>)}</tr></thead>
         <tbody>{telegramMembers.map(member => <tr key={member.id}>
