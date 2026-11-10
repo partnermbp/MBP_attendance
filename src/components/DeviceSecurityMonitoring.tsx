@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { Device } from '@capacitor/device';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DeviceRow = {
@@ -25,26 +26,48 @@ function appInstanceId() {
 }
 
 
-function deviceMetadata() {
+type DesktopDeviceBridge = { platform:string; osVersion:string; architecture:string; appVersion:string; };
+declare global { interface Window { mbpDesktopDevice?: DesktopDeviceBridge; } }
+
+async function deviceMetadata() {
   const ua = navigator.userAgent || '';
   const native = Capacitor.isNativePlatform();
   const capPlatform = Capacitor.getPlatform();
-  const electron = /Electron\//i.test(ua);
+  const electron = Boolean(window.mbpDesktopDevice) || /Electron\\//i.test(ua);
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & {standalone?:boolean}).standalone);
+  let nativeInfo: Awaited<ReturnType<typeof Device.getInfo>> | null = null;
+  if (native) { try { nativeInfo = await Device.getInfo(); } catch { nativeInfo = null; } }
+  const desktop = window.mbpDesktopDevice;
   let appPlatform = 'web';
   let runtime = 'browser';
   if (native && capPlatform === 'android') { appPlatform = 'android'; runtime = 'capacitor'; }
   else if (native && capPlatform === 'ios') { appPlatform = 'ios'; runtime = 'capacitor'; }
-  else if (electron) { appPlatform = /Macintosh|Mac OS/i.test(ua) ? 'macos' : 'windows'; runtime = 'electron'; }
-  const osName = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Windows NT/i.test(ua) ? 'Windows' : /Mac OS X|Macintosh/i.test(ua) ? 'macOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
+  else if (electron) {
+    appPlatform = desktop?.platform === 'darwin' || /Macintosh|Mac OS/i.test(ua) ? 'macos' : 'windows';
+    runtime = 'electron';
+  }
+  const osName = nativeInfo?.operatingSystem === 'android' ? 'Android'
+    : nativeInfo?.operatingSystem === 'ios' ? 'iOS'
+    : desktop?.platform === 'win32' ? 'Windows'
+    : desktop?.platform === 'darwin' ? 'macOS'
+    : /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS'
+    : /Windows NT/i.test(ua) ? 'Windows' : /Mac OS X|Macintosh/i.test(ua) ? 'macOS'
+    : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
   if (!native && !electron && standalone && osName === 'Android') appPlatform = 'android';
   if (!native && !electron && standalone && osName === 'iOS') appPlatform = 'ios';
-  const osVersion = (ua.match(/Android ([\d.]+)/i)?.[1] || ua.match(/OS ([\d_]+)/i)?.[1]?.replaceAll('_','.') || ua.match(/Windows NT ([\d.]+)/i)?.[1] || ua.match(/Mac OS X ([\d_]+)/i)?.[1]?.replaceAll('_','.') || null);
-  const browserName = /Edg\//i.test(ua) ? 'Edge' : /Firefox\//i.test(ua) ? 'Firefox' : /Chrome\//i.test(ua) ? 'Chrome' : /Safari\//i.test(ua) ? 'Safari' : electron ? 'Electron' : 'Unknown';
+  const osVersion = nativeInfo?.osVersion || desktop?.osVersion
+    || ua.match(/Android ([\\d.]+)/i)?.[1]
+    || ua.match(/OS ([\\d_]+)/i)?.[1]?.replaceAll('_','.')
+    || ua.match(/Windows NT ([\\d.]+)/i)?.[1]
+    || ua.match(/Mac OS X ([\\d_]+)/i)?.[1]?.replaceAll('_','.') || null;
+  const browserName = electron ? 'Electron' : /Edg\\//i.test(ua) ? 'Edge' : /Firefox\\//i.test(ua) ? 'Firefox'
+    : /Chrome\\//i.test(ua) ? 'Chrome' : /Safari\\//i.test(ua) ? 'Safari' : 'Unknown';
   return {
-    app_platform: appPlatform, app_runtime: runtime, app_version: '0.1.0',
-    os_name: osName, os_version: osVersion, device_model: null, browser_name: browserName,
-    user_agent: ua.slice(0, 1000), app_instance_id: appInstanceId(), language: navigator.language || null,
+    app_platform: appPlatform, app_runtime: runtime, app_version: desktop?.appVersion || '0.1.1',
+    os_name: osName, os_version: osVersion,
+    device_model: nativeInfo?.model || (desktop ? desktop.architecture + ' desktop' : null),
+    browser_name: browserName, user_agent: ua.slice(0, 1000),
+    app_instance_id: appInstanceId(), language: navigator.language || null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
     screen_width: window.screen?.width || null, screen_height: window.screen?.height || null,
   };
@@ -60,7 +83,7 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
     let heartbeat: ReturnType<typeof setInterval> | undefined;
     let activeId: string | null = null;
     void (async () => {
-      const { data, error } = await supabase.rpc('start_device_security_session', { p_metadata: deviceMetadata() });
+      const { data, error } = await supabase.rpc('start_device_security_session', { p_metadata: await deviceMetadata() });
       if (!alive) {
         if (data) void supabase.rpc('end_device_security_session', { p_session_id: String(data) });
         return;
