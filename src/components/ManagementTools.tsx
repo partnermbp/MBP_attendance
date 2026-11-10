@@ -391,11 +391,6 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   async function addAssignment() {
     if (!supabase || !managerId || !employeeId) return;
     setNotice('');
-    const existing = assignments.some(a => a.manager_id === managerId && a.employee_id === employeeId);
-    if (existing) {
-      setAssignmentNotice('This employee is already assigned under the selected manager.');
-      return;
-    }
     const manager = profiles.find(p => p.id === managerId);
     const employee = profiles.find(p => p.id === employeeId);
     const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
@@ -404,15 +399,23 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       return;
     }
     setLoading(true); setAssignmentNotice('');
-    const { error } = await supabase.from('manager_employee_assignments').insert({
-      manager_id: managerId, employee_id: employeeId, created_by: profile?.id,
+    const { error } = await supabase.rpc('assign_employee_to_manager', {
+      p_manager_id: managerId,
+      p_employee_id: employeeId,
     });
     if (error) {
       const detail = error.message.toLowerCase();
-      setAssignmentNotice(detail.includes('duplicate key') || detail.includes('already exists')
-        ? 'This employee is already assigned under the selected manager.'
-        : 'Could not save assignment: ' + error.message);
-    } else { setAssignmentNotice('Assignment saved.'); await load(); }
+      setAssignmentNotice(detail.includes('different top-level') || detail.includes('different team leader')
+        ? 'This employee is already assigned within a different Team Leader’s reporting tree. Reassignment across Team Leaders requires an explicit Admin change.'
+        : detail.includes('cycle') || detail.includes('descendant')
+          ? 'This assignment would create a reporting cycle and was blocked.'
+          : detail.includes('already assigned')
+            ? 'This employee is already assigned under the selected manager.'
+            : 'Could not save assignment: ' + error.message);
+    } else {
+      setAssignmentNotice('Assignment saved. Any previous direct assignment in the same Team Leader’s reporting tree was replaced.');
+      await load();
+    }
     setLoading(false);
   }
 
