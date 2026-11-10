@@ -33,7 +33,7 @@ async function deviceMetadata() {
   const ua = navigator.userAgent || '';
   const native = Capacitor.isNativePlatform();
   const capPlatform = Capacitor.getPlatform();
-  const electron = Boolean(window.mbpDesktopDevice) || /Electron\\//i.test(ua);
+  const electron = Boolean(window.mbpDesktopDevice) || /Electron\//i.test(ua);
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & {standalone?:boolean}).standalone);
   let nativeInfo: Awaited<ReturnType<typeof Device.getInfo>> | null = null;
   if (native) { try { nativeInfo = await Device.getInfo(); } catch { nativeInfo = null; } }
@@ -56,12 +56,12 @@ async function deviceMetadata() {
   if (!native && !electron && standalone && osName === 'Android') appPlatform = 'android';
   if (!native && !electron && standalone && osName === 'iOS') appPlatform = 'ios';
   const osVersion = nativeInfo?.osVersion || desktop?.osVersion
-    || ua.match(/Android ([\\d.]+)/i)?.[1]
-    || ua.match(/OS ([\\d_]+)/i)?.[1]?.replaceAll('_','.')
-    || ua.match(/Windows NT ([\\d.]+)/i)?.[1]
-    || ua.match(/Mac OS X ([\\d_]+)/i)?.[1]?.replaceAll('_','.') || null;
-  const browserName = electron ? 'Electron' : /Edg\\//i.test(ua) ? 'Edge' : /Firefox\\//i.test(ua) ? 'Firefox'
-    : /Chrome\\//i.test(ua) ? 'Chrome' : /Safari\\//i.test(ua) ? 'Safari' : 'Unknown';
+    || ua.match(/Android ([\d.]+)/i)?.[1]
+    || ua.match(/OS ([\d_]+)/i)?.[1]?.replaceAll('_','.')
+    || ua.match(/Windows NT ([\d.]+)/i)?.[1]
+    || ua.match(/Mac OS X ([\d_]+)/i)?.[1]?.replaceAll('_','.') || null;
+  const browserName = electron ? 'Electron' : /Edg\//i.test(ua) ? 'Edge' : /Firefox\//i.test(ua) ? 'Firefox'
+    : /Chrome\//i.test(ua) ? 'Chrome' : /Safari\//i.test(ua) ? 'Safari' : 'Unknown';
   return {
     app_platform: appPlatform, app_runtime: runtime, app_version: desktop?.appVersion || '0.1.1',
     os_name: osName, os_version: osVersion,
