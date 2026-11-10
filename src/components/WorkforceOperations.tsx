@@ -63,9 +63,9 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     try {
       const [leaveRows, correctionRows, followupRows, holidayRows] = await Promise.all([
         fetchPaged((from,to) => supabase!.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
-        fetchPaged((from,to) => supabase.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
-        fetchPaged((from,to) => supabase.from('manager_followups').select('*').order('created_at',{ascending:false}).range(from,to)),
-        fetchPaged((from,to) => supabase.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).range(from,to)),
+        fetchPaged((from,to) => supabase!.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase!.from('manager_followups').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase!.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).range(from,to)),
       ]);
       setLeaves(leaveRows as Leave[]); setCorrections(correctionRows as Correction[]);
       setFollowups(followupRows as Followup[]); setHolidays(holidayRows as Holiday[]);
@@ -180,6 +180,6 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
       <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Public holidays</h2>{holidays.length?holidays.map(h=><div key={h.id} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--crm-border)'}}><span>{h.holiday_date} · {h.name}</span>{(isAdmin||isSupervisor)&&button('Remove',()=>void run(()=>supabase!.from('workforce_holidays').delete().eq('id',h.id),'Holiday removed.'))}</div>):<p style={muted}>No public holidays configured.</p>}</section>
     </>}
     </>}
-    <KnowMore>Approved leave and holidays are recorded separately from attendance. They are not yet subtracted from the existing salary or absence calculations. Approved correction requests are an approval record only and do not overwrite original attendance entries automatically; this preserves an audit trail until an admin applies the correction.</KnowMore>
+    <KnowMore>Approved leave and public holidays are excluded from scheduled absence calculations and monthly attendance targets. Overlapping pending or approved leave requests are blocked. Approved attendance corrections are applied only by an admin to a linked session; the previous check-in and check-out values are retained in the correction record for audit.</KnowMore>
   </div>;
 }
