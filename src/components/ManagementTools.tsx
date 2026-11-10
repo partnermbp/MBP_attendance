@@ -377,35 +377,41 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setTranslationLoading(true);
     setTranslationNotice('');
     try {
-      const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
-        body: { target_lang: translationTarget, source_lang: translationSource, messages: missing },
-      });
-      if (error) {
-        const context = (error as any).context as Response | undefined;
-        let detail = error.message || 'Translation request failed.';
-        if (context) {
-          const payload = await context.clone().json().catch(() => null);
-          if (payload?.error) detail = String(payload.error);
-          else if (context.status === 429) detail = 'Translation provider is rate-limiting requests. Please wait a minute and try again.';
-          else detail = 'Translation service failed (' + context.status + '). Please try again.';
-        }
-        throw new Error(detail);
-      }
-      if (data?.error) throw new Error(String(data.error));
-      const results = Array.isArray(data?.translations) ? data.translations : [];
-      if (results.length !== missing.length) throw new Error('The translation service returned an incomplete result. Please try again.');
-      setTranslations(current => {
-        const next = { ...current };
-        for (const result of results) {
-          if (result?.id && typeof result?.text === 'string') {
-            const original = missing.find(message => message.id === String(result.id));
-            next[selectedGroup + ':' + translationTarget + ':' + (original?.source_lang || translationSource) + ':' + String(result.id)] = result.text;
+      const allResults: Array<{ id: string; text: string }> = [];
+      for (let offset = 0; offset < missing.length; offset += 30) {
+        const batch = missing.slice(offset, offset + 30);
+        const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
+          body: { target_lang: translationTarget, source_lang: translationSource, messages: batch },
+        });
+        if (error) {
+          const context = (error as any).context as Response | undefined;
+          let detail = error.message || 'Translation request failed.';
+          if (context) {
+            const payload = await context.clone().json().catch(() => null);
+            if (payload?.error) detail = String(payload.error);
+            else if (context.status === 429) detail = 'Translation provider is rate-limiting requests. Please wait a minute and try again.';
+            else detail = 'Translation service failed (' + context.status + '). Please try again.';
           }
+          throw new Error(detail);
         }
-        return next;
-      });
-      setTranslationsVisible(true);
-      setTranslationNotice('Translated ' + results.length + ' message' + (results.length === 1 ? '' : 's') + '.');
+        if (data?.error) throw new Error(String(data.error));
+        const results = Array.isArray(data?.translations) ? data.translations : [];
+        if (results.length !== batch.length) throw new Error('The translation service returned an incomplete result. Please try again.');
+        allResults.push(...results);
+        setTranslations(current => {
+          const next = { ...current };
+          for (const result of results) {
+            if (result?.id && typeof result?.text === 'string') {
+              const original = batch.find(message => message.id === String(result.id));
+              next[selectedGroup + ':' + translationTarget + ':' + (original?.source_lang || translationSource) + ':' + String(result.id)] = result.text;
+            }
+          }
+          return next;
+        });
+        setTranslationsVisible(true);
+        setTranslationNotice('Translated ' + allResults.length + ' of ' + missing.length + ' messages…');
+      }
+      setTranslationNotice('Translated ' + allResults.length + ' message' + (allResults.length === 1 ? '' : 's') + '.');
     } catch (error) {
       setTranslationNotice(error instanceof Error ? error.message : 'Could not translate the loaded messages.');
     } finally {
