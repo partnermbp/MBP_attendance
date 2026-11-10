@@ -548,7 +548,7 @@ export default function App() {
   const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const [attendanceMenuOpen, setAttendanceMenuOpen] = useState(false);
   const [telegramMembers, setTelegramMembers] = useState<Array<{telegram_user_id:number;profile_id:string|null}>>([]);
-  const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null}>>([]);
+  const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null;response_samples?:Array<{response_seconds:number;calculated_at:string|null}>;question_samples?:Array<{calculated_at:string|null;answered:boolean}>}>>([]);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
