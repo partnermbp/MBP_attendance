@@ -135,15 +135,15 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
     const target = String(body?.target_lang || "").toUpperCase();
-    const source = String(body?.source_lang || "auto").toLowerCase();
+    const source = String(body?.source_lang || "auto").trim();
     if (!new Set(["EN-US", "BN", "RU"]).has(target)) return json({ error: "Choose English, Bengali or Russian." }, 400);
-    if (!new Set(["auto", "hi-in", "bn-in", "en-in"]).has(source)) return json({ error: "Choose automatic detection, Hindi, Bengali or English as the source." }, 400);
+    if (!new Set(["auto", "hi-in", "bn-in", "en-in"]).has(source.toLowerCase())) return json({ error: "Choose automatic detection, Hindi, Bengali or English as the source." }, 400);
     if (!Array.isArray(body?.messages) || body.messages.length < 1 || body.messages.length > 150) {
       return json({ error: "Send between 1 and 150 loaded messages per request." }, 400);
     }
 
-    const messages = body.messages.map((item: any) => ({ id: String(item?.id ?? ""), text: String(item?.text ?? "").trim(), source_lang: String(item?.source_lang || source).toLowerCase() }));
-    if (messages.some((item: any) => !item.id || !item.text || item.text.length > 5000 || !new Set(["auto", "hi-in", "bn-in", "en-in"]).has(item.source_lang))) {
+    const messages = body.messages.map((item: any) => ({ id: String(item?.id ?? ""), text: String(item?.text ?? "").trim(), source_lang: String(item?.source_lang || source).trim() }));
+    if (messages.some((item: any) => !item.id || !item.text || item.text.length > 5000 || !new Set(["auto", "hi-in", "bn-in", "en-in"]).has(item.source_lang.toLowerCase()))) {
       return json({ error: "Each message must have an ID and contain no more than 5,000 characters." }, 400);
     }
     const totalCharacters = messages.reduce((sum: number, item: any) => sum + item.text.length, 0);
