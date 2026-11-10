@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
     const ids = [...teamIds].map(encodeURIComponent).join(",");
     const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone&order=check_in.desc&limit=1000`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,auto_closed&order=check_in.desc&limit=1000`
     );
     const shiftStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
@@ -154,6 +154,8 @@ Deno.serve(async (req: Request) => {
       check_out: row.check_out,
       work_date: row.work_date,
       work_timezone: row.work_timezone,
+      credited_work_minutes: row.credited_work_minutes,
+      auto_closed: row.auto_closed,
     }));
     return json({ records, shifts: shifts || [], telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
   } catch (error) {
