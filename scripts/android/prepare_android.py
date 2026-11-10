@@ -51,6 +51,8 @@ tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
 # Keep Android package metadata aligned with the current app release.
 gradle = ROOT / "android/app/build.gradle"
+if not gradle.exists():
+    raise SystemExit("Android app/build.gradle was not generated")
 if gradle.exists():
     lines = gradle.read_text(encoding="utf-8").splitlines()
     code_updated = False
