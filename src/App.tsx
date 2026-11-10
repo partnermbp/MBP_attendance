@@ -715,7 +715,7 @@ export default function App() {
 
       if (isAdmin || isSupervisor) {
         const peopleQuery = isAdmin
-          ? fetchPagedRows<Profile>((from,to) => supabase!.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).range(from,to))
+          ? fetchPagedRows<Profile>((from,to) => supabase!.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).order('id',{ascending:true}).range(from,to))
           : supabase.rpc('get_supervisor_profiles');
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           peopleQuery,
