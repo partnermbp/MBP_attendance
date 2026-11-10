@@ -699,6 +699,17 @@ export default function App() {
         }
         return { data: rows, error: null };
       };
+      const fetchSupervisorAttendancePages = async () => {
+        const rows: Attendance[] = [];
+        for (let offset = 0; offset < 100000; offset += 1000) {
+          const result = await supabase!.rpc('get_supervisor_attendance', { p_limit: 1000, p_offset: offset });
+          if (result.error) return { data: null, error: result.error };
+          const page = (result.data || []) as Attendance[];
+          rows.push(...page);
+          if (page.length < 1000) break;
+        }
+        return { data: rows, error: null };
+      };
       const fetchShiftPages = async () => {
         const rows: Shift[] = [];
         for (let offset = 0; offset < 100000; offset += 1000) {
@@ -719,7 +730,7 @@ export default function App() {
           : supabase.rpc('get_supervisor_profiles');
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           peopleQuery,
-          fetchAttendancePages(),
+          isAdmin ? fetchAttendancePages() : fetchSupervisorAttendancePages(),
           fetchPagedRows<ManagerAssignment>((from,to) => supabase!.from('manager_employee_assignments')
             .select('manager_id, employee_id').order('manager_id',{ascending:true}).order('employee_id',{ascending:true}).range(from,to)),
           fetchShiftPages(),
