@@ -14,6 +14,16 @@ type DeviceRow = {
 };
 type LocationRow = { id:number; latitude:number; longitude:number; accuracy_m:number|null; altitude_m:number|null; heading_deg:number|null; speed_mps:number|null; recorded_at:string; source:string };
 type NetworkRow = {id:number;previous_ip:string|null;current_ip:string;source:string;recorded_at:string};
+type RiskAlert = {alert_key:string;severity:string;category:string;title:string;description:string;evidence:Record<string,unknown>;first_seen:string;last_seen:string;affected_accounts:number};
+function appInstanceId() {
+  const key = 'mbp_crm_app_instance_id';
+  try {
+    let value = window.localStorage.getItem(key);
+    if (!value) { value = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'mbp-' + Math.random().toString(36).slice(2) + Date.now().toString(36); window.localStorage.setItem(key,value); }
+    return value;
+  } catch { return null; }
+}
+
 
 function deviceMetadata() {
   const ua = navigator.userAgent || '';
@@ -34,7 +44,7 @@ function deviceMetadata() {
   return {
     app_platform: appPlatform, app_runtime: runtime, app_version: '0.1.0',
     os_name: osName, os_version: osVersion, device_model: null, browser_name: browserName,
-    user_agent: ua.slice(0, 1000), language: navigator.language || null,
+    user_agent: ua.slice(0, 1000), app_instance_id: appInstanceId(), language: navigator.language || null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
     screen_width: window.screen?.width || null, screen_height: window.screen?.height || null,
   };
@@ -143,6 +153,8 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
 
 export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseClient}) {
   const [rows,setRows]=useState<DeviceRow[]>([]);
+  const [riskAlerts,setRiskAlerts]=useState<RiskAlert[]>([]);
+  const [alertsLoading,setAlertsLoading]=useState(true);
   const [selected,setSelected]=useState<string|null>(null);
   const [points,setPoints]=useState<LocationRow[]>([]);
   const [networkEvents,setNetworkEvents]=useState<NetworkRow[]>([]);
@@ -151,9 +163,10 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [pointsLoading,setPointsLoading]=useState(false);
   const reload=useCallback(async()=>{
     setLoading(true);setError('');
-    const {data,error}=await supabase.rpc('admin_device_security_overview');
+    const [{data,error},{data:alerts,error:alertsError}]=await Promise.all([supabase.rpc('admin_device_security_overview'),supabase.rpc('admin_security_risk_alerts')]);
     if(error)setError(error.message);else setRows((data||[]) as DeviceRow[]);
-    setLoading(false);
+    if(alertsError)setError(prev=>prev ? prev+' · '+alertsError.message : alertsError.message);else setRiskAlerts((alerts||[]) as RiskAlert[]);
+    setLoading(false);setAlertsLoading(false);
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
   useEffect(()=>{
@@ -177,6 +190,24 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
       <div><h2 style={{marginBottom:4}}>Device & workforce monitoring</h2><p style={{fontSize:12,opacity:.7,marginTop:0}}>Admin-only device sessions, network metadata and consent-based shift location history.</p></div>
       <button type="button" onClick={()=>void reload()} style={{padding:'8px 12px',borderRadius:7}}>Refresh</button>
     </div>
+    <section style={{margin:'14px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <div><h3 style={{margin:'0 0 4px'}}>Fraud & account-sharing alerts</h3><p style={{fontSize:12,opacity:.7,margin:0}}>Automatically correlated signals from the last 30 days. Alerts are for manual review; no account is automatically restricted.</p></div>
+        <span style={{fontSize:12,opacity:.75}}>{riskAlerts.length} active signals</span>
+      </div>
+      {alertsLoading&&<p>Checking risk signals…</p>}
+      {!alertsLoading&&!riskAlerts.length&&<p style={{fontSize:12,opacity:.7}}>No matching device/IP patterns detected in the current 30-day window.</p>}
+      {riskAlerts.map(alert=><article key={alert.alert_key} style={{marginTop:10,padding:10,borderRadius:8,border:'1px solid var(--crm-border,#394150)',background:'var(--crm-surface,rgba(255,255,255,.025))'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <strong>{alert.title}</strong>
+          <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',padding:'3px 7px',borderRadius:5,background:alert.severity==='high'?'rgba(220,38,38,.16)':alert.severity==='medium'?'rgba(217,119,6,.16)':'rgba(100,116,139,.16)',color:alert.severity==='high'?'#f87171':alert.severity==='medium'?'#fbbf24':'#94a3b8'}}>{alert.severity} severity</span>
+          <span style={{fontSize:11,opacity:.7}}>{alert.affected_accounts} account(s)</span>
+        </div>
+        <p style={{fontSize:12,margin:'6px 0'}}>{alert.description}</p>
+        <div style={{fontSize:11,opacity:.75,overflowWrap:'anywhere'}}>First seen: {new Date(alert.first_seen).toLocaleString()} · Last seen: {new Date(alert.last_seen).toLocaleString()}</div>
+        <details style={{fontSize:12,marginTop:7}}><summary style={{cursor:'pointer'}}>Review evidence</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:11}}>{JSON.stringify(alert.evidence,null,2)}</pre></details>
+      </article>)}
+    </section>
     {loading&&<p>Loading device sessions…</p>}
     {error&&<p role="alert" style={{color:'#fda29b'}}>{error}</p>}
     {!loading&&!rows.length&&!error&&<p>No device sessions have been registered yet.</p>}
