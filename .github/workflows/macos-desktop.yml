@@ -1,7 +1,15 @@
 name: Build MBP Attendance macOS DMG
 
 on:
-  # App installers are intentionally manual while the web version is updated first.
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'desktop/**'
+      - 'package.json'
+      - 'public/icons/**'
+      - '.github/workflows/macos-desktop.yml'
   workflow_dispatch:
 
 permissions:
