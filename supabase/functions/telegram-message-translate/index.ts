@@ -142,8 +142,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Send between 1 and 150 loaded messages per request." }, 400);
     }
 
-    const messages = body.messages.map((item: any) => ({ id: String(item?.id ?? ""), text: String(item?.text ?? "").trim() }));
-    if (messages.some((item: any) => !item.id || !item.text || item.text.length > 5000)) {
+    const messages = body.messages.map((item: any) => ({ id: String(item?.id ?? ""), text: String(item?.text ?? "").trim(), source_lang: String(item?.source_lang || source).toLowerCase() }));
+    if (messages.some((item: any) => !item.id || !item.text || item.text.length > 5000 || !new Set(["auto", "hi-in", "bn-in", "en-in"]).has(item.source_lang))) {
       return json({ error: "Each message must have an ID and contain no more than 5,000 characters." }, 400);
     }
     const totalCharacters = messages.reduce((sum: number, item: any) => sum + item.text.length, 0);
@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
       const batch = messages.slice(offset, offset + 4);
       const results = await Promise.all(batch.map(async (message: any) => {
         const firstTarget = target === "RU" ? "en-IN" : target === "BN" ? "bn-IN" : "en-IN";
-        const sarvam = await sarvamTranslate(message.text, source, firstTarget);
+        const sarvam = await sarvamTranslate(message.text, message.source_lang, firstTarget);
         const finalText = target === "RU" ? await deeplTranslateToRussian(sarvam.text) : sarvam.text;
         return { id: message.id, text: finalText, detected_source_language: sarvam.detected.join(", ") || null };
       }));
