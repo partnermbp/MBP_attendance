@@ -26,7 +26,7 @@ function appInstanceId() {
 }
 
 
-type DesktopDeviceBridge = { platform:string; osVersion:string; architecture:string; appVersion:string; };
+type DesktopDeviceBridge = { getInfo: () => Promise<{platform:string;osVersion:string;architecture:string;appVersion:string}>; };
 declare global { interface Window { mbpDesktopDevice?: DesktopDeviceBridge; } }
 
 async function deviceMetadata() {
@@ -37,7 +37,7 @@ async function deviceMetadata() {
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & {standalone?:boolean}).standalone);
   let nativeInfo: Awaited<ReturnType<typeof Device.getInfo>> | null = null;
   if (native) { try { nativeInfo = await Device.getInfo(); } catch { nativeInfo = null; } }
-  const desktop = window.mbpDesktopDevice;
+  const desktop = window.mbpDesktopDevice ? await window.mbpDesktopDevice.getInfo().catch(() => null) : null;
   let appPlatform = 'web';
   let runtime = 'browser';
   if (native && capPlatform === 'android') { appPlatform = 'android'; runtime = 'capacitor'; }
