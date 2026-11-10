@@ -216,9 +216,9 @@ begin
     group by event.telegram_user_id
   ),
   people as (
-    select telegram_user_id from reply_stats
+    select reply_stats.telegram_user_id from reply_stats
     union
-    select telegram_user_id from reaction_stats
+    select reaction_stats.telegram_user_id from reaction_stats
   )
   select
     people.telegram_user_id,

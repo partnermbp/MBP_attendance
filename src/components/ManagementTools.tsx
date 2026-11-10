@@ -102,8 +102,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [translationNotice, setTranslationNotice] = useState('');
   const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
   const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
-  const [groupMessagesAtBottom, setGroupMessagesAtBottom] = useState(false);
+  const [groupMessagesAtTop, setGroupMessagesAtTop] = useState(false);
   const groupMessagesContainerRef = useRef<HTMLDivElement>(null);
+  const groupInitialScrollPendingRef = useRef(false);
   const groupScrollRestoreRef = useRef<{ height: number; top: number } | null>(null);
   const groupOlderCacheTimerRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -179,9 +180,15 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           setMessageReactionCounts([]);
         } else {
           const rows = (messageResult.data ?? []) as Message[];
-          setMessages(rows);
+          if (!messages.some(message => String(message.telegram_chat_id) === selectedGroup)) groupInitialScrollPendingRef.current = true;
+          setMessages(previous => {
+            const byId = new Map<number, Message>();
+            for (const message of previous) if (String(message.telegram_chat_id) === selectedGroup) byId.set(message.telegram_message_id, message);
+            for (const message of rows) byId.set(message.telegram_message_id, message);
+            return [...byId.values()].sort((a, b) => a.telegram_message_id - b.telegram_message_id);
+          });
           setGroupMessagesHasMore(rows.length === GROUP_MESSAGE_PAGE_SIZE);
-          setGroupMessagesAtBottom(false);
+          setGroupMessagesAtTop(false);
           const messageIds = rows.map(message => message.telegram_message_id);
           if (messageIds.length) {
             const [reactionResult, reactionCountResult] = await Promise.all([
@@ -221,7 +228,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         setMessageReactions([]);
         setMessageReactionCounts([]);
         setGroupMessagesHasMore(false);
-        setGroupMessagesAtBottom(false);
+        setGroupMessagesAtTop(false);
       }
       if (isManager) {
         const mine = [...new Set(((treeResult.data ?? []) as TeamNode[]).map(person => person.id))];
@@ -270,6 +277,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     if (!restore || !container) return;
     container.scrollTop = restore.top + (container.scrollHeight - restore.height);
     groupScrollRestoreRef.current = null;
+    return;
+  }
+  if (groupInitialScrollPendingRef.current && container) {
+    container.scrollTop = container.scrollHeight;
+    groupInitialScrollPendingRef.current = false;
+    setGroupMessagesAtTop(false);
   }, [messages]);
 
   useEffect(() => () => {
@@ -300,7 +313,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         const byId = new Map<number, Message>();
         for (const message of previous) if (String(message.telegram_chat_id) === selectedGroup) byId.set(message.telegram_message_id, message);
         for (const message of older) byId.set(message.telegram_message_id, message);
-        return [...byId.values()].sort((a, b) => b.telegram_message_id - a.telegram_message_id);
+        return [...byId.values()].sort((a, b) => a.telegram_message_id - b.telegram_message_id);
       });
       const olderIds = older.map(message => message.telegram_message_id);
       if (olderIds.length) {
@@ -329,8 +342,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         groupOlderCacheTimerRef.current = window.setTimeout(() => {
           setMessages(previous => previous
             .filter(message => String(message.telegram_chat_id) === selectedGroup)
-            .sort((a, b) => b.telegram_message_id - a.telegram_message_id)
-            .slice(0, GROUP_MESSAGE_PAGE_SIZE));
+            .sort((a, b) => a.telegram_message_id - b.telegram_message_id)
+            .slice(-GROUP_MESSAGE_PAGE_SIZE));
           setGroupMessagesHasMore(true);
           groupOlderCacheTimerRef.current = null;
         }, 60 * 60 * 1000);
@@ -760,7 +773,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <p style={{ ...muted, margin: '8px 0 0', fontSize: 11 }}>Only newly received messages are collected; earlier group history and read receipts are not available to Telegram bots. Ensure participants know that messages are processed for CRM analytics.</p>
       </details>}
     </div>
-    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtBottom(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
+    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); groupInitialScrollPendingRef.current = true; setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
@@ -772,8 +785,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {!selectedGroup ? <div style={{ padding:34, border:'1px dashed #475467', borderRadius:14, textAlign:'center', color:'#b7c0d1', background:'#101828' }}><div style={{ fontSize:30, marginBottom:10 }}>💬</div><strong style={{ color:'#f8fafc' }}>Choose a group to open its chat</strong><p style={muted}>Messages stay hidden until you select a Telegram group above.</p></div> : <>
       <h3>Chat · {groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Selected group'}</h3>
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
-        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest at top · scroll down for older messages</div></div><div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span><select aria-label="Translation language" value={translationTarget} onChange={event => {setTranslationTarget(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="EN-US">English</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><select aria-label="Message source language" title="Choose a source language when automatic detection confuses Romanized Hindi and Bengali" value={translationSource} onChange={event => {setTranslationSource(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="auto">Detect source</option><option value="hi-IN">Hindi (including Latin)</option><option value="bn-IN">Bengali (including Latin)</option><option value="en-IN">English</option></select><button type="button" onClick={() => { if (translationsVisible) { setTranslationsVisible(false); setTranslationNotice('Original messages only.'); } else { void translateLoadedGroupMessages(); } }} disabled={translationLoading || !messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()))} style={{...button,padding:'7px 11px',fontSize:12,opacity:translationLoading?0.65:1,cursor:translationLoading?'wait':'pointer'}}>{translationLoading ? 'Translating…' : translationsVisible ? 'Hide translations' : messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()) && Boolean(translations[selectedGroup + ':' + translationTarget + ':' + (messageSourceOverrides[String(message.telegram_chat_id) + ':' + String(message.telegram_message_id)] || translationSource) + ':' + message.telegram_chat_id + ':' + message.telegram_message_id])) ? 'Show translations' : 'Translate loaded messages'}</button></div></header>
-        <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtBottom(event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight <= 32)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtBottom && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', bottom:0, zIndex:2, alignSelf:'center', margin:'2px 0 -6px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↓ Load older messages'}</button>}
+        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest at bottom · scroll up for older messages</div></div><div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span><select aria-label="Translation language" value={translationTarget} onChange={event => {setTranslationTarget(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="EN-US">English</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><select aria-label="Message source language" title="Choose a source language when automatic detection confuses Romanized Hindi and Bengali" value={translationSource} onChange={event => {setTranslationSource(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="auto">Detect source</option><option value="hi-IN">Hindi (including Latin)</option><option value="bn-IN">Bengali (including Latin)</option><option value="en-IN">English</option></select><button type="button" onClick={() => { if (translationsVisible) { setTranslationsVisible(false); setTranslationNotice('Original messages only.'); } else { void translateLoadedGroupMessages(); } }} disabled={translationLoading || !messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()))} style={{...button,padding:'7px 11px',fontSize:12,opacity:translationLoading?0.65:1,cursor:translationLoading?'wait':'pointer'}}>{translationLoading ? 'Translating…' : translationsVisible ? 'Hide translations' : messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()) && Boolean(translations[selectedGroup + ':' + translationTarget + ':' + (messageSourceOverrides[String(message.telegram_chat_id) + ':' + String(message.telegram_message_id)] || translationSource) + ':' + message.telegram_chat_id + ':' + message.telegram_message_id])) ? 'Show translations' : 'Translate loaded messages'}</button></div></header>
+        <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtTop(event.currentTarget.scrollTop <= 32)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtTop && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', top:0, zIndex:2, alignSelf:'center', margin:'-6px 0 2px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↑ Load older messages'}</button>}
           {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).map(m => {
             const raw=m.raw_update || {};
             const msg=(raw.message || raw.edited_message || raw.channel_post || raw.edited_channel_post || {}) as Record<string, any>;
