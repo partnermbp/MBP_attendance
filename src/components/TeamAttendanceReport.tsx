@@ -48,9 +48,9 @@ function Donut({ title, parts, total }: { title: string; parts: { label: string;
   </section>;
 }
 
-export default function TeamAttendanceReport({ attendance, shifts, profiles, assignments, telegramMembers, telegramMetrics, loading }: {
+export default function TeamAttendanceReport({ attendance, shifts, profiles, assignments, telegramMembers, telegramMetrics, approvedLeave = [], holidays = [], loading }: {
   attendance: Attendance[]; shifts: Shift[]; profiles: Person[]; assignments: Assignment[];
-  telegramMembers: TelegramMember[]; telegramMetrics: TelegramMetric[]; loading: boolean;
+  telegramMembers: TelegramMember[]; telegramMetrics: TelegramMetric[]; approvedLeave?: Array<{employee_id:string;start_date:string;end_date:string;status:string}>; holidays?: Array<{holiday_date:string;name:string}>; loading: boolean;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [range, setRange] = useState('7');
@@ -68,7 +68,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     const date = attendanceDay(a);
     return date >= appliedFrom && date <= appliedTo && (employeeFilter === 'all' || a.employee_id === employeeFilter);
   }), [attendance, appliedFrom, appliedTo, employeeFilter]);
-  const scopedShifts = useMemo(() => shifts.filter(s => { if (!s.employee_id || !personMap.has(s.employee_id) || (employeeFilter !== 'all' && s.employee_id !== employeeFilter)) return false; const timezone = attendance.find(a => a.employee_id === s.employee_id && a.work_timezone)?.work_timezone; const date = timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(s.starts_at)) : dayKey(s.starts_at); return date >= appliedFrom && date <= appliedTo; }), [shifts, personMap, attendance, appliedFrom, appliedTo, employeeFilter]);
+  const scopedShifts = useMemo(() => shifts.filter(s => { if (!s.employee_id || !personMap.has(s.employee_id) || (employeeFilter !== 'all' && s.employee_id !== employeeFilter)) return false; const timezone = attendance.find(a => a.employee_id === s.employee_id && a.work_timezone)?.work_timezone; const date = timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(s.starts_at)) : dayKey(s.starts_at); if (date < appliedFrom || date > appliedTo) return false; if (holidays.some(h => h.holiday_date === date)) return false; if (approvedLeave.some(l => l.employee_id === s.employee_id && l.start_date <= date && l.end_date >= date)) return false; return true; }), [shifts, personMap, attendance, appliedFrom, appliedTo, employeeFilter, approvedLeave, holidays]);
   const matchedShiftIds = useMemo(() => {
     const matched = new Set<string>();
     scopedShifts.forEach(s => {
