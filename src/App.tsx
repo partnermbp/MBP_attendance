@@ -677,6 +677,28 @@ export default function App() {
       } catch {
         // Keep the status derived from the authenticated user's own profile.
       }
+      const fetchAttendancePages = async () => {
+        const rows: Attendance[] = [];
+        for (let offset = 0; offset < 100000; offset += 1000) {
+          const result = await supabase!.rpc('get_admin_attendance_with_gps', { p_limit: 1000, p_offset: offset });
+          if (result.error) return { data: null, error: result.error };
+          const page = (result.data || []) as Attendance[];
+          rows.push(...page);
+          if (page.length < 1000) break;
+        }
+        return { data: rows, error: null };
+      };
+      const fetchShiftPages = async () => {
+        const rows: Shift[] = [];
+        for (let offset = 0; offset < 100000; offset += 1000) {
+          const result = await supabase!.from('shifts').select('id, employee_id, starts_at, ends_at').order('starts_at', { ascending: false }).range(offset, offset + 999);
+          if (result.error) return { data: null, error: result.error };
+          const page = (result.data || []) as Shift[];
+          rows.push(...page);
+          if (page.length < 1000) break;
+        }
+        return { data: rows, error: null };
+      };
       const isAdmin = currentProfile?.active === true && String(currentProfile.role).toLowerCase() === 'admin';
       const isSupervisor = currentProfile?.active === true && String(currentProfile.role).toLowerCase() === 'supervisor';
 
@@ -686,14 +708,11 @@ export default function App() {
           : supabase.rpc('get_supervisor_profiles');
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           peopleQuery,
-          supabase.rpc('get_admin_attendance_with_gps'),
+          fetchAttendancePages(),
           supabase.from('manager_employee_assignments')
             .select('manager_id, employee_id')
             .limit(2000),
-          supabase.from('shifts')
-            .select('id, employee_id, starts_at, ends_at')
-            .order('starts_at', { ascending: false })
-            .limit(10000),
+          fetchShiftPages(),
           isAdmin
             ? supabase.from('telegram_group_members')
                 .select('telegram_user_id, profile_id, username, display_name')
