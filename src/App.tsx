@@ -557,6 +557,8 @@ export default function App() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [salaryAttendance, setSalaryAttendance] = useState<Attendance[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [approvedLeave, setApprovedLeave] = useState<Array<{employee_id:string;start_date:string;end_date:string;status:string}>>([]);
+  const [workforceHolidays, setWorkforceHolidays] = useState<Array<{holiday_date:string;name:string}>>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [managerAssignments, setManagerAssignments] = useState<ManagerAssignment[]>([]);
@@ -572,6 +574,21 @@ export default function App() {
   const [clockNow, setClockNow] = useState(Date.now());
   const stopHoldTimer = useRef<number | null>(null);
   const [stopHoldArmed, setStopHoldArmed] = useState(false);
+
+  useEffect(() => {
+    if (!supabase || !profile?.id) { setApprovedLeave([]); setWorkforceHolidays([]); return; }
+    let cancelled = false;
+    void Promise.all([
+      supabase.from('workforce_leave_requests').select('employee_id,start_date,end_date,status').eq('status','approved').limit(10000),
+      supabase.from('workforce_holidays').select('holiday_date,name').limit(10000),
+    ]).then(([leaveResult, holidayResult]) => {
+      if (cancelled) return;
+      setApprovedLeave((leaveResult.data || []) as Array<{employee_id:string;start_date:string;end_date:string;status:string}>);
+      setWorkforceHolidays((holidayResult.data || []) as Array<{holiday_date:string;name:string}>);
+      if (leaveResult.error || holidayResult.error) setMessage(current => current || 'Leave and holiday calendar could not be loaded for attendance calculations.');
+    });
+    return () => { cancelled = true; };
+  }, [profile?.id]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -2738,7 +2755,7 @@ export default function App() {
 
           {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
           {activePage === 'workforce-operations' && <WorkforceOperations profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} />}
-          {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
+          {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} approvedLeave={approvedLeave} holidays={workforceHolidays} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
             <h2>{canViewAdmin ? 'Attendance records' : 'My attendance records'}</h2>
