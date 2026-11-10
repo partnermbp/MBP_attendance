@@ -61,7 +61,7 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   }, [profile]);
   useEffect(() => { void load(); }, [load]);
 
-  async function run(task: () => Promise<{ error: any }>, success: string) {
+  async function run(task: () => PromiseLike<{ error: any }>, success: string) {
     if (!supabase) return;
     setBusy(true); setMessage('');
     try { const result = await task(); if (result.error) throw result.error; setMessage(success); await load(); }
