@@ -721,7 +721,7 @@ export default function App() {
           supabase.rpc('get_my_team_hierarchy_with_telegram'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
         ]);
         if (hierarchyResult.error) {
           setProfiles([currentProfile]); setManagerAssignments([]);
@@ -749,7 +749,7 @@ export default function App() {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
         if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
