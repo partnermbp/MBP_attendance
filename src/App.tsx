@@ -370,70 +370,71 @@ function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
     <svg className="auth-vector-art" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="avMetal" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F2F5F7"/><stop offset=".42" stopColor="#8B9BAA"/><stop offset="1" stopColor="#34485C"/></linearGradient>
-        <linearGradient id="avSolar" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#8FB6CF" stopOpacity=".78"/><stop offset="1" stopColor="#365B7C" stopOpacity=".35"/></linearGradient>
-        <radialGradient id="avGlow"><stop stopColor="#D2A17B" stopOpacity=".16"/><stop offset="1" stopColor="#D2A17B" stopOpacity="0"/></radialGradient>
+        <linearGradient id="avDayBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#FFF9F1"/><stop offset="1" stopColor="#B77B54"/></linearGradient>
+        <linearGradient id="avNightBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#EAF6FF"/><stop offset="1" stopColor="#547E9F"/></linearGradient>
       </defs>
       <g className="auth-day-scene">
-        <circle cx="1180" cy="390" r="360" fill="url(#avGlow)"/>
-        <path d="M-30 700C270 430 535 350 810 410S1270 660 1640 310" stroke="#A66F4D" strokeOpacity=".28" strokeWidth="1.2"/>
-        <path d="M-40 760C260 540 540 485 830 535S1280 730 1630 480" stroke="#A66F4D" strokeOpacity=".16" strokeDasharray="2 12"/>
+        <path d="M-40 690C250 450 550 380 830 430S1300 650 1640 350" stroke="#B77B54" strokeOpacity=".22" strokeWidth="1.5"/>
+        <path d="M-30 760C270 560 560 510 860 560S1300 730 1640 510" stroke="#B77B54" strokeOpacity=".14" strokeDasharray="3 14"/>
         <g className="auth-day-craft" transform="translate(1120 330)">
-          <path d="M-300-44H-86M86 44H300" stroke="#9B795F" strokeWidth="3" strokeOpacity=".7"/>
-          <rect x="-300" y="-92" width="190" height="96" rx="3" fill="url(#avSolar)" stroke="#7896AC" strokeWidth="1.4"/>
-          <rect x="110" y="-4" width="190" height="96" rx="3" fill="url(#avSolar)" stroke="#7896AC" strokeWidth="1.4"/>
-          <g stroke="#DCE8EF" strokeOpacity=".55" strokeWidth="1"><path d="M-262-92V4M-224-92V4M-186-92V4M-148-92V4M-300-60H-110M148-4V92M186-4V92M224-4V92M262-4V92M110 28H300"/></g>
-          <path d="M-78-42L-48-72H42L78-34L60 42L-50 54L-78 12Z" fill="url(#avMetal)" stroke="#E1E8EE" strokeOpacity=".82" strokeWidth="1.6"/>
-          <path d="M-34-72L-18-112H18L34-72M-50 54L-26 84H26L60 42" stroke="#A97857" strokeWidth="3"/>
-          <circle cy="-8" r="18" fill="#314D65" stroke="#E7EEF3" strokeWidth="2"/>
-          <path d="M78-34L132-68L158-68M78 12L138 48L165 48" stroke="#8297A9" strokeWidth="2"/>
-          <path d="M158-68l14-18m-9 18 17 8M165 48l18 12" stroke="#A97857" strokeWidth="2"/>
+          <rect x="-300" y="-54" width="190" height="108" rx="5" fill="#7FA6C0" fillOpacity=".35" stroke="#7896AC" strokeWidth="2"/>
+          <rect x="110" y="-54" width="190" height="108" rx="5" fill="#7FA6C0" fillOpacity=".35" stroke="#7896AC" strokeWidth="2"/>
+          <path d="M-260-54V54M-220-54V54M-180-54V54M-140-54V54M-300-18H-110M-300 18H-110M150-54V54M190-54V54M230-54V54M270-54V54M110-18H300M110 18H300" stroke="#DDEAF1" strokeOpacity=".7"/>
+          <path d="M-110 0H-54M54 0H110" stroke="#9B795F" strokeWidth="5"/>
+          <rect x="-54" y="-42" width="108" height="84" rx="12" fill="url(#avDayBody)" stroke="#8D654B" strokeWidth="2"/>
+          <path d="M-26-42L0-70L26-42" fill="#D9E3E9" stroke="#8D654B" strokeWidth="2"/>
+          <circle r="17" fill="#35536D" stroke="#F5E6D9" strokeWidth="3"/>
+          <path d="M-54 20L-82 38V-38L-54-20M54 20L82 38V-38L54-20" fill="#A97554" stroke="#8D654B" strokeWidth="2"/>
         </g>
-        <g className="auth-day-launcher" transform="translate(420 555) rotate(-25)">
-          <path d="M0-126C30-82 36-18 30 55L0 102L-30 55C-36-18-30-82 0-126Z" fill="url(#avMetal)" stroke="#DCE5EC" strokeWidth="1.6"/>
-          <path d="M-27 24L-70 78L-24 65M27 24L70 78L24 65" fill="#536B80" stroke="#B7C7D5" strokeWidth="1.6"/>
-          <ellipse cy="-24" rx="10" ry="15" fill="#35536D" stroke="#DCE8F0" strokeWidth="2"/>
-          <path d="M-8 94Q0 132 8 94" stroke="#C28B65" strokeWidth="3" strokeLinecap="round"/>
-          <path d="M0 112L-4 172M0 112L5 155" stroke="#D8A47F" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round"/>
+        <g className="auth-day-launcher" transform="translate(440 535) rotate(38)">
+          <path d="M0-112C30-78 34-22 28 38L0 82L-28 38C-34-22-30-78 0-112Z" fill="url(#avDayBody)" stroke="#8E6348" strokeWidth="2.5"/>
+          <path d="M-24 20L-58 62L-22 52M24 20L58 62L22 52" fill="#A66F4D" stroke="#8E6348" strokeWidth="2"/>
+          <circle cy="-30" r="13" fill="#45647C" stroke="#F7E8DB" strokeWidth="3"/>
+          <path d="M-8 76L0 118L8 76" fill="#D58D5E" stroke="#9D6849" strokeWidth="1.5"/>
+          <path d="M-5 100L0 140L5 100" stroke="#E4A878" strokeWidth="3" strokeLinecap="round"/>
         </g>
-        <g className="auth-day-relay" transform="translate(270 260)">
-          <path d="M-88 0H88M0-72V72" stroke="#9C775B" strokeOpacity=".62" strokeWidth="2"/>
-          <path d="M-48-30L0-68L48-30L0 8Z" fill="url(#avMetal)" stroke="#E5D6C8" strokeWidth="1.4"/>
-          <path d="M-48-30L-72-55M48-30L72-55M0 8V58" stroke="#9C775B" strokeWidth="2"/>
-          <path d="M-72-55L-92-62L-84-34ZM72-55L92-62L84-34Z" fill="#B7C6D2" fillOpacity=".6" stroke="#8297A8"/>
-          <circle r="7" fill="#405A70" stroke="#E4ECF2" strokeWidth="2"/>
+        <g className="auth-day-relay" transform="translate(265 255)">
+          <rect x="-28" y="-28" width="56" height="56" rx="8" fill="#E7EDF0" stroke="#9B795F" strokeWidth="2"/>
+          <circle r="10" fill="#4A657B"/>
+          <path d="M-28-10L-92-48V48L-28 10M28-10L92-48V48L28 10" fill="#8BAFC4" fillOpacity=".48" stroke="#9B795F" strokeWidth="2"/>
+          <path d="M-78-38V38M-58-28V28M78-38V38M58-28V28" stroke="#E7F0F4" strokeWidth="2"/>
+          <path d="M0 28V70" stroke="#9B795F" strokeWidth="3"/>
         </g>
-        <g className="auth-day-debris" stroke="#9B785E" strokeOpacity=".7" strokeWidth="1.4"><path d="M700 190l18-9 13 13-16 15zM1370 690l14-10 12 13-15 12zM820 720l9-14 15 7-8 16z"/></g>
+        <g className="auth-day-debris" fill="#B77B54" fillOpacity=".62" stroke="#8D654B" strokeOpacity=".6" strokeWidth="1.5">
+          <path d="M700 190l20-10 12 17-17 13zM1370 690l15-12 13 15-16 13zM820 720l9-15 16 8-8 16z"/>
+        </g>
         <g className="auth-day-stars" fill="#A87958"><path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/><path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/><circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/></g>
       </g>
       <g className="auth-night-scene">
-        <path d="M-40 690C250 410 560 350 850 430S1280 670 1640 320" stroke="#79B5D5" strokeOpacity=".28" strokeWidth="1.2"/>
-        <path d="M-30 770C260 555 570 500 860 555S1290 740 1640 490" stroke="#79B5D5" strokeOpacity=".16" strokeDasharray="2 13"/>
+        <path d="M-40 690C250 450 550 380 830 430S1300 650 1640 350" stroke="#75A9CB" strokeOpacity=".24" strokeWidth="1.5"/>
+        <path d="M-30 760C270 560 560 510 860 560S1300 730 1640 510" stroke="#75A9CB" strokeOpacity=".15" strokeDasharray="3 14"/>
         <g className="auth-night-telescope" transform="translate(1110 335)">
-          <path d="M-270 0H270" stroke="#779BB5" strokeOpacity=".65" strokeWidth="3"/>
-          <rect x="-270" y="-72" width="170" height="74" rx="2" fill="url(#avSolar)" stroke="#8CB4CE" strokeWidth="1.3"/>
-          <rect x="100" y="-2" width="170" height="74" rx="2" fill="url(#avSolar)" stroke="#8CB4CE" strokeWidth="1.3"/>
-          <g stroke="#D5E7F2" strokeOpacity=".55"><path d="M-236-72V2M-202-72V2M-168-72V2M-134-72V2M-270-36H-100M134-2V72M168-2V72M202-2V72M236-2V72M100 35H270"/></g>
-          <path d="M-86-38L-42-68H48L88-28L64 42L-54 48L-86 8Z" fill="url(#avMetal)" stroke="#D4E4EF" strokeWidth="1.5"/>
-          <path d="M-42-68L-25-108H28L48-68M-54 48L-28 80H40L64 42" stroke="#78B9D8" strokeWidth="2.4"/>
-          <circle cx="0" cy="-12" r="20" fill="#203F58" stroke="#C3DCEB" strokeWidth="2"/><circle cx="0" cy="-12" r="8" fill="#79B8D8" fillOpacity=".38"/>
-          <path d="M88-28L142-66L170-66M88 8L145 48L175 48" stroke="#79B8D8" strokeWidth="2"/>
+          <rect x="-280" y="-48" width="180" height="96" rx="4" fill="#5C88A8" fillOpacity=".42" stroke="#79A9C8" strokeWidth="2"/>
+          <rect x="100" y="-48" width="180" height="96" rx="4" fill="#5C88A8" fillOpacity=".42" stroke="#79A9C8" strokeWidth="2"/>
+          <path d="M-244-48V48M-208-48V48M-172-48V48M-136-48V48M-280-16H-100M-280 16H-100M136-48V48M172-48V48M208-48V48M244-48V48M100-16H280M100 16H280" stroke="#D5E9F5" strokeOpacity=".65"/>
+          <path d="M-100 0H-54M54 0H100" stroke="#79A9C8" strokeWidth="5"/>
+          <rect x="-54" y="-40" width="108" height="80" rx="12" fill="url(#avNightBody)" stroke="#547E9F" strokeWidth="2"/>
+          <path d="M-25-40L0-68L25-40" fill="#B9D6E8" stroke="#547E9F" strokeWidth="2"/>
+          <circle r="17" fill="#244761" stroke="#D9EBF7" strokeWidth="3"/>
+          <path d="M-54 20L-82 38V-38L-54-20M54 20L82 38V-38L54-20" fill="#527B9B" stroke="#547E9F" strokeWidth="2"/>
         </g>
-        <g className="auth-night-probe" transform="translate(420 555) rotate(-25)">
-          <path d="M0-126C30-82 36-18 30 55L0 102L-30 55C-36-18-30-82 0-126Z" fill="url(#avMetal)" stroke="#DCE8F0" strokeWidth="1.6"/>
-          <path d="M-27 24L-70 78L-24 65M27 24L70 78L24 65" fill="#405D75" stroke="#9BBFD5" strokeWidth="1.6"/>
-          <ellipse cy="-24" rx="10" ry="15" fill="#244A65" stroke="#C5E0F0" strokeWidth="2"/>
-          <path d="M-8 94Q0 132 8 94" stroke="#80C2E2" strokeWidth="3" strokeLinecap="round"/>
-          <path d="M0 112L-4 172M0 112L5 155" stroke="#80C2E2" strokeOpacity=".65" strokeWidth="2"/>
+        <g className="auth-night-probe" transform="translate(440 535) rotate(38)">
+          <path d="M0-112C30-78 34-22 28 38L0 82L-28 38C-34-22-30-78 0-112Z" fill="url(#avNightBody)" stroke="#5C86A5" strokeWidth="2.5"/>
+          <path d="M-24 20L-58 62L-22 52M24 20L58 62L22 52" fill="#527B9B" stroke="#5C86A5" strokeWidth="2"/>
+          <circle cy="-30" r="13" fill="#244761" stroke="#D9EBF7" strokeWidth="3"/>
+          <path d="M-8 76L0 118L8 76" fill="#79B9D8" stroke="#547E9F" strokeWidth="1.5"/>
+          <path d="M-5 100L0 140L5 100" stroke="#9BD5EF" strokeWidth="3" strokeLinecap="round"/>
         </g>
-        <g className="auth-night-array" transform="translate(260 250)">
-          <path d="M-112 0H112M0-82V82" stroke="#80B9D5" strokeOpacity=".65" strokeWidth="2"/>
-          <path d="M-62-34L0-82L62-34L0 14Z" fill="url(#avMetal)" stroke="#C4DDEB" strokeWidth="1.4"/>
-          <path d="M-62-34L-92-62M62-34L92-62M0 14V66" stroke="#80B9D5" strokeWidth="2"/>
-          <path d="M-92-62L-114-72L-105-42ZM92-62L114-72L105-42Z" fill="#A5C7DA" fillOpacity=".48" stroke="#8DBBD5"/>
-          <circle r="8" fill="#254A65" stroke="#D7E8F2" strokeWidth="2"/>
+        <g className="auth-night-array" transform="translate(265 255)">
+          <rect x="-28" y="-28" width="56" height="56" rx="8" fill="#DDEBF4" stroke="#6F9DBB" strokeWidth="2"/>
+          <circle r="10" fill="#2D5875"/>
+          <path d="M-28-10L-92-48V48L-28 10M28-10L92-48V48L28 10" fill="#5D8CAD" fillOpacity=".5" stroke="#6F9DBB" strokeWidth="2"/>
+          <path d="M-78-38V38M-58-28V28M78-38V38M58-28V28" stroke="#D8EAF5" strokeWidth="2"/>
+          <path d="M0 28V70" stroke="#6F9DBB" strokeWidth="3"/>
         </g>
-        <g className="auth-night-debris" stroke="#91C1DC" strokeOpacity=".72" strokeWidth="1.3"><path d="M690 175l18-10 14 13-17 16zM1370 690l14-10 12 13-15 12zM820 720l9-14 15 7-8 16z"/></g>
+        <g className="auth-night-debris" fill="#7DAECC" fillOpacity=".55" stroke="#9AC5DF" strokeOpacity=".65" strokeWidth="1.5">
+          <path d="M690 175l20-10 14 16-17 14zM1370 690l15-12 13 15-16 13zM820 720l9-15 16 8-8 16z"/>
+        </g>
         <g className="auth-night-stars" fill="#B9D9EA"><path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/><path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/><circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/></g>
       </g>
     </svg>
