@@ -1836,9 +1836,72 @@ export default function App() {
         @keyframes loaderOrbit{0%,100%{translate:0 0;rotate:-5deg}50%{translate:0 -5px;rotate:5deg}}
         @keyframes loaderSpin{to{rotate:360deg}}
         @keyframes loaderPulse{0%,100%{opacity:.35;scale:.7}50%{opacity:1;scale:1.2}}
-        @media(max-width:700px){.auth-vector-scene{inset:58px -10% 0;opacity:.72}.auth-vector-art{width:125%;max-width:none;max-height:78vh}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 18%,transparent 78%,var(--crm-bg,#101114) 100%);opacity:.2}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:16px auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 40%,transparent)!important;backdrop-filter:blur(5px) saturate(120%);-webkit-backdrop-filter:blur(5px) saturate(120%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.vector-loader svg{width:124px;height:94px}}
+        @media(max-width:700px){.auth-vector-scene{inset:58px -10% 0;opacity:.88}.auth-vector-art{width:140%;max-width:none;max-height:82vh;transform:translateX(3%)}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 14%,transparent 82%,var(--crm-bg,#101114) 100%);opacity:.12}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:16px auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 25%,transparent)!important;backdrop-filter:blur(4px) saturate(125%);-webkit-backdrop-filter:blur(4px) saturate(125%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.auth-permission-loading{min-height:clamp(220px,55vh,420px);margin:0 auto;padding:20px 12px}.vector-loader svg{width:124px;height:94px}}
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
+        /* Consistent glass surfaces across both themes. */
+        .crm-layout > main > section{
+          background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 72%,transparent)!important;
+          border:1px solid color-mix(in srgb,var(--crm-border,#343944) 76%,var(--crm-accent,#d9874e) 24%)!important;
+          border-radius:16px!important;
+          box-shadow:0 12px 34px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.055)!important;
+          backdrop-filter:blur(16px) saturate(125%);
+          -webkit-backdrop-filter:blur(16px) saturate(125%);
+        }
+        .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
+          border-radius:12px;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
+        }
+        .crm-sidebar{
+          background:color-mix(in srgb,var(--crm-sidebar-bg,#101114) 78%,transparent)!important;
+          backdrop-filter:blur(18px) saturate(130%);
+          -webkit-backdrop-filter:blur(18px) saturate(130%);
+          box-shadow:8px 0 28px rgba(0,0,0,.055);
+        }
+        .crm-sidebar nav button{border-radius:9px!important;transition:background .18s ease,color .18s ease,transform .18s ease}
+        .crm-layout :is(input,select,textarea){border-radius:9px!important}
+        .crm-layout button{border-radius:9px}
+        :root[data-crm-theme="day"] .crm-layout > main > section{
+          background:rgba(255,255,255,.70)!important;
+          border-color:rgba(190,202,220,.72)!important;
+          box-shadow:0 12px 32px rgba(36,55,84,.075),inset 0 1px 0 rgba(255,255,255,.88)!important;
+        }
+        :root[data-crm-theme="day"] .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
+          background:rgba(255,255,255,.58)!important;
+          border:1px solid rgba(195,205,220,.58);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.92),0 5px 18px rgba(36,55,84,.035);
+        }
+        :root[data-crm-theme="day"] .crm-sidebar{
+          background:rgba(255,255,255,.78)!important;
+          border-color:rgba(190,202,220,.72)!important;
+          box-shadow:8px 0 28px rgba(36,55,84,.055);
+        }
+        :root[data-crm-theme="night"] .crm-layout > main > section{
+          background:rgba(19,21,28,.76)!important;
+          border-color:rgba(92,101,122,.34)!important;
+        }
+        :root[data-crm-theme="night"] .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
+          background:rgba(27,29,38,.62)!important;
+          border:1px solid rgba(92,101,122,.25);
+        }
+        .auth-permission-loading{min-height:clamp(240px,52vh,440px);margin:0 auto 24px;padding:24px 12px;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important}
+        .auth-permission-loading .vector-loader{background:transparent!important;border:0!important;box-shadow:none!important}
+        .auth-vector-art{filter:drop-shadow(0 18px 44px rgba(0,0,0,.12))}
+        .auth-login-panel{background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 28%,transparent)!important;backdrop-filter:blur(5px) saturate(130%);-webkit-backdrop-filter:blur(5px) saturate(130%)}
+        :root[data-crm-theme="day"] .auth-login-panel{background:rgba(255,255,255,.42)!important;border-color:rgba(255,255,255,.68)!important;box-shadow:0 18px 54px rgba(35,50,76,.13),inset 0 1px 0 rgba(255,255,255,.9)!important}
+        :root[data-crm-theme="night"] .auth-login-panel{background:rgba(17,19,27,.36)!important;border-color:rgba(255,255,255,.15)!important}
+        @media(max-width:760px){
+          .crm-layout > main > section{border-radius:0!important;backdrop-filter:blur(12px) saturate(120%)}
+          .crm-sidebar{backdrop-filter:blur(16px) saturate(125%)}
+          .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"]){border-radius:10px}
+        }
+        @media(max-width:380px){
+          .auth-login-panel{padding:18px 14px!important}
+          .auth-login-panel h1{font-size:24px!important}
+          .auth-vector-scene{inset:56px -18% 0}
+          .auth-vector-art{width:155%;transform:translateX(5%)}
+        }
+        @media(prefers-reduced-motion:reduce){.crm-layout *{scroll-behavior:auto!important;transition:none!important}}
       `}</style>
       <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1,display:'flex',justifyContent:'center',alignItems:'center',width:'100%',padding:'20px 16px 14px' }}>
         <p className="crm-brand-title" style={{ fontWeight: 800, textAlign:'center',margin:0,letterSpacing:'0.18em',fontSize:'clamp(18px,2.5vw,25px)',lineHeight:1.2 }}>ATTENDANCE <span style={{fontWeight:400,opacity:.82}}>CRM</span></p>
@@ -1998,7 +2061,7 @@ export default function App() {
       )}
 
       {screen === 'signed-in' && session && !profileReady && (
-        <section style={{...panelStyle,position:'relative',zIndex:1}} role="status"><VectorLoader label="Loading your account permissions" /></section>
+        <div className="auth-loading-stage auth-permission-loading" role="status"><VectorLoader label="Loading your account permissions" /></div>
       )}
 
       {screen === 'signed-in' && session && profileReady && (
