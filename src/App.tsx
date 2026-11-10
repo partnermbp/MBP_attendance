@@ -368,68 +368,38 @@ function SecurityActivityPanel() {
 
 function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
-    <svg className="auth-vector-art" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="auth-vector-art" viewBox="0 0 1000 560" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="avDayRocket" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#FFFDF8"/><stop offset="1" stopColor="#B87952"/></linearGradient>
-        <linearGradient id="avNightRocket" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F3FAFF"/><stop offset="1" stopColor="#648EAE"/></linearGradient>
+        <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F5B477"/><stop offset="1" stopColor="#D66B36"/></linearGradient>
+        <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#B9E5FF"/><stop offset="1" stopColor="#4B8FB8"/></linearGradient>
+        <radialGradient id="planetGlow"><stop stopColor="#D88B54" stopOpacity=".3"/><stop offset="1" stopColor="#D88B54" stopOpacity="0"/></radialGradient>
       </defs>
-      <g className="auth-day-scene">
-        <g className="auth-day-launcher" transform="translate(460 520) rotate(38)">
-          <path d="M0-138C34-94 38-28 30 48L0 102L-30 48C-38-28-34-94 0-138Z" fill="url(#avDayRocket)" stroke="#936748" strokeWidth="3"/>
-          <path d="M0-138C-12-106-15-72-14-35L0-19L14-35C15-72 12-106 0-138Z" fill="#DCE8ED" fillOpacity=".8"/>
-          <circle cy="-40" r="17" fill="#45647C" stroke="#F9E9DB" strokeWidth="4"/>
-          <path d="M-28 24L-74 82L-24 66M28 24L74 82L24 66" fill="#B87952" stroke="#936748" strokeWidth="2.5"/>
-          <path d="M-11 96L0 151L11 96" fill="#D58D5E" stroke="#A66F4D" strokeWidth="2"/>
-          <path d="M-5 124L0 194L5 124" stroke="#E5A77C" strokeWidth="4" strokeLinecap="round"/>
-        </g>
-        <g className="auth-day-relay" transform="translate(1190 300)">
-          <path d="M0-58L35-18L24 32L0 48L-24 32L-35-18Z" fill="#F2E6DB" stroke="#A66F4D" strokeWidth="2.5"/>
-          <circle r="12" fill="#B87952" stroke="#FFF9F2" strokeWidth="3"/>
-          <path d="M0-58V-86M-14 48L-25 72M14 48L25 72" stroke="#A66F4D" strokeWidth="2"/>
-          <path d="M0-86L-9-100H9Z" fill="#D99A6F"/>
-          <path d="M-52-12H-35M35-12H52" stroke="#A66F4D" strokeWidth="2"/>
-          <path d="M-52-12L-62-20V-4ZM52-12L62-20V-4Z" fill="#D7B39A"/>
-          <circle cx="0" cy="-105" r="3" fill="#D99A6F"/>
-        </g>
-        <g className="auth-day-debris" fill="#B77B54" fillOpacity=".62" stroke="#8D654B" strokeOpacity=".65" strokeWidth="1.5">
-          <path d="M700 190l20-10 12 17-17 13zM1370 690l15-12 13 15-16 13zM820 720l9-15 16 8-8 16zM1020 155l12-8 9 11-11 9z"/>
-        </g>
-        <g className="auth-day-stars" fill="#A87958">
-          <path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/>
-          <path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/>
-          <circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/>
-        </g>
+      <circle cx="710" cy="270" r="205" fill="url(#planetGlow)"/>
+      <path d="M105 400C245 130 570 90 850 245" stroke="#D9A477" strokeOpacity=".23" strokeWidth="1.5" strokeDasharray="5 10"/>
+      <path d="M140 455C330 230 590 205 875 365" stroke="#8BB9D5" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 12"/>
+      <ellipse cx="690" cy="270" rx="120" ry="34" transform="rotate(-20 690 270)" stroke="#DDA16F" strokeOpacity=".45" strokeWidth="2"/>
+      <circle cx="690" cy="270" r="66" fill="#54758C" fillOpacity=".18" stroke="#9CC5D8" strokeOpacity=".4"/>
+      <path d="M650 270C668 239 712 238 731 268C711 300 669 302 650 270Z" fill="#7195A8" fillOpacity=".24"/>
+      <g className="auth-star auth-star-one" fill="#F6C58F"><path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/></g>
+      <g className="auth-star auth-star-two" fill="#A9D4E9"><path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/></g>
+      <g className="auth-star auth-star-three" fill="#F6C58F"><path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/></g>
+      <g transform="translate(310 250) rotate(-28)" className="auth-rocket">
+        <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
+        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="#F3D8BE" fillOpacity=".88"/>
+        <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
+        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="#7B9FB3" stroke="#A9C8D8" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="#E9A15F" fillOpacity=".75"/>
+        <path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="#F8D9A9"/>
       </g>
-      <g className="auth-night-scene">
-        <g className="auth-night-probe" transform="translate(460 520) rotate(38)">
-          <path d="M0-138C34-94 38-28 30 48L0 102L-30 48C-38-28-34-94 0-138Z" fill="url(#avNightRocket)" stroke="#5C86A5" strokeWidth="3"/>
-          <path d="M0-138C-12-106-15-72-14-35L0-19L14-35C15-72 12-106 0-138Z" fill="#D6EAF6" fillOpacity=".8"/>
-          <circle cy="-40" r="17" fill="#244761" stroke="#D9EBF7" strokeWidth="4"/>
-          <path d="M-28 24L-74 82L-24 66M28 24L74 82L24 66" fill="#527B9B" stroke="#5C86A5" strokeWidth="2.5"/>
-          <path d="M-11 96L0 151L11 96" fill="#79B9D8" stroke="#547E9F" strokeWidth="2"/>
-          <path d="M-5 124L0 194L5 124" stroke="#9BD5EF" strokeWidth="4" strokeLinecap="round"/>
-        </g>
-        <g className="auth-night-array" transform="translate(1190 300)">
-          <path d="M0-58L35-18L24 32L0 48L-24 32L-35-18Z" fill="#D9EAF5" stroke="#6F9DBB" strokeWidth="2.5"/>
-          <circle r="12" fill="#527F9F" stroke="#EFF8FE" strokeWidth="3"/>
-          <path d="M0-58V-86M-14 48L-25 72M14 48L25 72" stroke="#6F9DBB" strokeWidth="2"/>
-          <path d="M0-86L-9-100H9Z" fill="#8DBBD5"/>
-          <path d="M-52-12H-35M35-12H52" stroke="#6F9DBB" strokeWidth="2"/>
-          <path d="M-52-12L-62-20V-4ZM52-12L62-20V-4Z" fill="#A9CDE2"/>
-          <circle cx="0" cy="-105" r="3" fill="#A9CDE2"/>
-        </g>
-        <g className="auth-night-debris" fill="#7DAECC" fillOpacity=".58" stroke="#9AC5DF" strokeOpacity=".72" strokeWidth="1.5">
-          <path d="M690 175l20-10 14 16-17 14zM1370 690l15-12 13 15-16 13zM820 720l9-15 16 8-8 16zM1020 155l12-8 9 11-11 9z"/>
-        </g>
-        <g className="auth-night-stars" fill="#B9D9EA">
-          <path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/>
-          <path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/>
-          <circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/>
-        </g>
-      </g>
+      <circle cx="310" cy="250" r="102" stroke="#E9B17F" strokeOpacity=".14" strokeWidth="1"/>
+      <circle cx="310" cy="250" r="118" stroke="#E9B17F" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 9"/>
+      <circle cx="490" cy="130" r="4" fill="#B6D8E8" fillOpacity=".75"/>
+      <circle cx="900" cy="250" r="3" fill="#F1B57C" fillOpacity=".8"/>
+      <circle cx="130" cy="270" r="3" fill="#B6D8E8" fillOpacity=".8"/>
     </svg>
   </div>;
 }
+
 function CrmAmbientBackdrop() {
   return <div className="crm-ambient-backdrop" aria-hidden="true">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
@@ -1872,37 +1842,12 @@ export default function App() {
       {(screen === 'loading' || screen === 'login' || screen === 'set-password') && <AuthVectorScene />}
       <style>{`
         .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-screen-root{position:relative;isolation:isolate;overflow-x:hidden}
-        .auth-screen-root>.auth-vector-scene{position:fixed;inset:0;z-index:0!important;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.56}
-        .auth-screen-root>.auth-vector-scene~*:not(style){position:relative;z-index:2}
-        .auth-screen-root>.auth-vector-scene~header,.auth-screen-root>.auth-vector-scene~section,.auth-screen-root>.auth-vector-scene~div{position:relative;z-index:2}
-        .auth-vector-art{position:relative;z-index:0;pointer-events:none;width:min(100%,1500px);height:auto;max-height:100vh;overflow:visible}
-        .auth-day-scene{display:block}.auth-night-scene{display:none}
-        :root[data-crm-theme="night"] .auth-day-scene{display:none!important}
-        :root[data-crm-theme="night"] .auth-night-scene{display:block!important}
-        .auth-day-craft,.auth-night-telescope{transform-box:fill-box;transform-origin:center;animation:authCraftDrift 34s ease-in-out infinite}
-        .auth-day-launcher,.auth-night-probe{transform-box:fill-box;transform-origin:center;animation:authProbeGlide 27s ease-in-out infinite}
-        .auth-day-relay,.auth-night-array{transform-box:fill-box;transform-origin:center;animation:authRelayMotion 42s ease-in-out infinite}
-        .auth-day-debris,.auth-night-debris{transform-box:fill-box;transform-origin:center;animation:authDebrisMotion 23s ease-in-out infinite}
-        .auth-day-stars,.auth-night-stars{animation:authStarPulse 8s ease-in-out infinite}
-        @keyframes authCraftDrift{0%,100%{translate:0 0;rotate:-.25deg}50%{translate:9px -7px;rotate:.25deg}}
-        @keyframes authProbeGlide{0%,100%{translate:0 0}50%{translate:8px -12px}}
-        @keyframes authRelayMotion{0%,100%{translate:0 0;rotate:-.4deg}50%{translate:-8px 9px;rotate:.4deg}}
-        @keyframes authDebrisMotion{0%,100%{translate:0 0;rotate:0deg;opacity:.5}50%{translate:12px -15px;rotate:18deg;opacity:.9}}
-        @keyframes authStarPulse{0%,100%{opacity:.35}50%{opacity:.9}}
-        .auth-login-panel{position:relative;z-index:5!important}
-        .auth-login-panel h1,.auth-login-panel p,.auth-login-panel label,.auth-login-panel form{position:relative;z-index:5}
-        .auth-screen-root>.crm-brand-header{position:relative;z-index:5}
-        @media(max-width:700px){
-          .auth-screen-root>.auth-vector-scene{inset:0;opacity:.32;place-items:center}
-          .auth-vector-art{width:178%;max-width:none;max-height:none;transform:translate(-10%,3vh)}
-          .auth-day-craft,.auth-night-telescope{opacity:.62}
-          .auth-day-launcher,.auth-night-probe{opacity:.48}
-          .auth-day-relay,.auth-night-array{opacity:.48}
-          .auth-login-panel{z-index:5!important}
-        }
-        @media(max-width:390px){.auth-vector-art{width:194%;transform:translate(-13%,4vh)}.auth-screen-root>.auth-vector-scene{opacity:.24}}
-        @media(prefers-reduced-motion:reduce){.auth-day-craft,.auth-night-telescope,.auth-day-launcher,.auth-night-probe,.auth-day-relay,.auth-night-array,.auth-day-debris,.auth-night-debris,.auth-day-stars,.auth-night-stars{animation:none!important}}
-        .crm-reduced-motion .auth-day-craft,.crm-reduced-motion .auth-night-telescope,.crm-reduced-motion .auth-day-launcher,.crm-reduced-motion .auth-night-probe,.crm-reduced-motion .auth-day-relay,.crm-reduced-motion .auth-night-array,.crm-reduced-motion .auth-day-debris,.crm-reduced-motion .auth-night-debris,.crm-reduced-motion .auth-day-stars,.crm-reduced-motion .auth-night-stars{animation:none!important}
+        .auth-screen-root>.auth-vector-scene{position:fixed;inset:74px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.9}
+        .auth-vector-art{width:min(100%,1100px);height:auto;max-height:calc(100vh - 90px);overflow:visible}
+        .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 6s ease-in-out infinite}
+        .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
+        .auth-star-two{animation-delay:-1.2s}.auth-star-three{animation-delay:-2.4s}
+        .auth-vector-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--crm-bg,#101114) 0%,transparent 25%,transparent 75%,var(--crm-bg,#101114) 100%);opacity:.38}
         .auth-loading-stage{position:relative;z-index:1;display:grid;place-items:center;min-height:clamp(220px,42vh,390px);margin:10px auto 28px;padding:18px 12px;background:transparent;border:0;box-shadow:none}
         .vector-loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:150px;padding:0;background:transparent;border:0;box-shadow:none;color:var(--crm-muted,#98a2b3);font-size:13px;letter-spacing:.04em;text-align:center}
         .vector-loader svg{width:136px;height:102px;overflow:visible;filter:drop-shadow(0 0 16px color-mix(in srgb,var(--crm-accent,#d9874e) 25%,transparent))}
