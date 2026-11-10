@@ -368,74 +368,77 @@ function SecurityActivityPanel() {
 
 function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
-    <svg className="auth-vector-art" viewBox="0 0 1440 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="auth-vector-art" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="authHull" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F4F0E8"/><stop offset=".38" stopColor="#9EADBA"/><stop offset="1" stopColor="#40566C"/></linearGradient>
-        <linearGradient id="authPanel" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#91B7D0" stopOpacity=".8"/><stop offset="1" stopColor="#3D6688" stopOpacity=".38"/></linearGradient>
-        <linearGradient id="authBeam" x1="0" y1="0" x2="1" y2="0"><stop stopColor="#D49A70" stopOpacity="0"/><stop offset=".5" stopColor="#D49A70" stopOpacity=".5"/><stop offset="1" stopColor="#D49A70" stopOpacity="0"/></linearGradient>
-        <linearGradient id="authNightBeam" x1="0" y1="0" x2="1" y2="0"><stop stopColor="#7EBBD8" stopOpacity="0"/><stop offset=".5" stopColor="#7EBBD8" stopOpacity=".5"/><stop offset="1" stopColor="#7EBBD8" stopOpacity="0"/></linearGradient>
+        <linearGradient id="avMetal" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F2F5F7"/><stop offset=".42" stopColor="#8B9BAA"/><stop offset="1" stopColor="#34485C"/></linearGradient>
+        <linearGradient id="avSolar" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#8FB6CF" stopOpacity=".78"/><stop offset="1" stopColor="#365B7C" stopOpacity=".35"/></linearGradient>
+        <radialGradient id="avGlow"><stop stopColor="#D2A17B" stopOpacity=".16"/><stop offset="1" stopColor="#D2A17B" stopOpacity="0"/></radialGradient>
       </defs>
       <g className="auth-day-scene">
-        <path d="M30 620C290 410 510 330 770 390S1190 600 1450 320" stroke="#B87C54" strokeOpacity=".22" strokeWidth="1.2"/>
-        <path d="M40 690C310 490 560 445 800 500S1190 680 1440 470" stroke="#B87C54" strokeOpacity=".13" strokeDasharray="3 12"/>
-        <path d="M160 210H480M210 220H420" stroke="#B87C54" strokeOpacity=".18"/>
-        <g className="auth-day-satellite" transform="translate(930 270)">
-          <path d="M-215-38H-76M76 38H215" stroke="#9A795F" strokeOpacity=".65" strokeWidth="3"/>
-          <rect x="-214" y="-68" width="132" height="60" rx="3" fill="url(#authPanel)" stroke="#7899B2" strokeOpacity=".8"/>
-          <rect x="82" y="8" width="132" height="60" rx="3" fill="url(#authPanel)" stroke="#7899B2" strokeOpacity=".8"/>
-          <path d="M-188-68V-8M-162-68V-8M-136-68V-8M-110-68V-8M-214-38H-82M108 8V68M134 8V68M160 8V68M186 8V68M82 38H214" stroke="#DCE7EF" strokeOpacity=".42"/>
-          <path d="M-58-28L-24-48L36-48L62-18L42 30L-28 34L-58-2Z" fill="url(#authHull)" stroke="#6D7F90" strokeWidth="1.5"/>
-          <path d="M-16-48L-4-76L18-48M-16 34L-6 56L18 34" stroke="#A47B5E" strokeWidth="2"/>
-          <circle cx="2" cy="-7" r="13" fill="#3D5B73" stroke="#E9E3D9" strokeWidth="2"/>
-          <path d="M62-18L104-48M62 8L112 34" stroke="#73889A" strokeWidth="2"/>
-          <path d="M104-48L124-58M112 34L132 44" stroke="#B87C54" strokeWidth="2"/>
+        <circle cx="1180" cy="390" r="360" fill="url(#avGlow)"/>
+        <path d="M-30 700C270 430 535 350 810 410S1270 660 1640 310" stroke="#A66F4D" strokeOpacity=".28" strokeWidth="1.2"/>
+        <path d="M-40 760C260 540 540 485 830 535S1280 730 1630 480" stroke="#A66F4D" strokeOpacity=".16" strokeDasharray="2 12"/>
+        <g className="auth-day-craft" transform="translate(1120 330)">
+          <path d="M-300-44H-86M86 44H300" stroke="#9B795F" strokeWidth="3" strokeOpacity=".7"/>
+          <rect x="-300" y="-92" width="190" height="96" rx="3" fill="url(#avSolar)" stroke="#7896AC" strokeWidth="1.4"/>
+          <rect x="110" y="-4" width="190" height="96" rx="3" fill="url(#avSolar)" stroke="#7896AC" strokeWidth="1.4"/>
+          <g stroke="#DCE8EF" strokeOpacity=".55" strokeWidth="1"><path d="M-262-92V4M-224-92V4M-186-92V4M-148-92V4M-300-60H-110M148-4V92M186-4V92M224-4V92M262-4V92M110 28H300"/></g>
+          <path d="M-78-42L-48-72H42L78-34L60 42L-50 54L-78 12Z" fill="url(#avMetal)" stroke="#E1E8EE" strokeOpacity=".82" strokeWidth="1.6"/>
+          <path d="M-34-72L-18-112H18L34-72M-50 54L-26 84H26L60 42" stroke="#A97857" strokeWidth="3"/>
+          <circle cy="-8" r="18" fill="#314D65" stroke="#E7EEF3" strokeWidth="2"/>
+          <path d="M78-34L132-68L158-68M78 12L138 48L165 48" stroke="#8297A9" strokeWidth="2"/>
+          <path d="M158-68l14-18m-9 18 17 8M165 48l18 12" stroke="#A97857" strokeWidth="2"/>
         </g>
-        <g className="auth-day-probe" transform="translate(370 505) rotate(-22)">
-          <path d="M0-70L22-24L18 48L0 76L-18 48L-22-24Z" fill="url(#authHull)" stroke="#65798C" strokeWidth="1.5"/>
-          <path d="M-22-12L-60 20L-18 24M22-12L60 20L18 24" stroke="#9B785F" strokeWidth="5" strokeLinejoin="round"/>
-          <path d="M0-70L0-90M-6 49L0 76L6 49" stroke="#B87C54" strokeWidth="2"/>
-          <circle cy="-8" r="8" fill="#405D75" stroke="#F0E8DD" strokeWidth="2"/>
-          <path d="M0 76L-4 105M0 76L4 105" stroke="url(#authBeam)" strokeWidth="2"/>
+        <g className="auth-day-launcher" transform="translate(420 555) rotate(-25)">
+          <path d="M0-126C30-82 36-18 30 55L0 102L-30 55C-36-18-30-82 0-126Z" fill="url(#avMetal)" stroke="#DCE5EC" strokeWidth="1.6"/>
+          <path d="M-27 24L-70 78L-24 65M27 24L70 78L24 65" fill="#536B80" stroke="#B7C7D5" strokeWidth="1.6"/>
+          <ellipse cy="-24" rx="10" ry="15" fill="#35536D" stroke="#DCE8F0" strokeWidth="2"/>
+          <path d="M-8 94Q0 132 8 94" stroke="#C28B65" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M0 112L-4 172M0 112L5 155" stroke="#D8A47F" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round"/>
         </g>
-        <g stroke="#A77A5D" strokeOpacity=".48" strokeWidth="1.3"><path d="M610 170l18-10 14 16-16 14zM1220 560l12-8 10 13-12 10zM720 660l9-13 15 7-8 15z"/></g>
-        <path d="M520 130l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8ZM1290 190l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" fill="#B87C54" opacity=".72"/>
+        <g className="auth-day-relay" transform="translate(270 260)">
+          <path d="M-88 0H88M0-72V72" stroke="#9C775B" strokeOpacity=".62" strokeWidth="2"/>
+          <path d="M-48-30L0-68L48-30L0 8Z" fill="url(#avMetal)" stroke="#E5D6C8" strokeWidth="1.4"/>
+          <path d="M-48-30L-72-55M48-30L72-55M0 8V58" stroke="#9C775B" strokeWidth="2"/>
+          <path d="M-72-55L-92-62L-84-34ZM72-55L92-62L84-34Z" fill="#B7C6D2" fillOpacity=".6" stroke="#8297A8"/>
+          <circle r="7" fill="#405A70" stroke="#E4ECF2" strokeWidth="2"/>
+        </g>
+        <g className="auth-day-debris" stroke="#9B785E" strokeOpacity=".7" strokeWidth="1.4"><path d="M700 190l18-9 13 13-16 15zM1370 690l14-10 12 13-15 12zM820 720l9-14 15 7-8 16z"/></g>
+        <g className="auth-day-stars" fill="#A87958"><path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/><path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/><circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/></g>
       </g>
       <g className="auth-night-scene">
-        <path d="M20 640C260 430 500 360 760 415S1180 620 1460 350" stroke="#79B8D8" strokeOpacity=".2" strokeWidth="1.2"/>
-        <path d="M0 730C300 520 560 485 820 535S1200 710 1460 500" stroke="#79B8D8" strokeOpacity=".13" strokeDasharray="2 14"/>
-        <g className="auth-night-station" transform="translate(930 265)">
-          <path d="M-230 0H230M0-118V118" stroke="#789AB4" strokeOpacity=".42" strokeWidth="3"/>
-          <rect x="-214" y="-82" width="130" height="64" rx="2" fill="url(#authPanel)" stroke="#85B6D2" strokeOpacity=".75"/>
-          <rect x="84" y="18" width="130" height="64" rx="2" fill="url(#authPanel)" stroke="#85B6D2" strokeOpacity=".75"/>
-          <path d="M-188-82V-18M-162-82V-18M-136-82V-18M-110-82V-18M-214-50H-84M110 18V82M136 18V82M162 18V82M188 18V82M84 50H214" stroke="#D9E9F3" strokeOpacity=".45"/>
-          <path d="M-70-34L-35-65H32L70-28L52 35L-38 45L-70 8Z" fill="url(#authHull)" stroke="#7F9CB4" strokeWidth="1.5"/>
-          <path d="M-34-65L-18-100L18-100L34-65M-38 45L-24 75L24 75L38 45" stroke="#7EBBD8" strokeWidth="2"/>
-          <circle cx="0" cy="-8" r="16" fill="#284D68" stroke="#B8D7E8" strokeWidth="2"/>
-          <path d="M70-28L115-65M70 8L120 42" stroke="#7EBBD8" strokeWidth="2"/>
+        <path d="M-40 690C250 410 560 350 850 430S1280 670 1640 320" stroke="#79B5D5" strokeOpacity=".28" strokeWidth="1.2"/>
+        <path d="M-30 770C260 555 570 500 860 555S1290 740 1640 490" stroke="#79B5D5" strokeOpacity=".16" strokeDasharray="2 13"/>
+        <g className="auth-night-telescope" transform="translate(1110 335)">
+          <path d="M-270 0H270" stroke="#779BB5" strokeOpacity=".65" strokeWidth="3"/>
+          <rect x="-270" y="-72" width="170" height="74" rx="2" fill="url(#avSolar)" stroke="#8CB4CE" strokeWidth="1.3"/>
+          <rect x="100" y="-2" width="170" height="74" rx="2" fill="url(#avSolar)" stroke="#8CB4CE" strokeWidth="1.3"/>
+          <g stroke="#D5E7F2" strokeOpacity=".55"><path d="M-236-72V2M-202-72V2M-168-72V2M-134-72V2M-270-36H-100M134-2V72M168-2V72M202-2V72M236-2V72M100 35H270"/></g>
+          <path d="M-86-38L-42-68H48L88-28L64 42L-54 48L-86 8Z" fill="url(#avMetal)" stroke="#D4E4EF" strokeWidth="1.5"/>
+          <path d="M-42-68L-25-108H28L48-68M-54 48L-28 80H40L64 42" stroke="#78B9D8" strokeWidth="2.4"/>
+          <circle cx="0" cy="-12" r="20" fill="#203F58" stroke="#C3DCEB" strokeWidth="2"/><circle cx="0" cy="-12" r="8" fill="#79B8D8" fillOpacity=".38"/>
+          <path d="M88-28L142-66L170-66M88 8L145 48L175 48" stroke="#79B8D8" strokeWidth="2"/>
         </g>
-        <g className="auth-night-probe" transform="translate(390 500) rotate(-28)">
-          <path d="M0-76L20-25L17 48L0 78L-17 48L-20-25Z" fill="url(#authHull)" stroke="#8DB4CC" strokeWidth="1.5"/>
-          <path d="M-20-10L-64 24L-18 26M20-10L64 24L18 26" stroke="#7298B5" strokeWidth="5" strokeLinejoin="round"/>
-          <path d="M0-76L0-96M-5 52L0 78L5 52" stroke="#83C4E3" strokeWidth="2"/>
-          <circle cy="-8" r="9" fill="#254B68" stroke="#C5DFEE" strokeWidth="2"/>
-          <path d="M0 78L-4 110M0 78L4 110" stroke="url(#authNightBeam)" strokeWidth="2"/>
+        <g className="auth-night-probe" transform="translate(420 555) rotate(-25)">
+          <path d="M0-126C30-82 36-18 30 55L0 102L-30 55C-36-18-30-82 0-126Z" fill="url(#avMetal)" stroke="#DCE8F0" strokeWidth="1.6"/>
+          <path d="M-27 24L-70 78L-24 65M27 24L70 78L24 65" fill="#405D75" stroke="#9BBFD5" strokeWidth="1.6"/>
+          <ellipse cy="-24" rx="10" ry="15" fill="#244A65" stroke="#C5E0F0" strokeWidth="2"/>
+          <path d="M-8 94Q0 132 8 94" stroke="#80C2E2" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M0 112L-4 172M0 112L5 155" stroke="#80C2E2" strokeOpacity=".65" strokeWidth="2"/>
         </g>
-        <g stroke="#91BBD4" strokeOpacity=".5" strokeWidth="1.2"><path d="M620 150l20-12 12 18-18 16zM1200 555l14-10 12 14-13 12zM720 675l10-15 16 8-8 16z"/></g>
-        <path d="M520 130l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8ZM1290 190l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" fill="#9ACCE5" opacity=".76"/>
-        <g fill="#D9EAF5"><circle cx="170" cy="185" r="1.7"/><circle cx="700" cy="100" r="1.3"/><circle cx="1180" cy="125" r="1.5"/><circle cx="1350" cy="450" r="1.3"/><circle cx="580" cy="720" r="1.4"/></g>
-      </g>
-      <g className="auth-debris-field" stroke="#9DB1C2" strokeOpacity=".65" strokeWidth="1.2">
-        <path d="M675 360l16-8 12 11-14 13zM1120 650l12-8 10 12-13 10zM260 315l9-6 8 8-9 9z"/>
-        <path d="M675 360l6-18M1120 650l16 9M260 315l-8-12" strokeOpacity=".38"/>
-      </g>
-      <g className="auth-flight-stars" fill="#D8E4EE">
-        <circle cx="90" cy="180" r="1.6"/><circle cx="390" cy="110" r="1.2"/><circle cx="840" cy="115" r="1.4"/><circle cx="1380" cy="340" r="1.5"/><circle cx="590" cy="700" r="1.2"/>
-        <path d="M570 130l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8ZM1320 620l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/>
+        <g className="auth-night-array" transform="translate(260 250)">
+          <path d="M-112 0H112M0-82V82" stroke="#80B9D5" strokeOpacity=".65" strokeWidth="2"/>
+          <path d="M-62-34L0-82L62-34L0 14Z" fill="url(#avMetal)" stroke="#C4DDEB" strokeWidth="1.4"/>
+          <path d="M-62-34L-92-62M62-34L92-62M0 14V66" stroke="#80B9D5" strokeWidth="2"/>
+          <path d="M-92-62L-114-72L-105-42ZM92-62L114-72L105-42Z" fill="#A5C7DA" fillOpacity=".48" stroke="#8DBBD5"/>
+          <circle r="8" fill="#254A65" stroke="#D7E8F2" strokeWidth="2"/>
+        </g>
+        <g className="auth-night-debris" stroke="#91C1DC" strokeOpacity=".72" strokeWidth="1.3"><path d="M690 175l18-10 14 13-17 16zM1370 690l14-10 12 13-15 12zM820 720l9-14 15 7-8 16z"/></g>
+        <g className="auth-night-stars" fill="#B9D9EA"><path d="M650 160l2 8 8 2-8 2-2 8-2-8-8-2 8-2 2-8Z"/><path d="M1420 250l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z"/><circle cx="160" cy="160" r="2"/><circle cx="840" cy="115" r="1.6"/><circle cx="1510" cy="510" r="1.5"/><circle cx="600" cy="790" r="1.4"/></g>
       </g>
     </svg>
   </div>;
 }
-
 function CrmAmbientBackdrop() {
   return <div className="crm-ambient-backdrop" aria-hidden="true">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
@@ -1878,26 +1881,37 @@ export default function App() {
       {(screen === 'loading' || screen === 'login' || screen === 'set-password') && <AuthVectorScene />}
       <style>{`
         .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-screen-root{position:relative;isolation:isolate;overflow-x:hidden}
-        .auth-screen-root>.auth-vector-scene{position:fixed;inset:64px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.82}
+        .auth-screen-root>.auth-vector-scene{position:fixed;inset:0;z-index:0!important;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.56}
         .auth-screen-root>.auth-vector-scene~*:not(style){position:relative;z-index:2}
         .auth-screen-root>.auth-vector-scene~header,.auth-screen-root>.auth-vector-scene~section,.auth-screen-root>.auth-vector-scene~div{position:relative;z-index:2}
+        .auth-vector-art{position:relative;z-index:0;pointer-events:none;width:min(100%,1500px);height:auto;max-height:100vh;overflow:visible}
         .auth-day-scene{display:block}.auth-night-scene{display:none}
-        :root[data-crm-theme="night"] .auth-day-scene{display:none}
-        :root[data-crm-theme="night"] .auth-night-scene{display:block}
-        .auth-day-satellite,.auth-night-station{transform-box:fill-box;transform-origin:center;animation:authOrbitCraft 32s ease-in-out infinite}
-        .auth-day-probe,.auth-night-probe{transform-box:fill-box;transform-origin:center;animation:authProbeGlide 24s ease-in-out infinite}
-        .auth-debris-field{transform-box:fill-box;transform-origin:center;animation:authDebrisDrift 27s ease-in-out infinite}
-        .auth-flight-stars{animation:authStarPulse 7s ease-in-out infinite}
-        @keyframes authOrbitCraft{0%,100%{translate:0 0;rotate:-.5deg}50%{translate:12px -8px;rotate:.5deg}}
-        @keyframes authProbeGlide{0%,100%{translate:0 0}50%{translate:10px -14px}}
-        @media(max-width:700px){.auth-screen-root>.auth-vector-scene{inset:56px -10% 0;opacity:.55}.auth-vector-art{width:172%;max-width:none;max-height:none;height:auto;transform:translate(-8%,2vh)}.auth-day-satellite,.auth-night-station{opacity:.68}.auth-day-probe,.auth-night-probe{opacity:.6}}
-        @media(max-width:390px){.auth-vector-art{width:190%;transform:translate(-12%,3vh)}}
-        @media(prefers-reduced-motion:reduce){.auth-day-satellite,.auth-night-station,.auth-day-probe,.auth-night-probe,.auth-debris-field,.auth-flight-stars{animation:none!important}}
-        .crm-reduced-motion .auth-day-satellite,.crm-reduced-motion .auth-night-station,.crm-reduced-motion .auth-day-probe,.crm-reduced-motion .auth-night-probe,.crm-reduced-motion .auth-debris-field,.crm-reduced-motion .auth-flight-stars{animation:none!important}
-        .auth-vector-art{position:relative;width:min(100%,1280px);height:auto;max-height:calc(100vh - 72px);overflow:visible}
-        .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 5.5s ease-in-out infinite}
-        .auth-star-two{animation-delay:-1.2s}.auth-star-three{animation-delay:-2.4s}
-        .auth-vector-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--crm-bg,#101114) 0%,transparent 25%,transparent 75%,var(--crm-bg,#101114) 100%);opacity:.38}
+        :root[data-crm-theme="night"] .auth-day-scene{display:none!important}
+        :root[data-crm-theme="night"] .auth-night-scene{display:block!important}
+        .auth-day-craft,.auth-night-telescope{transform-box:fill-box;transform-origin:center;animation:authCraftDrift 34s ease-in-out infinite}
+        .auth-day-launcher,.auth-night-probe{transform-box:fill-box;transform-origin:center;animation:authProbeGlide 27s ease-in-out infinite}
+        .auth-day-relay,.auth-night-array{transform-box:fill-box;transform-origin:center;animation:authRelayMotion 42s ease-in-out infinite}
+        .auth-day-debris,.auth-night-debris{transform-box:fill-box;transform-origin:center;animation:authDebrisMotion 23s ease-in-out infinite}
+        .auth-day-stars,.auth-night-stars{animation:authStarPulse 8s ease-in-out infinite}
+        @keyframes authCraftDrift{0%,100%{translate:0 0;rotate:-.25deg}50%{translate:9px -7px;rotate:.25deg}}
+        @keyframes authProbeGlide{0%,100%{translate:0 0}50%{translate:8px -12px}}
+        @keyframes authRelayMotion{0%,100%{translate:0 0;rotate:-.4deg}50%{translate:-8px 9px;rotate:.4deg}}
+        @keyframes authDebrisMotion{0%,100%{translate:0 0;rotate:0deg;opacity:.5}50%{translate:12px -15px;rotate:18deg;opacity:.9}}
+        @keyframes authStarPulse{0%,100%{opacity:.35}50%{opacity:.9}}
+        .auth-login-panel{position:relative;z-index:5!important}
+        .auth-login-panel h1,.auth-login-panel p,.auth-login-panel label,.auth-login-panel form{position:relative;z-index:5}
+        .auth-screen-root>.crm-brand-header{position:relative;z-index:5}
+        @media(max-width:700px){
+          .auth-screen-root>.auth-vector-scene{inset:0;opacity:.32;place-items:center}
+          .auth-vector-art{width:178%;max-width:none;max-height:none;transform:translate(-10%,3vh)}
+          .auth-day-craft,.auth-night-telescope{opacity:.62}
+          .auth-day-launcher,.auth-night-probe{opacity:.48}
+          .auth-day-relay,.auth-night-array{opacity:.48}
+          .auth-login-panel{z-index:5!important}
+        }
+        @media(max-width:390px){.auth-vector-art{width:194%;transform:translate(-13%,4vh)}.auth-screen-root>.auth-vector-scene{opacity:.24}}
+        @media(prefers-reduced-motion:reduce){.auth-day-craft,.auth-night-telescope,.auth-day-launcher,.auth-night-probe,.auth-day-relay,.auth-night-array,.auth-day-debris,.auth-night-debris,.auth-day-stars,.auth-night-stars{animation:none!important}}
+        .crm-reduced-motion .auth-day-craft,.crm-reduced-motion .auth-night-telescope,.crm-reduced-motion .auth-day-launcher,.crm-reduced-motion .auth-night-probe,.crm-reduced-motion .auth-day-relay,.crm-reduced-motion .auth-night-array,.crm-reduced-motion .auth-day-debris,.crm-reduced-motion .auth-night-debris,.crm-reduced-motion .auth-day-stars,.crm-reduced-motion .auth-night-stars{animation:none!important}
         .auth-loading-stage{position:relative;z-index:1;display:grid;place-items:center;min-height:clamp(220px,42vh,390px);margin:10px auto 28px;padding:18px 12px;background:transparent;border:0;box-shadow:none}
         .vector-loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:150px;padding:0;background:transparent;border:0;box-shadow:none;color:var(--crm-muted,#98a2b3);font-size:13px;letter-spacing:.04em;text-align:center}
         .vector-loader svg{width:136px;height:102px;overflow:visible;filter:drop-shadow(0 0 16px color-mix(in srgb,var(--crm-accent,#d9874e) 25%,transparent))}
