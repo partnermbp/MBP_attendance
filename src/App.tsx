@@ -2333,11 +2333,11 @@ export default function App() {
               const people = visiblePeople;
               const timeOnly = (value: string | null, timezone: string | null) => value ? new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',hour12:false,...(timezone ? {timeZone:timezone} : {})}).format(new Date(value)) : '—';
               const gpsButton = (lat: number | null, lng: number | null, title: string) => lat != null && lng != null
-                ? <button type="button" aria-label={title} title={title} onClick={() => setMapPreview({title,latitude:lat,longitude:lng})} style={{display:'inline-grid',placeItems:'center',width:23,height:23,padding:0,color:'var(--crm-accent)',background:'var(--crm-accent-soft)',border:'1px solid var(--crm-accent-strong)',borderRadius:2,cursor:'pointer',verticalAlign:'middle'}}><MapPin size={14}/></button>
+                ? <button type="button" aria-label={title} title={title} onClick={() => setMapPreview({title,latitude:lat,longitude:lng})} style={{display:'inline-grid',placeItems:'center',width:18,height:18,minHeight:18,padding:0,color:'var(--crm-accent)',background:'var(--crm-accent-soft)',border:'1px solid var(--crm-accent-strong)',borderRadius:3,cursor:'pointer',verticalAlign:'middle'}}><MapPin size={11}/></button>
                 : null;
               return <>
                 <div style={{overflowX:'auto',border:'1px solid var(--crm-border)',marginTop:12}}>
-                <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*(isAdmin?154:230)),textAlign:'left'}}>
+                <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',minWidth:Math.max(620,180+dateKeys.length*154),textAlign:'left'}}>
                   <thead><tr style={{background:'var(--crm-card-raised)'}}>
                     <th style={{position:'sticky',left:0,zIndex:2,background:'var(--crm-card-raised)',padding:12,borderBottom:'1px solid var(--crm-border)',minWidth:180}}>Employee</th>
                     {dateKeys.map(date => <th key={date} style={{padding:10,borderBottom:'1px solid var(--crm-border)',whiteSpace:'nowrap',textAlign:'center'}}>{new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</th>)}
@@ -2351,8 +2351,8 @@ export default function App() {
                       const present = Boolean(record);
                       const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
                       const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
-                      return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:isAdmin?154:218}}>
-                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:isAdmin?142:206,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
+                      return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:154}}>
+                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minWidth:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
                           {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
                             {isAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
@@ -2363,9 +2363,9 @@ export default function App() {
                                 {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
                                 {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
                               </span>
-                            </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2,overflowWrap:'anywhere'}}>
-                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)} <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_in_region,record.check_in_country].filter(Boolean).join(' · ') || (record.check_in_gps_recorded === false ? 'GPS not recorded' : 'Region lookup pending / unavailable')}</span></span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)} {record.check_out && <span style={{fontSize:10,fontWeight:500,opacity:.9}}>· {[record.check_out_region,record.check_out_country].filter(Boolean).join(' · ') || (record.check_out_gps_recorded === false ? 'GPS not recorded' : 'Region lookup pending / unavailable')}</span>}</span>
+                            </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
+                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>
                             </span>}
                           </>}
                         </div>
@@ -2380,7 +2380,6 @@ export default function App() {
                   <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f79009'}}/>Incomplete shift</span>
                   <span style={{display:'inline-flex',alignItems:'center',gap:6}}><span aria-hidden="true" style={{width:10,height:10,borderRadius:'50%',background:'#f04438'}}/>Absent</span>
                   <span>Showing up to 93 dates; defaults to the last 7 days.</span>
-                  {!isAdmin && <span>GPS pins and exact coordinates are hidden; only region and country are shown.</span>}
                 </div>
               </>;
             })()}
