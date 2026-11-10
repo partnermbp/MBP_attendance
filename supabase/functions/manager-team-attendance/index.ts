@@ -86,12 +86,12 @@ Deno.serve(async (req: Request) => {
     const ids = [...teamIds].map(encodeURIComponent).join(",");
     const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,auto_closed&order=check_in.desc&limit=1000`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,auto_closed&order=check_in.desc&limit=10000`
     );
     const shiftStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
     const shifts = await rest(
-      `shifts?employee_id=in.(${ids})&ends_at=gte.${encodeURIComponent(shiftStart)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=3000`
+      `shifts?employee_id=in.(${ids})&ends_at=gte.${encodeURIComponent(since)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=10000`
     );
 
     // Managers receive attendance times only. GPS coordinates and derived
@@ -131,7 +131,7 @@ Deno.serve(async (req: Request) => {
     if (telegramIds.length) {
       const telegramIdFilter = telegramIds.join(",");
       rawTelegramMetrics = await rest(
-        `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds&order=calculated_at.desc&limit=10000`
+        `telegram_response_metrics?or=(question_user_id.in.(${telegramIdFilter}),first_reply_user_id.in.(${telegramIdFilter}))&select=question_user_id,first_reply_user_id,response_seconds,calculated_at&order=calculated_at.desc&limit=10000`
       ) || [];
     }
     const telegramMetrics = verifiedLinks.map((link: any) => {
@@ -144,6 +144,8 @@ Deno.serve(async (req: Request) => {
         average_response_seconds: replies.length
           ? replies.reduce((sum: number, metric: any) => sum + Number(metric.response_seconds || 0), 0) / replies.length
           : null,
+        response_samples: replies.map((metric: any) => ({ response_seconds: Number(metric.response_seconds || 0), calculated_at: metric.calculated_at || null })),
+        question_samples: asked.map((metric: any) => ({ calculated_at: metric.calculated_at || null, answered: metric.first_reply_user_id != null })),
       };
     });
 
