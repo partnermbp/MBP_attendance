@@ -181,7 +181,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           const rows = (messageResult.data ?? []) as Message[];
           setMessages(rows);
           setGroupMessagesHasMore(rows.length === GROUP_MESSAGE_PAGE_SIZE);
-          setGroupMessagesAtTop(false);
+          setGroupMessagesAtBottom(false);
           const messageIds = rows.map(message => message.telegram_message_id);
           if (messageIds.length) {
             const [reactionResult, reactionCountResult] = await Promise.all([
@@ -221,7 +221,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         setMessageReactions([]);
         setMessageReactionCounts([]);
         setGroupMessagesHasMore(false);
-        setGroupMessagesAtTop(false);
+        setGroupMessagesAtBottom(false);
       }
       if (isManager) {
         const mine = [...new Set(((treeResult.data ?? []) as TeamNode[]).map(person => person.id))];
@@ -760,7 +760,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <p style={{ ...muted, margin: '8px 0 0', fontSize: 11 }}>Only newly received messages are collected; earlier group history and read receipts are not available to Telegram bots. Ensure participants know that messages are processed for CRM analytics.</p>
       </details>}
     </div>
-    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
+    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); setGroupMessagesHasMore(false); setGroupMessagesAtBottom(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
