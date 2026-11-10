@@ -266,7 +266,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     const restore = groupScrollRestoreRef.current;
     const container = groupMessagesContainerRef.current;
     if (!restore || !container) return;
-    container.scrollTop = restore.top;
+    container.scrollTop = restore.top + (container.scrollHeight - restore.height);
     groupScrollRestoreRef.current = null;
   }, [messages]);
 
