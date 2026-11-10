@@ -49,6 +49,25 @@ if not gps_declared:
 
 tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
+# Keep Android package metadata aligned with the current app release.
+gradle = ROOT / "android/app/build.gradle"
+if gradle.exists():
+    lines = gradle.read_text(encoding="utf-8").splitlines()
+    code_updated = False
+    name_updated = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        indent = line[:len(line) - len(line.lstrip())]
+        if stripped.startswith("versionCode "):
+            lines[index] = indent + "versionCode 2"
+            code_updated = True
+        elif stripped.startswith("versionName "):
+            lines[index] = indent + 'versionName "0.1.1"'
+            name_updated = True
+    if not code_updated or not name_updated:
+        raise SystemExit("Could not update Android versionCode/versionName")
+    gradle.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+
 # Generate shared PWA/iOS assets and the Android launcher icon set.
 subprocess.run(
     [sys.executable, str(ROOT / "scripts/branding/generate_icons.py")],
