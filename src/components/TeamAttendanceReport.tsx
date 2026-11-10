@@ -6,8 +6,8 @@ type Attendance = { id: string; employee_id?: string; check_in: string; check_ou
 type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: string };
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string };
-type TelegramMember = { telegram_user_id: number; profile_id: string | null };
-type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
+type TelegramMember = { telegram_user_id?: number; profile_id: string | null };
+type TelegramMetric = { question_user_id?: number | null; first_reply_user_id?: number | null; response_seconds?: number | null; profile_id?: string; asked_count?: number; reply_count?: number; average_response_seconds?: number | null };
 
 const panel: CSSProperties = { background: 'var(--crm-card-bg)', border: '1px solid var(--crm-border)', borderRadius: 14, padding: 18, minWidth: 0 };
 const muted: CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
@@ -83,11 +83,25 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const activeToday = new Set(attendance.filter(a => dayKey(a.work_date || a.check_in) === today && a.employee_id).map(a => a.employee_id)).size;
   const avgStart = scopedAttendance.length ? Math.round(scopedAttendance.reduce((sum, a) => { const d = new Date(a.check_in); return sum + d.getHours() * 60 + d.getMinutes(); }, 0) / scopedAttendance.length) : null;
   const startText = avgStart == null ? '—' : `${String(Math.floor(avgStart / 60)).padStart(2,'0')}:${String(avgStart % 60).padStart(2,'0')}`;
-  const memberProfile = new Map(telegramMembers.filter(m => m.profile_id).map(m => [m.telegram_user_id, m.profile_id as string]));
+  const memberProfile = new Map(telegramMembers.filter(m => m.profile_id && m.telegram_user_id != null).map(m => [m.telegram_user_id as number, m.profile_id as string]));
   const managerIds = new Set(assignments.map(a => a.manager_id));
-  const teamResponseMetrics = telegramMetrics.filter(m => m.question_user_id != null && m.first_reply_user_id != null && memberProfile.has(m.question_user_id) && memberProfile.has(m.first_reply_user_id) && personMap.has(memberProfile.get(m.first_reply_user_id)!));
-  const responseRate = pct(teamResponseMetrics.length, telegramMetrics.filter(m => m.question_user_id != null && memberProfile.has(m.question_user_id)).length);
-  const avgResponse = teamResponseMetrics.length ? Math.round(teamResponseMetrics.reduce((s,m) => s + (m.response_seconds || 0), 0) / teamResponseMetrics.length) : null;
+  // Manager API returns per-profile aggregates only (no raw Telegram IDs); Admin
+  // keeps the existing detailed metric path. Both feed the same report card.
+  const aggregateMetrics = telegramMetrics.filter(m => m.profile_id && personMap.has(m.profile_id) && (employeeFilter === 'all' || m.profile_id === employeeFilter));
+  const hasAggregateMetrics = aggregateMetrics.length > 0;
+  const teamResponseMetrics = hasAggregateMetrics
+    ? aggregateMetrics.filter(m => (m.reply_count || 0) > 0)
+    : telegramMetrics.filter(m => m.question_user_id != null && m.first_reply_user_id != null && memberProfile.has(m.question_user_id) && memberProfile.has(m.first_reply_user_id) && personMap.has(memberProfile.get(m.first_reply_user_id)!));
+  const askedCount = hasAggregateMetrics
+    ? aggregateMetrics.reduce((sum, m) => sum + (m.asked_count || 0), 0)
+    : telegramMetrics.filter(m => m.question_user_id != null && memberProfile.has(m.question_user_id) && (employeeFilter === 'all' || memberProfile.get(m.question_user_id) === employeeFilter)).length;
+  const replyCount = hasAggregateMetrics
+    ? aggregateMetrics.reduce((sum, m) => sum + (m.reply_count || 0), 0)
+    : teamResponseMetrics.length;
+  const responseRate = pct(replyCount, askedCount);
+  const avgResponse = hasAggregateMetrics
+    ? (replyCount ? Math.round(aggregateMetrics.reduce((sum, m) => sum + (m.reply_count || 0) * (m.average_response_seconds || 0), 0) / replyCount) : null)
+    : teamResponseMetrics.length ? Math.round(teamResponseMetrics.reduce((sum,m) => sum + (m.response_seconds || 0), 0) / teamResponseMetrics.length) : null;
   const days: string[] = []; const cursor = new Date(appliedFrom + 'T12:00:00'); const last = new Date(appliedTo + 'T12:00:00');
   while (cursor <= last && days.length < 62) { days.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
   const dailyCounts = days.map(d => new Set(scopedAttendance.filter(a => dayKey(a.work_date || a.check_in) === d).map(a => a.employee_id)).size);
@@ -140,7 +154,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
       <MiniBarChart title="Check-in time distribution" subtitle="Recorded check-ins grouped by local hour" labels={lateHours.map(x=>x.label)} values={lateHours.map(x=>x.value)} color="#60a5fa"/>
     </div>
     <div className="crm-report-secondary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
-      <section style={panel}><strong>Telegram response rate</strong><div style={{ ...metricValue, marginTop: 12 }}>{teamResponseMetrics.length ? responseRate + '%' : '—'}</div><p style={muted}>{teamResponseMetrics.length ? `Average first response: ${avgResponse == null ? '—' : avgResponse < 60 ? avgResponse + ' sec' : Math.round(avgResponse/60) + ' min'}. Based on linked team identities in tracked Telegram groups.` : 'No attributable Telegram question/reply metrics are available for the selected team.'}</p></section>
+      <section style={panel}><strong>Telegram response rate</strong><div style={{ ...metricValue, marginTop: 12 }}>{replyCount ? responseRate + '%' : '—'}</div><p style={muted}>{replyCount ? `Average first response: ${avgResponse == null ? '—' : avgResponse < 60 ? avgResponse + ' sec' : Math.round(avgResponse/60) + ' min'}. Based on linked team identities in tracked Telegram groups.` : 'No attributable Telegram question/reply metrics are available for the selected team.'}</p></section>
       <section style={panel}><strong>Role distribution</strong><div style={{ display: 'grid', gap: 9, marginTop: 13 }}>{Object.entries(roleCounts).map(([role,count])=><div key={role}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}><span>{role}</span><strong>{count}</strong></div><div style={{ height: 7, background: 'var(--crm-border)', borderRadius: 8, overflow: 'hidden' }}><div style={{ width: pct(count,activePeople.length)+'%', height: '100%', background: 'var(--crm-accent)', borderRadius: 8 }}/></div></div>)}</div></section>
     </div>
     <section style={panel}>
