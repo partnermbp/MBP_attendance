@@ -5,7 +5,7 @@ import KnowMore from './KnowMore';
 
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Leave = { id: string; employee_id: string; leave_type: string; start_date: string; end_date: string; reason: string | null; status: string; created_at: string; review_note: string | null };
-type Correction = { id: string; employee_id: string; attendance_id: string | null; work_date: string; requested_check_in: string | null; requested_check_out: string | null; reason: string; status: string; created_at: string; review_note: string | null };
+type Correction = { id: string; employee_id: string; attendance_id: string | null; work_date: string; requested_check_in: string | null; requested_check_out: string | null; reason: string; status: string; created_at: string; review_note: string | null; applied_at?: string | null };
 type Followup = { id: string; employee_id: string; assigned_to: string; created_by: string; title: string; notes: string | null; due_date: string | null; priority: string; status: string; resolution_note: string | null };
 type Holiday = { id: string; holiday_date: string; name: string };
 
@@ -29,6 +29,8 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const [leaveReason, setLeaveReason] = useState('');
   const [workDate, setWorkDate] = useState(new Date().toISOString().slice(0,10));
   const [checkIn, setCheckIn] = useState('');
+  const [mySessions, setMySessions] = useState<Array<{id:string;work_date:string|null;check_in:string;check_out:string|null}>>([]);
+  const [selectedSession, setSelectedSession] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [correctionReason, setCorrectionReason] = useState('');
   const [targetEmployee, setTargetEmployee] = useState('');
@@ -73,6 +75,13 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     } finally { setLoading(false); }
   }, [profile]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!supabase || !profile?.id) return;
+    let cancelled = false;
+    void supabase.from('attendance').select('id,work_date,check_in,check_out').eq('employee_id',profile.id).order('check_in',{ascending:false}).limit(500)
+      .then(({data,error}) => { if (cancelled) return; if (!error) setMySessions((data || []) as Array<{id:string;work_date:string|null;check_in:string;check_out:string|null}>); });
+    return () => { cancelled = true; };
+  }, [profile?.id]);
 
   async function run(task: () => PromiseLike<{ error: any }>, success: string) {
     if (!supabase) return;
@@ -113,14 +122,15 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
       <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Leave requests</h2>{leaves.length?leaves.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.leave_type} · {x.start_date} to {x.end_date} · {x.status}</div>{x.reason&&<p style={muted}>{x.reason}</p>}</div>{canReview&&x.status==='pending'&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('workforce_leave_requests',x.id,'approved'))}{button('Reject',()=>void review('workforce_leave_requests',x.id,'rejected'))}</div>}</article>):<p style={muted}>No leave requests yet.</p>}</section>
     </>}
     {tab==='corrections' && <>
-      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Request attendance correction</h2><form data-correction-form onSubmit={e=>{e.preventDefault();if(!profile)return;void run(()=>supabase!.from('attendance_correction_requests').insert({employee_id:profile.id,work_date:workDate,requested_check_in:checkIn?new Date(checkIn).toISOString():null,requested_check_out:checkOut?new Date(checkOut).toISOString():null,reason:correctionReason}), 'Correction request submitted.');setCheckIn('');setCheckOut('');setCorrectionReason('');}} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Request attendance correction</h2><form data-correction-form onSubmit={e=>{e.preventDefault();if(!profile)return;void run(()=>supabase!.from('attendance_correction_requests').insert({employee_id:profile.id,attendance_id:selectedSession||null,work_date:workDate,requested_check_in:checkIn?new Date(checkIn).toISOString():null,requested_check_out:checkOut?new Date(checkOut).toISOString():null,reason:correctionReason}), 'Correction request submitted.');setCheckIn('');setCheckOut('');setSelectedSession('');setCorrectionReason('');}} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
         <label style={muted}>Work date<input type="date" required value={workDate} onChange={e=>setWorkDate(e.target.value)} style={field}/></label>
+        <label style={muted}>Attendance session (optional)<select value={selectedSession} onChange={e=>{const id=e.target.value;setSelectedSession(id);const session=mySessions.find(x=>x.id===id);if(session?.work_date)setWorkDate(session.work_date);}} style={field}><option value="">No existing session / missed day</option>{mySessions.map(x=><option key={x.id} value={x.id}>{x.work_date||x.check_in.slice(0,10)} · IN {new Date(x.check_in).toLocaleString()} · OUT {x.check_out?new Date(x.check_out).toLocaleTimeString():'open'}</option>)}</select></label>
         <label style={muted}>Correct check-in<input type="datetime-local" value={checkIn} onChange={e=>setCheckIn(e.target.value)} style={field}/></label>
         <label style={muted}>Correct check-out<input type="datetime-local" value={checkOut} onChange={e=>setCheckOut(e.target.value)} style={field}/></label>
         <label style={muted}>Reason<input required value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} style={field}/></label>
         <div>{button('Submit correction',()=>{document.querySelector<HTMLFormElement>('[data-correction-form]')?.requestSubmit();},!checkIn&&!checkOut||!correctionReason.trim())}</div>
       </form></section>
-      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Correction requests</h2>{corrections.length?corrections.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.work_date} · IN {x.requested_check_in?new Date(x.requested_check_in).toLocaleString():'unchanged'} · OUT {x.requested_check_out?new Date(x.requested_check_out).toLocaleString():'unchanged'} · {x.status}</div><p style={muted}>{x.reason}</p></div>{canReview&&x.status==='pending'&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('attendance_correction_requests',x.id,'approved'))}{button('Reject',()=>void review('attendance_correction_requests',x.id,'rejected'))}</div>}</article>):<p style={muted}>No correction requests yet.</p>}</section>
+      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Correction requests</h2>{corrections.length?corrections.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.work_date} · IN {x.requested_check_in?new Date(x.requested_check_in).toLocaleString():'unchanged'} · OUT {x.requested_check_out?new Date(x.requested_check_out).toLocaleString():'unchanged'} · {x.status}{x.attendance_id?' · linked session':''}</div><p style={muted}>{x.reason}</p></div>{canReview&&x.status==='pending'&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('attendance_correction_requests',x.id,'approved'))}{button('Reject',()=>void review('attendance_correction_requests',x.id,'rejected'))}</div>}{isAdmin&&x.status==='approved'&&x.attendance_id&&!x.applied_at&&button('Apply to attendance',()=>void run(()=>supabase!.rpc('apply_attendance_correction',{request_id:x.id}),'Correction applied and original values archived.'))}{x.applied_at&&<span style={muted}>Applied {new Date(x.applied_at).toLocaleString()}</span>}</article>):<p style={muted}>No correction requests yet.</p>}</section>
     </>}
     {tab==='followups' && <>
       {canReview&&<section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Create follow-up</h2><form data-followup-form onSubmit={e=>{e.preventDefault();if(!profile)return;void run(()=>supabase!.from('manager_followups').insert({employee_id:targetEmployee,assigned_to:assignedTo||profile.id,created_by:profile.id,title:followTitle,notes:followNotes||null,due_date:followDue||null,priority:followPriority}), 'Follow-up assigned.');setFollowTitle('');setFollowNotes('');}} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
