@@ -116,7 +116,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
-  const isManager = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
+  const isManager = profile?.active === true && ['supervisor', 'junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
 
   async function load() {
     if (!supabase || (!isAdmin && !isManager)) return;
@@ -499,8 +499,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
-  const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase().replaceAll(' ', '_')));
+  const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4, supervisor: 5 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+  const managers = profiles.filter(p => p.active && ['supervisor','middle','senior','team_leader'].includes(p.role.toLowerCase().replaceAll(' ', '_')));
   const validAssignments = assignments.filter(a => {
     const parent = profiles.find(p => p.id === a.manager_id && p.active);
     const child = profiles.find(p => p.id === a.employee_id && p.active);
@@ -511,7 +511,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const hasValidManagerParent = new Set(validAssignments.filter(a => managerIds.has(a.manager_id) && managerIds.has(a.employee_id)).map(a => a.employee_id));
   const rootManagers = managers.filter(person => !hasValidManagerParent.has(person.id)).sort((a,b) => roleRank(b.role)-roleRank(a.role) || (a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
-  const inviteRoles = isAdmin ? ['team_leader','senior','middle','junior','telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
+  const inviteRoles = isAdmin ? ['supervisor','team_leader','senior','middle','junior','telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || teamTree.find(p => p.id === id)?.full_name || teamTree.find(p => p.id === id)?.email || 'Unknown employee';
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
@@ -652,9 +652,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       </details>}
     </>}
     {(isManager || isAdmin) && <>
-      {(page === 'team' || page === 'team-invitations') && (isAdmin || (isManager && normalizedRole !== 'junior')) && <>
+      {(page === 'team' || page === 'team-invitations') && (isAdmin || (isManager && normalizedRole !== 'junior' && normalizedRole !== 'supervisor')) && <>
       <h3>{isAdmin ? 'Admin invitation — choose any role' : 'Invite an employee'}</h3>
-      <KnowMore>{isAdmin ? 'Admins can invite any role. Telemarketing is a separate track outside the reporting hierarchy.' : 'Invitation links are single-use and expire after 24 hours. Replacing an unused invitation invalidates the previous link. Existing accounts cannot use invitations to change roles.'}</KnowMore>
+      <KnowMore>{isAdmin ? 'Admins can invite any role, including Supervisors. Supervisors are read-only and may oversee Team Leaders.' : 'Invitation links are single-use and expire after 24 hours.'}</KnowMore>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
         <label>Admin Panel Name<input style={input} value={inviteAdminPanelName} onChange={e=>setInviteAdminPanelName(e.target.value)} maxLength={120} required placeholder="Exact name from your Admin Panel"/></label>
         <label>Corporate Email<input style={input} type="email" value={inviteCorporateEmail} onChange={e=>setInviteCorporateEmail(e.target.value.trimStart())} maxLength={254} required placeholder="employee@company.com"/></label>
