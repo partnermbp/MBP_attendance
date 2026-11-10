@@ -149,6 +149,22 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     const reasons = [personLate >= 3 ? personLate + ' late arrivals' : '', personMissed ? personMissed + ' missed shifts' : '', personAutoClosed ? personAutoClosed + ' auto-closed sessions' : '', personEarly ? personEarly + ' early departures' : ''].filter(Boolean);
     return { person, reasons, score: personLate + personMissed * 2 + personAutoClosed + personEarly };
   }).filter(item => item.reasons.length).sort((a,b) => b.score-a.score).slice(0,20);
+  const selectedPeriodDays = Math.max(1, Math.round((new Date(appliedTo+'T12:00:00').getTime()-new Date(appliedFrom+'T12:00:00').getTime())/86400000)+1);
+  const previousTo = new Date(new Date(appliedFrom+'T12:00:00').getTime()-86400000).toISOString().slice(0,10);
+  const previousFrom = new Date(new Date(previousTo+'T12:00:00').getTime()-(selectedPeriodDays-1)*86400000).toISOString().slice(0,10);
+  const previousAttendance = attendance.filter(record => {
+    const date = attendanceDay(record);
+    return date >= previousFrom && date <= previousTo && (employeeFilter === 'all' || record.employee_id === employeeFilter) && record.employee_id && personMap.has(record.employee_id);
+  });
+  const currentCredited = scopedAttendance.reduce((sum, record) => sum + creditedMinutes(record), 0);
+  const previousCredited = previousAttendance.reduce((sum, record) => sum + creditedMinutes(record), 0);
+  const previousPeople = new Set(previousAttendance.map(record => record.employee_id)).size;
+  const currentPeople = new Set(scopedAttendance.map(record => record.employee_id).filter(Boolean)).size;
+  const previousSessions = previousAttendance.length;
+  const periodDelta = (current: number, previous: number) => previous ? Math.round((current-previous)/previous*100) : null;
+  const peopleDelta = periodDelta(currentPeople, previousPeople);
+  const sessionsDelta = periodDelta(scopedAttendance.length, previousSessions);
+  const hoursDelta = periodDelta(currentCredited, previousCredited);
   const payrollRows = scopedPeople.map(person => {
     const personShifts = scopedShifts.filter(shift => shift.employee_id === person.id);
     const personRecords = scopedAttendance.filter(record => record.employee_id === person.id);
@@ -216,6 +232,18 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
         <Donut title="Shift outcome" total={expected} parts={[{label:'On time',value:onTime,color:'#22c55e'},{label:'Late',value:late,color:'#f59e0b'},{label:'No check-in',value:absent,color:'#ef4444'}]}/>
       </div>
     </>}
+    <section style={panel}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
+        <strong>Previous-period comparison</strong>
+        <span style={muted}>{previousFrom} – {previousTo} compared with {appliedFrom} – {appliedTo}</span>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:14,marginTop:14}}>
+        <div><div style={muted}>People with attendance</div><strong style={metricValue}>{currentPeople}</strong><div style={muted}>{previousPeople} previous · {peopleDelta===null?'No baseline':(peopleDelta>0?'+':'')+peopleDelta+'%'}</div></div>
+        <div><div style={muted}>Attendance sessions</div><strong style={metricValue}>{scopedAttendance.length}</strong><div style={muted}>{previousSessions} previous · {sessionsDelta===null?'No baseline':(sessionsDelta>0?'+':'')+sessionsDelta+'%'}</div></div>
+        <div><div style={muted}>Credited hours</div><strong style={metricValue}>{(currentCredited/60).toFixed(1)}</strong><div style={muted}>{(previousCredited/60).toFixed(1)} previous · {hoursDelta===null?'No baseline':(hoursDelta>0?'+':'')+hoursDelta+'%'}</div></div>
+      </div>
+      <p style={{...muted,marginBottom:0}}>Comparison uses the immediately preceding period of equal length. Percentages are unavailable when the previous period has no records.</p>
+    </section>
     <div className="crm-report-chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
       <MiniBarChart title="Daily team attendance" subtitle="Unique people checking in each day" labels={days.map(dateLabel)} values={dailyCounts}/>
       <MiniBarChart title="Check-in time distribution" subtitle="Recorded check-ins grouped by local hour" labels={lateHours.map(x=>x.label)} values={lateHours.map(x=>x.value)} color="#60a5fa"/>
