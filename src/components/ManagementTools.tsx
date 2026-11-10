@@ -380,7 +380,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
         body: { target_lang: translationTarget, source_lang: translationSource, messages: missing },
       });
-      if (error) throw new Error(error.message || 'Translation request failed.');
+      if (error) {
+        const context = (error as any).context as Response | undefined;
+        let detail = error.message || 'Translation request failed.';
+        if (context) {
+          const payload = await context.clone().json().catch(() => null);
+          if (payload?.error) detail = String(payload.error);
+          else if (context.status === 429) detail = 'Translation provider is rate-limiting requests. Please wait a minute and try again.';
+          else detail = 'Translation service failed (' + context.status + '). Please try again.';
+        }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(String(data.error));
       const results = Array.isArray(data?.translations) ? data.translations : [];
       if (results.length !== missing.length) throw new Error('The translation service returned an incomplete result. Please try again.');
