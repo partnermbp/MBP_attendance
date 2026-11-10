@@ -558,6 +558,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
               <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0'}}>
                 {children.length>0?<button type="button" aria-label={isExpanded?'Collapse reports':'Expand reports'} onClick={()=>setExpandedManagers(current=>({...current,[manager.id]:!current[manager.id]}))} style={{display:'grid',placeItems:'center',width:24,height:24,padding:0,flexShrink:0,border:'1px solid var(--crm-border)',borderRadius:5,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}>{isExpanded?'⌄':'›'}</button>:<span style={{width:24,flexShrink:0}}/>}
                 <span style={{minWidth:0,flex:1}}><strong style={{display:'block',fontSize:13}}>{manager.full_name||manager.email||'Manager'}</strong><small style={muted}>{manager.role.replaceAll('_',' ')} · {children.length} direct reports</small></span>
+                {depth>0&&<button type="button" style={{...button,padding:'5px 9px',fontSize:11,background:'#b42318'}} disabled={loading} onClick={()=>{const parentLink=validAssignments.find(a=>a.employee_id===manager.id);if(parentLink)void removeAssignment(parentLink);}}>Remove from parent</button>}
               </div>
               {isExpanded&&<div style={{display:'grid',gap:3,paddingBottom:5}}>
                 {childManagers.map(child=>renderAssignmentNode(child,depth+1))}
