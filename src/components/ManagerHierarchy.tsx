@@ -46,18 +46,19 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     return result;
   }, [assignments, people]);
   const managers = useMemo(() => new Set([...people.values()].filter(p => managerRoles.has(p.role.toLowerCase().replaceAll(' ', '_')) || managerRoles.has(p.role.toLowerCase())).map(p => p.id)), [people]);
-  const visibleManagers = useMemo(() => {
-    if (profile?.role.toLowerCase() === 'admin') return managers;
-    return new Set([...managers].filter(id => id === profile?.id || (() => {
-      const seen = new Set<string>(); let frontier = [profile?.id || ''];
-      while (frontier.length) {
-        const parent = frontier.shift()!;
-        if (seen.has(parent)) continue; seen.add(parent);
-        for (const child of children.get(parent) || []) { if (child === id) return true; frontier.push(child); }
+  const visiblePeople = useMemo(() => {
+    if (profile?.role.toLowerCase() === 'admin') return new Set([...people.keys()]);
+    const seen = new Set<string>(profile?.id ? [profile.id] : []);
+    const frontier = profile?.id ? [profile.id] : [];
+    while (frontier.length) {
+      const parent = frontier.shift()!;
+      for (const child of children.get(parent) || []) {
+        if (!seen.has(child)) { seen.add(child); frontier.push(child); }
       }
-      return false;
-    })()));
-  }, [managers, profile, children]);
+    }
+    return seen;
+  }, [people, profile, children]);
+  const visibleManagers = useMemo(() => new Set([...managers].filter(id => visiblePeople.has(id))), [managers, visiblePeople]);
   const roots = [...visibleManagers].filter(id => {
     if (id === profile?.id && profile?.role.toLowerCase() !== 'admin') return true;
     const parents = assignments.filter(a => a.employee_id === id && visibleManagers.has(a.manager_id) && (children.get(a.manager_id) || []).includes(id));
@@ -75,7 +76,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   const renderNode = (person: Person, depth: number, path: Set<string>): ReactElement | null => {
     if (path.has(person.id)) return null;
     const nextPath = new Set(path); nextPath.add(person.id);
-    const direct = (children.get(person.id) || []).filter(id => visibleManagers.has(id)).map(id => people.get(id)).filter((p): p is Person => Boolean(p)).sort((a,b)=>(a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
+    const direct = (children.get(person.id) || []).filter(id => visiblePeople.has(id)).map(id => people.get(id)).filter((p): p is Person => Boolean(p)).sort((a,b)=>(a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
     const isOpen = expanded.has(person.id);
     const isSelected = selectedId === person.id;
     return <div key={person.id} style={{ marginLeft: depth ? 22 : 0, position: 'relative' }}>
@@ -83,7 +84,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '7px 0' }}>
         <button type="button" onClick={() => setSelectedId(person.id)} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, padding: '12px 13px', textAlign: 'left', border: '1px solid '+(isSelected?'var(--crm-accent-strong)':'var(--crm-border)'), borderRadius: 10, background: isSelected?'var(--crm-accent-soft)':'var(--crm-card-bg)', color: 'var(--crm-text)', cursor: 'pointer' }}>
           <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0, background: 'var(--crm-card-raised)', color: 'var(--crm-accent)' }}><UserRound size={18}/></span>
-          <span style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.full_name || 'Unnamed manager'}</strong><small style={muted}>{roleName(person.role)} · {direct.length} direct manager reports</small></span>
+          <span style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.full_name || 'Unnamed manager'}</strong><small style={muted}>{roleName(person.role)} · {direct.length} direct reports</small></span>
           <ChevronRight size={17}/>
         </button>
         {direct.length > 0 && <button type="button" aria-label={isOpen?'Collapse reports':'Expand reports'} onClick={() => setExpanded(prev => { const next = new Set(prev); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{ width: 38, height: 38, border: '1px solid var(--crm-border)', borderRadius: 9, background: 'var(--crm-card-raised)', color: 'var(--crm-text)', cursor: 'pointer' }}>{isOpen?<ChevronDown size={17}/>:<ChevronRight size={17}/>}</button>}
@@ -149,6 +150,6 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   return <section style={{display:'grid',gap:14,marginTop:18}}>
     <header><h1 style={{margin:0,fontSize:25}}>Manager hierarchy</h1><KnowMore>Select a manager to view their reporting line and activity.</KnowMore></header>
     {roots.length ? <div style={{...panel,display:'grid',gap:5}}>{roots.map(root=>renderNode(root,0,new Set()))}</div> : <div style={{...panel,textAlign:'center',padding:30}}><GitBranch size={28} color="var(--crm-accent)"/><strong style={{display:'block',marginTop:10}}>No manager hierarchy available</strong><p style={muted}>No active manager reporting lines are visible to this account yet.</p></div>}
-    <KnowMore>Manager profiles show attendance and coarse activity only. Exact GPS coordinates and map pins remain restricted to Admin.</KnowMore>
+    {isAdmin && <KnowMore>Manager profiles show attendance and coarse activity only. Exact GPS coordinates and map pins remain restricted to Admin.</KnowMore>}
   </section>;
 }
