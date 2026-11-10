@@ -272,17 +272,18 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     return () => { cancelled = true; };
   }, [supabase, isAdmin, page]);
   useEffect(() => {
-    const restore = groupScrollRestoreRef.current;
     const container = groupMessagesContainerRef.current;
-    if (!restore || !container) return;
-    container.scrollTop = restore.top + (container.scrollHeight - restore.height);
-    groupScrollRestoreRef.current = null;
-    return;
-  }
-  if (groupInitialScrollPendingRef.current && container) {
-    container.scrollTop = container.scrollHeight;
-    groupInitialScrollPendingRef.current = false;
-    setGroupMessagesAtTop(false);
+    const restore = groupScrollRestoreRef.current;
+    if (restore && container) {
+      container.scrollTop = restore.top + (container.scrollHeight - restore.height);
+      groupScrollRestoreRef.current = null;
+      return;
+    }
+    if (groupInitialScrollPendingRef.current && container) {
+      container.scrollTop = container.scrollHeight;
+      groupInitialScrollPendingRef.current = false;
+      setGroupMessagesAtTop(false);
+    }
   }, [messages]);
 
   useEffect(() => () => {
