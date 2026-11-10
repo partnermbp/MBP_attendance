@@ -169,6 +169,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     setLoading(false);setAlertsLoading(false);
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
+  useEffect(()=>{const timer=window.setInterval(()=>{void reload();},60000);return()=>window.clearInterval(timer);},[reload]);
   useEffect(()=>{
     if(!selected){setPoints([]);setNetworkEvents([]);return;}
     let alive=true;setPointsLoading(true);
