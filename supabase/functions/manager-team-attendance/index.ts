@@ -130,45 +130,11 @@ Deno.serve(async (req: Request) => {
     const ids = [...teamIds].map(encodeURIComponent).join(",");
     const since = new Date(Date.now() - 93 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await rest(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,check_in_lat,check_in_lng,check_out_lat,check_out_lng,check_in_region,check_in_country,check_out_region,check_out_country&order=check_in.desc&limit=1000`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone&order=check_in.desc&limit=1000`
     );
 
-    // Use persisted coarse labels first. Only retry unresolved locations, and never
-    // include coordinates in the response sent to a manager.
-    const labels = new Map<string, { region: string | null; country: string | null }>();
-    const pending = new Map<string, { rowId: string; event: "check_in" | "check_out"; lat: number; lng: number }>();
-    for (const row of rows || []) {
-      if (row.check_in_region || row.check_in_country) {
-        const key = coordinateKey(row.check_in_lat, row.check_in_lng);
-        if (key) labels.set("in:" + row.id, { region: row.check_in_region || null, country: row.check_in_country || null });
-      } else if (row.check_in_lat != null && row.check_in_lng != null) {
-        const key = coordinateKey(row.check_in_lat, row.check_in_lng);
-        if (key && !pending.has("in:" + row.id)) pending.set("in:" + row.id, { rowId: row.id, event: "check_in", lat: row.check_in_lat, lng: row.check_in_lng });
-      }
-      if (row.check_out_region || row.check_out_country) {
-        const key = coordinateKey(row.check_out_lat, row.check_out_lng);
-        if (key) labels.set("out:" + row.id, { region: row.check_out_region || null, country: row.check_out_country || null });
-      } else if (row.check_out_lat != null && row.check_out_lng != null) {
-        const key = coordinateKey(row.check_out_lat, row.check_out_lng);
-        if (key && !pending.has("out:" + row.id)) pending.set("out:" + row.id, { rowId: row.id, event: "check_out", lat: row.check_out_lat, lng: row.check_out_lng });
-      }
-    }
-
-    // Bound each request to avoid long waits and respect Nominatim's public rate limit.
-    let lookupCount = 0;
-    for (const item of pending.values()) {
-      if (lookupCount >= 8) break;
-      const result = await regionCountry(item.lat, item.lng);
-      labels.set((item.event === "check_in" ? "in:" : "out:") + item.rowId, result);
-      if (result.region || result.country) {
-        const patch = item.event === "check_in"
-          ? { check_in_region: result.region, check_in_country: result.country }
-          : { check_out_region: result.region, check_out_country: result.country };
-        await rest(`attendance?id=eq.${encodeURIComponent(item.rowId)}`, "PATCH", patch);
-      }
-      lookupCount++;
-      if (lookupCount < 8) await new Promise(resolve => setTimeout(resolve, 1100));
-    }
+    // Managers receive attendance times only. GPS coordinates and derived
+    // location labels remain exclusively in the Admin attendance interface.
 
     // Profile-verified IDs are used server-side only. Admin-only ID exposure is not part of this API. Return usernames only when
     // the group membership row matches both the profile and verified Telegram ID.
@@ -230,12 +196,6 @@ Deno.serve(async (req: Request) => {
         check_out: row.check_out,
         work_date: row.work_date,
         work_timezone: row.work_timezone,
-        check_in_region: inLabel.region,
-        check_in_country: inLabel.country,
-        check_out_region: outLabel.region,
-        check_out_country: outLabel.country,
-        check_in_gps_recorded: row.check_in_lat != null && row.check_in_lng != null,
-        check_out_gps_recorded: row.check_out_lat != null && row.check_out_lng != null,
       };
     });
     return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
