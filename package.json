@@ -1,7 +1,7 @@
 {
   "name": "attendance-crm",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,8 @@
     "@supabase/supabase-js": "^2.57.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@capacitor/device": "^8.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
@@ -75,7 +76,10 @@
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
-      "artifactName": "MBP-Attendance-${version}-macOS.${ext}"
+      "artifactName": "MBP-Attendance-${version}-macOS.${ext}",
+      "extendInfo": {
+        "NSLocationWhenInUseUsageDescription": "MBP Attendance can record your location during an active shift only when you explicitly enable location sharing."
+      }
     }
   }
 }
