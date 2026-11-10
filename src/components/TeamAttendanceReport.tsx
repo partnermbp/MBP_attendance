@@ -118,7 +118,12 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     const ids = new Set([manager.id, ...descendants.map(p => p.id)]);
     const logs = scopedAttendance.filter(a => ids.has(a.employee_id || ''));
     const teamMembers = [manager, ...descendants];
-    const teamDays = teamMembers.length * days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length;
+    const teamDays = teamMembers.reduce((total, member) => total + days.filter(d => {
+      const date = new Date(d + 'T12:00:00');
+      return date.getDay() !== 0 && date.getDay() !== 6
+        && !holidays.some(h => h.holiday_date === d)
+        && !approvedLeave.some(l => l.employee_id === member.id && l.start_date <= d && l.end_date >= d);
+    }).length, 0);
     const loggedDays = new Set(logs.map(a => (a.employee_id || '') + '|' + attendanceDay(a))).size;
     return { manager, teamMembers, directCount: descendants.filter(p => directIds.has(p.id)).length, indirectCount: descendants.filter(p => !directIds.has(p.id)).length, logs, activity: pct(loggedDays, teamDays) };
   });
@@ -127,7 +132,13 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const repeatedLatePeople = new Set([...lateByPerson].filter(([, count]) => count >= 3).map(([id]) => id));
   const autoClosedCount = scopedAttendance.filter(a => a.auto_closed).length;
   const creditedTotal = scopedAttendance.reduce((sum, a) => sum + creditedMinutes(a), 0);
-  const creditedHoursPerWorkday = days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length ? creditedTotal / 60 / days.filter(d => { const date = new Date(d + 'T12:00:00'); return date.getDay() !== 0 && date.getDay() !== 6; }).length / Math.max(1, scopedPeople.length) : 0;
+  const expectedEmployeeDays = scopedPeople.reduce((total, person) => total + days.filter(d => {
+    const date = new Date(d + 'T12:00:00');
+    return date.getDay() !== 0 && date.getDay() !== 6
+      && !holidays.some(h => h.holiday_date === d)
+      && !approvedLeave.some(l => l.employee_id === person.id && l.start_date <= d && l.end_date >= d);
+  }).length, 0);
+  const creditedHoursPerWorkday = expectedEmployeeDays ? creditedTotal / 60 / expectedEmployeeDays : 0;
   const overtimeHours = scopedAttendance.reduce((sum, a) => sum + Math.max(0, creditedMinutes(a) - 480), 0) / 60;
   const earlyDepartures = shiftRecords.filter(r => r.check?.check_out && new Date(r.check.check_out).getTime() < new Date(r.shift.ends_at).getTime() - 15 * 60000).length;
   const personAttention = scopedPeople.map(person => {
