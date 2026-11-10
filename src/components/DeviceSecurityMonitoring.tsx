@@ -82,8 +82,8 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
         if (position) void save({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,altitude:position.coords.altitude,heading:position.coords.heading,speed:position.coords.speed}, 'capacitor');
       }).then(id => { if (cancelled) void Geolocation.clearWatch({id}); else watchId = id; }).catch(() => fail());
     } else if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(position => void save({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,altitude:position.coords.altitude,heading:position.coords.heading,speed:position.coords.speed}, 'browser'), fail, {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
-    } else fail(new Error('Geolocation unavailable'));
+      watchId = navigator.geolocation.watchPosition(position => void save({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,altitude:position.coords.altitude,heading:position.coords.heading,speed:position.coords.speed}, 'browser'), () => fail(), {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
+    } else fail();
     return () => {
       cancelled = true;
       if (typeof watchId === 'string') void Geolocation.clearWatch({id:watchId});
