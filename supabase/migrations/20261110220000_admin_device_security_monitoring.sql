@@ -48,8 +48,6 @@ create index if not exists device_location_points_user_time_idx
 alter table public.device_security_sessions enable row level security;
 alter table public.device_location_points enable row level security;
 revoke all on public.device_security_sessions, public.device_location_points from anon, authenticated;
-grant insert, update on public.device_security_sessions to authenticated;
-grant insert on public.device_location_points to authenticated;
 grant select on public.device_security_sessions, public.device_location_points to authenticated;
 
 drop policy if exists device_sessions_owner_insert on public.device_security_sessions;
@@ -193,3 +191,40 @@ as $function$
 $function$;
 revoke all on function public.admin_device_security_overview() from public,anon;
 grant execute on function public.admin_device_security_overview() to authenticated;
+
+
+create or replace function public.heartbeat_device_security_session(p_session_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  update public.device_security_sessions
+  set last_seen_at=now()
+  where id=p_session_id and user_id=auth.uid() and ended_at is null;
+  if not found then raise exception 'Active device session not found' using errcode='42501'; end if;
+end;
+$function$;
+
+create or replace function public.admin_device_location_points(p_session_id uuid)
+returns table (
+  id bigint,latitude double precision,longitude double precision,accuracy_m double precision,
+  altitude_m double precision,heading_deg double precision,speed_mps double precision,
+  recorded_at timestamptz,source text
+)
+language sql
+security definer
+set search_path = ''
+as $function$
+  select l.id,l.latitude,l.longitude,l.accuracy_m,l.altitude_m,l.heading_deg,l.speed_mps,l.recorded_at,l.source
+  from public.device_location_points l
+  where l.session_id=p_session_id and public.is_active_admin()
+  order by l.recorded_at asc
+  limit 10000;
+$function$;
+
+revoke all on function public.heartbeat_device_security_session(uuid) from public,anon;
+revoke all on function public.admin_device_location_points(uuid) from public,anon;
+grant execute on function public.heartbeat_device_security_session(uuid) to authenticated;
+grant execute on function public.admin_device_location_points(uuid) to authenticated;
