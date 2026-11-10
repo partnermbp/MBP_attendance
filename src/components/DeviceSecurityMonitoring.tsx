@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -102,6 +103,12 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
       setNotice(error instanceof Error ? error.message : 'Location permission was not granted.');
     } finally { setBusy(false); }
   }, [sessionId,hasActiveShift,supabase]);
+  useEffect(() => {
+    if (hasActiveShift || !sessionId || !tracking) return;
+    setTracking(false);
+    void supabase.rpc('set_device_location_consent',{p_session_id:sessionId,p_enabled:false});
+    setNotice('Location sharing stopped because the attendance shift ended.');
+  }, [hasActiveShift,sessionId,tracking,supabase]);
   const disable = useCallback(async () => {
     if (!sessionId) return;
     setTracking(false);
@@ -142,7 +149,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     return()=>{alive=false;};
   },[selected,supabase]);
   const selectedRow=useMemo(()=>rows.find(r=>r.session_id===selected),[rows,selected]);
-  const cell:React.CSSProperties={padding:9,borderBottom:'1px solid var(--crm-border,#394150)',textAlign:'left',verticalAlign:'top',fontSize:12};
+  const cell:CSSProperties={padding:9,borderBottom:'1px solid var(--crm-border,#394150)',textAlign:'left',verticalAlign:'top',fontSize:12};
   return <section style={{marginTop:18}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <div><h2 style={{marginBottom:4}}>Device & workforce monitoring</h2><p style={{fontSize:12,opacity:.7,marginTop:0}}>Admin-only device sessions, network metadata and consent-based shift location history.</p></div>
