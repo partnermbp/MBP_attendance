@@ -675,7 +675,7 @@ export default function App() {
           supabase.from('shifts')
             .select('id, employee_id, starts_at, ends_at')
             .order('starts_at', { ascending: false })
-            .limit(3000),
+            .limit(10000),
           isAdmin
             ? supabase.from('telegram_group_members')
                 .select('telegram_user_id, profile_id, username, display_name')
