@@ -501,9 +501,14 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <h3>Employee role management</h3>
       <KnowMore>Admin accounts are protected and cannot be changed here.</KnowMore>
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead><tr><th style={cell}>Employee</th><th style={cell}>Current role</th><th style={cell}>New role</th><th style={cell}>Action</th></tr></thead>
-        <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase()!=='admin').map(p=><tr key={p.id}>
-          <td style={cell}>{p.full_name || p.email || p.id}</td><td style={cell}>{p.role}</td>
+        <thead><tr><th style={cell}>Employee</th><th style={cell}>Current role</th><th style={cell}>Reports to</th><th style={cell}>Direct reports</th><th style={cell}>New role</th><th style={cell}>Action</th></tr></thead>
+        <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase()!=='admin').map(p=>{
+          const reportingManagers=assignments.filter(a=>a.employee_id===p.id).map(a=>profiles.find(x=>x.id===a.manager_id)).filter((x):x is Person=>x!==undefined&&x.role.toLowerCase()!=='admin');
+          const directReports=assignments.filter(a=>a.manager_id===p.id).map(a=>profiles.find(x=>x.id===a.employee_id)).filter((x):x is Person=>x!==undefined&&x.role.toLowerCase()!=='admin');
+          return <tr key={p.id}>
+          <td style={cell}>{p.full_name || p.email || p.id}</td><td style={cell}>{p.role.replaceAll('_',' ')}</td>
+          <td style={{...cell,minWidth:170}}>{reportingManagers.length?reportingManagers.map(parent=><div key={parent.id} style={{marginBottom:4}}><strong>{parent.full_name||parent.email||'Manager'}</strong><small style={{display:'block',...muted}}>{parent.role.replaceAll('_',' ')}</small></div>):<span style={muted}>Top level / unassigned</span>}</td>
+          <td style={{...cell,minWidth:180}}>{directReports.length?directReports.map(child=><div key={child.id} style={{marginBottom:4}}><strong>{child.full_name||child.email||'Employee'}</strong><small style={{display:'block',...muted}}>{child.role.replaceAll('_',' ')}</small></div>):<span style={muted}>No direct reports</span>}</td>
           <td style={cell}><select style={input} value={roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_')} onChange={e=>setRoleSelections(current=>({...current,[p.id]:e.target.value}))}>
             {['junior','middle','senior','team_leader','telemarketing'].map(role=>{
               const parentLinks=assignments.filter(a=>a.employee_id===p.id).map(a=>profiles.find(x=>x.id===a.manager_id)).filter((x):x is Person=>x!==undefined&&x.role.toLowerCase()!=='admin');
@@ -516,7 +521,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             })}
           </select></td>
           <td style={cell}><button type="button" style={button} disabled={loading || (roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_'))===p.role.toLowerCase().replaceAll(' ','_')} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {error}=await supabase.rpc('set_employee_role',{target_profile:p.id,new_role:roleSelections[p.id]});const detail=error?.message?.toLowerCase()||'';setNotice(error?(detail.includes('reporting hierarchy')?'Role change blocked: it would make this employee’s existing reporting line invalid. Reassign the manager or reports first.':'Could not update role: '+error.message):'Role updated.');if(!error)await load();setLoading(false);}}>Save role</button></td>
-        </tr>)}</tbody></table></div>
+        </tr>;})}</tbody></table></div>
     </>}
     {isAdmin && (page === 'team' || page === 'team-links') && <>
       <h3>Link Telegram members to CRM employees</h3>
