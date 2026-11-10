@@ -1,5 +1,7 @@
 const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
+const os = require("node:os");
+const { ipcMain } = require("electron");
 
 const APP_URL = "https://attendence.dpdns.org/";
 
@@ -38,7 +40,7 @@ function createWindow() {
   win.loadURL(APP_URL);
 }
 
-app.whenReady().then(() => {
+ipcMain.handle("mbp-device-info", () => ({\n  platform: process.platform,\n  osVersion: os.release(),\n  architecture: os.arch(),\n  appVersion: app.getVersion()\n}));\n\napp.whenReady().then(() => {
   // Leave Chromium's permission flow intact. Location access must be explicitly
   // granted by the employee from the CRM; never silently auto-approve it.
   createWindow();
