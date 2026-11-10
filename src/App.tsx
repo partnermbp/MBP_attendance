@@ -1661,7 +1661,7 @@ export default function App() {
     minHeight: '100vh',
     padding: 20,
     boxSizing: 'border-box',
-    background: preferences.theme === 'day' ? 'var(--crm-bg)' : '#0b0b0c',
+    background: preferences.glassy ? 'transparent' : (preferences.theme === 'day' ? 'var(--crm-bg)' : '#0b0b0c'),
     color: preferences.theme === 'day' ? 'var(--crm-text)' : '#f7f7f5',
     fontFamily: 'Arial, Helvetica, sans-serif',
   };
@@ -1720,9 +1720,18 @@ export default function App() {
     margin: '24px auto',
     padding: 24,
     boxSizing: 'border-box',
-    borderRadius: 3,
-    border: '1px solid #34302c',
-    background: '#151413',
+    borderRadius: preferences.glassy ? 18 : 3,
+    border: preferences.glassy
+      ? (preferences.theme === 'day' ? '1px solid rgba(255,255,255,.66)' : '1px solid rgba(164,184,208,.24)')
+      : '1px solid #34302c',
+    background: preferences.glassy
+      ? (preferences.theme === 'day' ? 'rgba(255,255,255,.34)' : 'rgba(17,22,32,.38)')
+      : '#151413',
+    boxShadow: preferences.glassy
+      ? '0 18px 54px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.18)'
+      : 'none',
+    backdropFilter: preferences.glassy ? 'blur(22px) saturate(145%)' : 'none',
+    WebkitBackdropFilter: preferences.glassy ? 'blur(22px) saturate(145%)' : 'none',
   };
 
   const inputStyle: React.CSSProperties = {
@@ -1954,6 +1963,13 @@ export default function App() {
         }
         .crm-reduced-motion .crm-shooting-star,.crm-reduced-motion .auth-rocket{animation:none!important}
         /* Glass appearance is opt-in from Settings and layers over either base theme. */
+        /* Keep the canvas visible behind the translucent CRM surfaces. */
+        .crm-glassy [style*="background: rgb(21, 20, 19)"],
+        .crm-glassy [style*="background: rgb(21,20,19)"]{background:rgba(17,22,32,.38)!important}
+        .crm-glassy .crm-layout{background:transparent!important}
+        .crm-glassy .crm-layout main{background:transparent!important}
+        .crm-glassy .crm-layout main > section{background:rgba(17,22,32,.38)!important;backdrop-filter:blur(22px) saturate(145%)!important;-webkit-backdrop-filter:blur(22px) saturate(145%)!important}
+        :root[data-crm-theme="day"].crm-glassy .crm-layout main > section{background:rgba(255,255,255,.34)!important}
         .crm-glassy .crm-layout main > section,
         .crm-glassy .crm-layout main > div > section{
           background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 68%,transparent)!important;
