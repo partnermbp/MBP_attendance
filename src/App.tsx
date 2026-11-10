@@ -2054,6 +2054,16 @@ export default function App() {
         .auth-login-panel{background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 28%,transparent)!important;backdrop-filter:blur(5px) saturate(130%);-webkit-backdrop-filter:blur(5px) saturate(130%)}
         :root[data-crm-theme="day"] .auth-login-panel{background:rgba(255,255,255,.42)!important;border-color:rgba(255,255,255,.68)!important;box-shadow:0 18px 54px rgba(35,50,76,.13),inset 0 1px 0 rgba(255,255,255,.9)!important}
         :root[data-crm-theme="night"] .auth-login-panel{background:rgba(17,19,27,.36)!important;border-color:rgba(255,255,255,.15)!important}
+        :root[data-crm-theme="day"] .auth-login-panel{color:#172337!important}
+        :root[data-crm-theme="day"] .auth-login-panel h1,
+        :root[data-crm-theme="day"] .auth-login-panel label,
+        :root[data-crm-theme="day"] .auth-login-panel p,
+        :root[data-crm-theme="day"] .auth-login-panel strong,
+        :root[data-crm-theme="day"] .auth-login-panel span{color:#172337!important}
+        :root[data-crm-theme="day"] .auth-login-panel input{background:rgba(255,255,255,.88)!important;color:#172337!important;border-color:rgba(87,107,134,.42)!important}
+        :root[data-crm-theme="day"] .auth-login-panel input::placeholder{color:#64748b!important}
+        :root[data-crm-theme="day"] .auth-login-panel p[style*="color"]{color:#34465d!important}
+
         @media(max-width:760px){
           .crm-layout > main > section{border-radius:0!important;backdrop-filter:blur(12px) saturate(120%)}
           .crm-sidebar{backdrop-filter:blur(16px) saturate(125%)}
@@ -2065,7 +2075,20 @@ export default function App() {
           .auth-vector-scene{inset:56px -18% 0}
           .auth-vector-art{width:155%;transform:translateX(5%)}
         }
+
+        :root[data-crm-theme="day"] .telegram-group-messages-surface{background-color:rgba(247,250,254,.78)!important;background-image:radial-gradient(rgba(106,130,158,.18) .7px,transparent .7px)!important;border-color:rgba(150,169,192,.42)!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card{background:rgba(255,255,255,.92)!important;color:#1d2c40!important;border-color:rgba(146,166,190,.48)!important;box-shadow:0 2px 8px rgba(36,55,84,.06)!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card .telegram-group-message-author{color:#356d98!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card .telegram-group-message-body{color:#26374b!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card :is(label,select){color:#34465d!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card select{background:#fff!important;border-color:#bdcadd!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card button{color:#24425f}
+        :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"]{border-color:#cbd5e1!important;color:#334155!important}
+        :root[data-crm-theme="day"] .telegram-group-message-card > div[style*="borderTop"] div{color:#356d98!important}
+        :root[data-crm-theme="night"] .telegram-group-messages-surface{background-color:rgba(13,19,29,.45)!important}
+        :root[data-crm-theme="night"] .telegram-group-message-card{background:rgba(27,43,64,.94)!important;color:#edf4ff!important}
         @media(prefers-reduced-motion:reduce){.crm-layout *{scroll-behavior:auto!important;transition:none!important}}
+
       `}</style>
       <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1,display:'flex',justifyContent:'center',alignItems:'center',width:'100%',padding:'20px 16px 14px' }}>
         <p className="crm-brand-title" style={{ fontWeight: 800, textAlign:'center',margin:0,letterSpacing:'0.18em',fontSize:'clamp(18px,2.5vw,25px)',lineHeight:1.2 }}>ATTENDANCE <span style={{fontWeight:400,opacity:.82}}>CRM</span></p>
