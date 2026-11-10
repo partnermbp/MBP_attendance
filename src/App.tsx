@@ -54,8 +54,8 @@ type ManagerAssignment = { manager_id: string; employee_id: string };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
 type CrmPage = 'dashboard' | 'downloads' | 'attendance' | 'attendance-records' | 'team-attendance' | 'team' | 'manager-hierarchy' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'requests' | 'settings';
-type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
-const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
+type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; glassy: boolean; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
+const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', glassy: false, nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
 function loadCrmPreferences(): CrmPreferences { try { const raw = localStorage.getItem('mbp_crm_preferences'); return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES; } catch { return DEFAULT_PREFERENCES; } }
 type PasswordFlow = 'invite' | 'recovery' | null;
 
@@ -504,7 +504,7 @@ export default function App() {
   const [preferences, setPreferences] = useState<CrmPreferences>(loadCrmPreferences);
   const [settingsNotice, setSettingsNotice] = useState('');
   const updatePreference = <K extends keyof CrmPreferences>(key: K, value: CrmPreferences[K]) => { setPreferences(current => { const next = { ...current, [key]: value }; try { localStorage.setItem('mbp_crm_preferences', JSON.stringify(next)); } catch { /* Browser storage may be disabled. */ } return next; }); setSettingsNotice('Your preferences have been saved on this device.'); };
-  useEffect(() => { const root = document.documentElement; root.dataset.crmTheme = preferences.theme; root.dataset.crmAccent = preferences.accent; root.classList.toggle('crm-compact', preferences.compact); root.classList.toggle('crm-reduced-motion', preferences.reducedMotion); root.classList.toggle('crm-night-light', preferences.nightLight); document.body.dataset.crmTheme = preferences.theme; }, [preferences]);
+  useEffect(() => { const root = document.documentElement; root.dataset.crmTheme = preferences.theme; root.dataset.crmAccent = preferences.accent; root.classList.toggle('crm-glassy', preferences.glassy); document.body.classList.toggle('crm-glassy', preferences.glassy); root.classList.toggle('crm-compact', preferences.compact); root.classList.toggle('crm-reduced-motion', preferences.reducedMotion); root.classList.toggle('crm-night-light', preferences.nightLight); document.body.dataset.crmTheme = preferences.theme; }, [preferences]);
   const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const [attendanceMenuOpen, setAttendanceMenuOpen] = useState(false);
   const [telegramMembers, setTelegramMembers] = useState<Array<{telegram_user_id:number;profile_id:string|null}>>([]);
@@ -1839,50 +1839,64 @@ export default function App() {
         @media(max-width:700px){.auth-vector-scene{inset:58px -10% 0;opacity:.88}.auth-vector-art{width:140%;max-width:none;max-height:82vh;transform:translateX(3%)}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 14%,transparent 82%,var(--crm-bg,#101114) 100%);opacity:.12}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:16px auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 25%,transparent)!important;backdrop-filter:blur(4px) saturate(125%);-webkit-backdrop-filter:blur(4px) saturate(125%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.auth-permission-loading{min-height:clamp(220px,55vh,420px);margin:0 auto;padding:20px 12px}.vector-loader svg{width:124px;height:94px}}
         @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
         .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
-        /* Consistent glass surfaces across both themes. */
-        .crm-layout > main > section{
-          background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 72%,transparent)!important;
-          border:1px solid color-mix(in srgb,var(--crm-border,#343944) 76%,var(--crm-accent,#d9874e) 24%)!important;
+        /* Glass appearance is opt-in from Settings and layers over either base theme. */
+        .crm-glassy .crm-layout main > section,
+        .crm-glassy .crm-layout main > div > section{
+          background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 68%,transparent)!important;
+          border:1px solid color-mix(in srgb,var(--crm-border,#343944) 70%,var(--crm-accent,#d9874e) 30%)!important;
           border-radius:16px!important;
-          box-shadow:0 12px 34px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.055)!important;
-          backdrop-filter:blur(16px) saturate(125%);
-          -webkit-backdrop-filter:blur(16px) saturate(125%);
+          box-shadow:0 12px 34px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.07)!important;
+          backdrop-filter:blur(16px) saturate(130%);
+          -webkit-backdrop-filter:blur(16px) saturate(130%);
         }
-        .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
-          border-radius:12px;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
+        .crm-glassy .crm-layout :is(.crm-settings-section,.crm-settings-choice,article,[class*="card"]){
+          background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 70%,transparent)!important;
+          border:1px solid color-mix(in srgb,var(--crm-border,#343944) 75%,transparent)!important;
+          border-radius:13px!important;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 7px 22px rgba(0,0,0,.06);
+          backdrop-filter:blur(12px) saturate(125%);
+          -webkit-backdrop-filter:blur(12px) saturate(125%);
         }
-        .crm-sidebar{
-          background:color-mix(in srgb,var(--crm-sidebar-bg,#101114) 78%,transparent)!important;
-          backdrop-filter:blur(18px) saturate(130%);
-          -webkit-backdrop-filter:blur(18px) saturate(130%);
-          box-shadow:8px 0 28px rgba(0,0,0,.055);
+        .crm-glassy .crm-sidebar{
+          background:color-mix(in srgb,var(--crm-sidebar-bg,#101114) 72%,transparent)!important;
+          backdrop-filter:blur(20px) saturate(140%);
+          -webkit-backdrop-filter:blur(20px) saturate(140%);
+          box-shadow:8px 0 30px rgba(0,0,0,.08);
         }
-        .crm-sidebar nav button{border-radius:9px!important;transition:background .18s ease,color .18s ease,transform .18s ease}
-        .crm-layout :is(input,select,textarea){border-radius:9px!important}
-        .crm-layout button{border-radius:9px}
-        :root[data-crm-theme="day"] .crm-layout > main > section{
-          background:rgba(255,255,255,.70)!important;
-          border-color:rgba(190,202,220,.72)!important;
-          box-shadow:0 12px 32px rgba(36,55,84,.075),inset 0 1px 0 rgba(255,255,255,.88)!important;
+        .crm-glassy .crm-layout :is(input,select,textarea){
+          background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 68%,transparent)!important;
+          border-color:color-mix(in srgb,var(--crm-border,#343944) 75%,var(--crm-accent,#d9874e) 25%)!important;
+          backdrop-filter:blur(8px);
         }
-        :root[data-crm-theme="day"] .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
-          background:rgba(255,255,255,.58)!important;
-          border:1px solid rgba(195,205,220,.58);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,.92),0 5px 18px rgba(36,55,84,.035);
+        .crm-glassy .crm-layout button{transition:background .18s ease,border-color .18s ease,box-shadow .18s ease}
+        :root[data-crm-theme="day"].crm-glassy .crm-layout main > section,
+        :root[data-crm-theme="day"].crm-glassy .crm-layout main > div > section{
+          background:rgba(255,255,255,.66)!important;
+          border-color:rgba(177,193,216,.68)!important;
+          box-shadow:0 12px 32px rgba(36,55,84,.08),inset 0 1px 0 rgba(255,255,255,.9)!important;
         }
-        :root[data-crm-theme="day"] .crm-sidebar{
-          background:rgba(255,255,255,.78)!important;
-          border-color:rgba(190,202,220,.72)!important;
-          box-shadow:8px 0 28px rgba(36,55,84,.055);
+        :root[data-crm-theme="day"].crm-glassy .crm-layout :is(.crm-settings-section,.crm-settings-choice,article,[class*="card"]){
+          background:rgba(255,255,255,.56)!important;
+          border-color:rgba(177,193,216,.55)!important;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 20px rgba(36,55,84,.045);
         }
-        :root[data-crm-theme="night"] .crm-layout > main > section{
-          background:rgba(19,21,28,.76)!important;
-          border-color:rgba(92,101,122,.34)!important;
+        :root[data-crm-theme="day"].crm-glassy .crm-sidebar{
+          background:rgba(248,250,255,.72)!important;
+          border-color:rgba(177,193,216,.7)!important;
         }
-        :root[data-crm-theme="night"] .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"],[class*="panel"]:not(.telegram-human-inbox)){
-          background:rgba(27,29,38,.62)!important;
-          border:1px solid rgba(92,101,122,.25);
+        :root[data-crm-theme="night"].crm-glassy .crm-layout main > section,
+        :root[data-crm-theme="night"].crm-glassy .crm-layout main > div > section{
+          background:rgba(19,22,31,.70)!important;
+          border-color:rgba(116,132,158,.32)!important;
+        }
+        :root[data-crm-theme="night"].crm-glassy .crm-layout :is(.crm-settings-section,.crm-settings-choice,article,[class*="card"]){
+          background:rgba(27,30,41,.62)!important;
+          border-color:rgba(116,132,158,.24)!important;
+        }
+        @media(max-width:760px){
+          .crm-glassy .crm-layout main > section,
+          .crm-glassy .crm-layout main > div > section{border-radius:13px!important;backdrop-filter:blur(12px) saturate(125%)}
+          .crm-glassy .crm-sidebar{backdrop-filter:blur(16px) saturate(130%)}
         }
         .auth-permission-loading{min-height:clamp(240px,52vh,440px);margin:0 auto 24px;padding:24px 12px;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important}
         .auth-permission-loading .vector-loader{background:transparent!important;border:0!important;box-shadow:none!important}
@@ -2215,6 +2229,7 @@ export default function App() {
                 <button type="button" className={'crm-settings-choice'+(preferences.theme==='night'?' is-selected':'')} aria-pressed={preferences.theme==='night'} onClick={()=>updatePreference('theme','night')}><Moon size={20}/><strong>Night mode</strong><span>Dark surfaces, easier on the eyes in low light.</span></button>
                 <button type="button" className={'crm-settings-choice'+(preferences.theme==='day'?' is-selected':'')} aria-pressed={preferences.theme==='day'} onClick={()=>updatePreference('theme','day')}><Sun size={20}/><strong>Day mode</strong><span>Light surfaces for bright environments.</span></button>
               </div>
+              <label className="crm-settings-toggle"><span><span><strong>Glassy appearance</strong><small>Use translucent frosted-glass panels and softer depth while keeping your selected day or night theme.</small></span></span><input type="checkbox" checked={preferences.glassy} onChange={event=>updatePreference('glassy',event.target.checked)}/></label>
               <h3 className="crm-settings-subheading">Accent colour</h3>
               <div className="crm-settings-choice-grid crm-accent-grid">
                 <button type="button" className={'crm-settings-choice'+(preferences.accent==='orange'?' is-selected':'')} aria-pressed={preferences.accent==='orange'} onClick={()=>updatePreference('accent','orange')}><span className="crm-accent-swatch crm-accent-orange"/><strong>Orange ember</strong><span>Original CRM colour set</span></button>
@@ -2237,7 +2252,7 @@ export default function App() {
               <p className="crm-settings-help">The selected preference is saved on this device. Existing attendance records retain their stored work time zone.</p>
             </section>
             <section className="crm-settings-section crm-settings-reset">
-              <div><h2>Reset preferences</h2><p>Restore the original night mode, orange accent, and default display options.</p></div>
+              <div><h2>Reset preferences</h2><p>Restore night mode, orange accent, standard surfaces, and default display options.</p></div>
               <button type="button" onClick={()=>{setPreferences({...DEFAULT_PREFERENCES});try{localStorage.setItem('mbp_crm_preferences',JSON.stringify(DEFAULT_PREFERENCES));}catch{}setSettingsNotice('Default preferences restored.');}}><RotateCcw size={16}/> Restore defaults</button>
             </section>
             {settingsNotice && <p className="crm-settings-notice" role="status">{settingsNotice}</p>}
