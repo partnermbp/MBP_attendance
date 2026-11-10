@@ -121,11 +121,14 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
     const { error } = await supabase.rpc('set_device_location_consent',{p_session_id:sessionId,p_enabled:false});
     setNotice(error ? 'Could not update tracking preference: '+error.message : 'Location sharing is paused.');
   },[sessionId,supabase]);
-  if (!hasActiveShift || !sessionId) return notice ? <p role="status" style={{fontSize:12,opacity:.7}}>{notice}</p> : null;
-  return <section aria-label="Shift location sharing" style={{margin:'12px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10,background:'var(--crm-surface,rgba(255,255,255,.03))'}}>
-    <strong style={{fontSize:13}}>Device location sharing</strong>
-    <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>Optional. When enabled, your location is recorded during this active shift and is visible only to Admin. You can pause it at any time.</p>
-    <button type="button" disabled={busy} onClick={()=>void (tracking?disable():enable())} style={{padding:'8px 12px',borderRadius:7,border:'1px solid var(--crm-border,#596273)',background:tracking?'transparent':'var(--crm-accent,#2563eb)',color:tracking?'inherit':'white',cursor:'pointer'}}>{busy?'Requesting permission…':tracking?'Pause location sharing':'Allow location sharing'}</button>
+  return <section aria-label="Device security and shift location" style={{margin:'12px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10,background:'var(--crm-surface,rgba(255,255,255,.03))'}}>
+    <strong style={{fontSize:13}}>Device & security information</strong>
+    <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>This app records its platform, version, operating system/browser, timezone and server-observed network IP for account security. Detailed device and location records are visible only to Admin.</p>
+    {hasActiveShift&&sessionId&&<>
+      <strong style={{fontSize:13}}>Optional shift location sharing</strong>
+      <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>When enabled, your location is recorded during this active shift and is visible only to Admin. You can pause it at any time. Location sharing stops automatically at checkout.</p>
+      <button type="button" disabled={busy} onClick={()=>void (tracking?disable():enable())} style={{padding:'8px 12px',borderRadius:7,border:'1px solid var(--crm-border,#596273)',background:tracking?'transparent':'var(--crm-accent,#2563eb)',color:tracking?'inherit':'white',cursor:'pointer'}}>{busy?'Requesting permission…':tracking?'Pause location sharing':'Allow location sharing'}</button>
+    </>}
     {notice&&<p role="status" style={{fontSize:12,marginBottom:0}}>{notice}</p>}
   </section>;
 }
