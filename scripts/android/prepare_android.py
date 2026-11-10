@@ -68,7 +68,7 @@ if gradle.exists():
             name_updated = True
     if not code_updated or not name_updated:
         raise SystemExit("Could not update Android versionCode/versionName")
-    gradle.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    gradle.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
 
 # Generate shared PWA/iOS assets and the Android launcher icon set.
 subprocess.run(
