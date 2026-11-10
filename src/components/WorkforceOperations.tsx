@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { supabase } from '../lib/supabase';
 import KnowMore from './KnowMore';
 
@@ -8,9 +9,9 @@ type Correction = { id: string; employee_id: string; attendance_id: string | nul
 type Followup = { id: string; employee_id: string; assigned_to: string; created_by: string; title: string; notes: string | null; due_date: string | null; priority: string; status: string; resolution_note: string | null };
 type Holiday = { id: string; holiday_date: string; name: string };
 
-const panel: React.CSSProperties = { padding: 16, border: '1px solid var(--crm-border)', borderRadius: 12, background: 'var(--crm-card)' };
-const field: React.CSSProperties = { display: 'block', width: '100%', marginTop: 5, padding: 10, borderRadius: 8, border: '1px solid var(--crm-border)', background: 'var(--crm-control-bg)', color: 'var(--crm-text)' };
-const action: React.CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, background: 'var(--crm-accent-strong)', color: '#fff', fontWeight: 700, cursor: 'pointer' };
+const panel: CSSProperties = { padding: 16, border: '1px solid var(--crm-border)', borderRadius: 12, background: 'var(--crm-card)' };
+const field: CSSProperties = { display: 'block', width: '100%', marginTop: 5, padding: 10, borderRadius: 8, border: '1px solid var(--crm-border)', background: 'var(--crm-control-bg)', color: 'var(--crm-text)' };
+const action: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, background: 'var(--crm-accent-strong)', color: '#fff', fontWeight: 700, cursor: 'pointer' };
 const muted: React.CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
 
 export default function WorkforceOperations({ profile, profiles, isAdmin, isSupervisor }: { profile: Person | null; profiles: Person[]; isAdmin: boolean; isSupervisor: boolean }) {
