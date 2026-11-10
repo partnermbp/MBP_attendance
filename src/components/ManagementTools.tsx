@@ -506,7 +506,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           <td style={cell}>{p.full_name || p.email || p.id}</td><td style={cell}>{p.role}</td>
           <td style={cell}><select style={input} value={roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_')} onChange={e=>setRoleSelections(current=>({...current,[p.id]:e.target.value}))}>
             {['junior','middle','senior','team_leader','telemarketing'].map(role=>{
-              const parentLinks=assignments.filter(a=>a.employee_id===p.id).map(a=>profiles.find(x=>x.id===a.manager_id)).filter((x):x is Person=>Boolean(x));
+              const parentLinks=assignments.filter(a=>a.employee_id===p.id).map(a=>profiles.find(x=>x.id===a.manager_id)).filter((x):x is Person=>Boolean(x)&&x.role.toLowerCase()!=='admin');
               const childLinks=assignments.filter(a=>a.manager_id===p.id).map(a=>profiles.find(x=>x.id===a.employee_id)).filter((x):x is Person=>Boolean(x));
               const proposedRank=roleRank(role);
               const invalidParent=parentLinks.some(parent=>roleRank(parent.role)<=proposedRank || proposedRank===0);
