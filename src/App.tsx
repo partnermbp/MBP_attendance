@@ -659,15 +659,15 @@ export default function App() {
       } catch {
         // Keep the status derived from the authenticated user's own profile.
       }
-      const isAdmin = currentProfile?.active === true &&
-        String(currentProfile.role).toLowerCase() === 'admin';
+      const isAdmin = currentProfile?.active === true && String(currentProfile.role).toLowerCase() === 'admin';
+      const isSupervisor = currentProfile?.active === true && String(currentProfile.role).toLowerCase() === 'supervisor';
 
-      if (isAdmin) {
+      if (isAdmin || isSupervisor) {
+        const peopleQuery = isAdmin
+          ? supabase.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).limit(500)
+          : supabase.rpc('get_supervisor_profiles');
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
-          supabase.from('profiles')
-            .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username')
-            .order('full_name', { ascending: true })
-            .limit(500),
+          peopleQuery,
           supabase.rpc('get_admin_attendance_with_gps'),
           supabase.from('manager_employee_assignments')
             .select('manager_id, employee_id')
@@ -705,7 +705,7 @@ export default function App() {
           setManagerAssignments((assignmentsResult.data ?? []) as ManagerAssignment[]);
         }
         setShifts((shiftsResult.data ?? []) as Shift[]);
-        const groupTelegramMembers = (membersResult.data ?? []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>;
+        const groupTelegramMembers = (isAdmin ? (membersResult.data ?? []) : []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>;
         const verifiedProfileLinks = ((peopleResult.data ?? []) as Array<Profile & {telegram_user_id?:number|null;telegram_verified_at?:string|null}>)
           .filter(person => person.telegram_user_id != null && person.telegram_verified_at != null)
           .map(person => {
@@ -1649,7 +1649,7 @@ export default function App() {
 
   function handleExportCsv() {
     const rows = [
-      ['Employee', 'Employee email', 'Work date', 'Check-in', 'Check-out', 'Status', 'Elapsed minutes', 'Worked minutes', 'Timezone', ...(isAdmin ? ['Check-in map', 'Check-out map'] : ['Check-in region', 'Check-in country', 'Check-out region', 'Check-out country'])],
+      ['Employee', 'Employee email', 'Work date', 'Check-in', 'Check-out', 'Status', 'Elapsed minutes', 'Worked minutes', 'Timezone', ...(canViewAdmin ? ['Check-in map', 'Check-out map'] : ['Check-in region', 'Check-in country', 'Check-out region', 'Check-out country'])],
       ...reportAttendance.map((item) => {
         const person = profiles.find((p) => p.id === item.employee_id);
         const start = new Date(item.check_in).getTime();
@@ -1677,7 +1677,7 @@ export default function App() {
           elapsedMinutes,
           workedMinutes,
           item.work_timezone || '',
-          ...(isAdmin ? [checkInMap, checkOutMap] : [item.check_in_region || '', item.check_in_country || '', item.check_out_region || '', item.check_out_country || '']),
+          ...(canViewAdmin ? [checkInMap, checkOutMap] : [item.check_in_region || '', item.check_in_country || '', item.check_out_region || '', item.check_out_country || '']),
         ];
       }),
     ];
@@ -1743,6 +1743,8 @@ export default function App() {
   // Older open sessions remain in history and are not automatically checked out.
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
   const isAdmin = profile?.active === true && normalizedRole === 'admin';
+  const isSupervisor = profile?.active === true && normalizedRole === 'supervisor';
+  const canViewAdmin = isAdmin || isSupervisor;
   const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
   const canUseHumanTelegram = isAdmin || (profile?.active === true && normalizedRole === 'telemarketing' && humanTelegramAccess);
   useEffect(() => {
@@ -1781,7 +1783,7 @@ export default function App() {
   useEffect(() => {
     if (activePage === 'telegram-human' && !canUseHumanTelegram) setActivePage('dashboard');
   }, [activePage, canUseHumanTelegram]);
-  const selectedAttendance = isAdmin && selectedEmployeeId !== 'all'
+  const selectedAttendance = canViewAdmin && selectedEmployeeId !== 'all'
     ? attendance.filter(item => item.employee_id === selectedEmployeeId)
     : attendance;
   const reportAttendance = selectedAttendance.filter((item) => {
@@ -2420,7 +2422,7 @@ export default function App() {
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-attendance');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Users size={18}/><span><strong>Team attendance report</strong><small>Team trends, graphs and shift statistics</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('security');setMobileMoreOpen(false);window.scrollTo(0,0);}}><ShieldAlert size={18}/><span><strong>Security</strong><small>Account and activity controls</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('requests');setMobileMoreOpen(false);window.scrollTo(0,0);}}><MessageCircle size={18}/><span><strong>Requests</strong><small>Review Telegram ID change requests</small></span><ChevronRight size={16}/></button>}
-                {(isAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('manager-hierarchy');setMobileMoreOpen(false);window.scrollTo(0,0);}}><GitBranch size={18}/><span><strong>Manager hierarchy</strong><small>Reporting lines and manager profiles</small></span><ChevronRight size={16}/></button>}
+                {(isAdmin||isSupervisor||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('manager-hierarchy');setMobileMoreOpen(false);window.scrollTo(0,0);}}><GitBranch size={18}/><span><strong>Manager hierarchy</strong><small>Reporting lines and manager profiles</small></span><ChevronRight size={16}/></button>}
                 {(isAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('team-roles');setMobileMoreOpen(false);window.scrollTo(0,0);}}><UserCog size={18}/><span><strong>Employee roles</strong><small>Manage roles and access</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-links');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Link2 size={18}/><span><strong>Link Telegram members</strong><small>Connect Telegram identities</small></span><ChevronRight size={16}/></button>}
                 {isAdmin&&<button type="button" onClick={()=>{setActivePage('team-assignments');setMobileMoreOpen(false);window.scrollTo(0,0);}}><GitBranch size={18}/><span><strong>Manager assignments</strong><small>View reporting hierarchy</small></span><ChevronRight size={16}/></button>}
@@ -2551,7 +2553,7 @@ export default function App() {
             {settingsNotice && <p className="crm-settings-notice" role="status">{settingsNotice}</p>}
           </>}
           {activePage === 'dashboard' && <>
-{!isAdmin && <section
+{!canViewAdmin && <section
             style={{ padding: '28px 18px', margin: '20px 0', borderRadius: 14, border: '1px solid #34302c', background: 'radial-gradient(circle at 50% 28%, #25201a 0%, #151413 58%, #101010 100%)', textAlign: 'center' }}
           >
             <div style={{ color: openRecord ? '#86efac' : 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase' }}>{openRecord ? 'SHIFT IN PROGRESS' : 'ATTENDANCE'}</div>
@@ -2585,7 +2587,7 @@ export default function App() {
             <KnowMore>Location permission is required when starting and stopping a shift. If your device cannot provide a location fix, the attendance action will not be recorded.</KnowMore>
           </section>}
 
-          {!isAdmin && (
+          {!canViewAdmin && (
             <section aria-label="Monthly salary attendance progress" style={{ padding: 18, margin: '20px 0', borderRadius: 12, border: '1px solid #344054', background: preferences.theme === 'day' ? '#ffffff' : '#151719' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>Monthly salary attendance</h2>
@@ -2689,9 +2691,9 @@ export default function App() {
           
 
           </>}
-          {(isAdmin || canManageTeam) && ['team','manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
+          {(isAdmin || isSupervisor || canManageTeam) && ['team','manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(activePage) && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page={activePage as 'team' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations'} />}
           {canUseHumanTelegram && activePage === 'telegram-human' && <ManagementTools key={telegramHumanNavKey} supabase={supabase} profile={profile} profiles={profiles} page="telegram-human" />}
-          {(isAdmin || canManageTeam) && activePage === 'telegram-analytics' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-analytics" />}
+          {(isAdmin || isSupervisor || canManageTeam) && activePage === 'telegram-analytics' && <ManagementTools supabase={supabase} profile={profile} profiles={profiles} page="telegram-analytics" />}
           {isAdmin && activePage === 'security' && <SecurityActivityPanel />}
 
           {!isAdmin && !activePage.startsWith('team-') && activePage !== 'team' && <section style={{ marginTop: 28 }}>
@@ -2723,13 +2725,13 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'manager-hierarchy' && (isAdmin || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
-          {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
+          {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
+          {activePage === 'team-attendance' && canViewAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
-            <h2>{isAdmin ? 'Attendance records' : 'My attendance records'}</h2>
+            <h2>{canViewAdmin ? 'Attendance records' : 'My attendance records'}</h2>
             <p style={{ color: '#b7c0d1' }}>
-              {isAdmin ? 'Filter the latest team attendance records by employee and date.' : 'Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.'}
+              {canViewAdmin ? 'Filter the latest team attendance records by employee and date.' : 'Filter the attendance records currently loaded for your account. This report uses the latest 100 records available to this dashboard.'}
             </p>
             {isAdmin && (
               <label style={{ display: 'block', maxWidth: 420, margin: '14px 0' }}>
@@ -2862,7 +2864,7 @@ export default function App() {
                   if (child) appendBranch(child, depth + 1, nextPath);
                 });
               };
-              if (isAdmin && selectedEmployeeId !== 'all') {
+              if (canViewAdmin && selectedEmployeeId !== 'all') {
                 const selectedPerson = peopleById.get(selectedEmployeeId);
                 if (selectedPerson) visiblePeople.push({ person: selectedPerson, depth: 0, hasChildren: false });
               } else {
