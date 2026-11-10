@@ -115,6 +115,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [mediaLoading, setMediaLoading] = useState('');
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const isAdmin = profile?.active === true && profile.role.toLowerCase() === 'admin';
+  const isSupervisor = profile?.active === true && profile.role.toLowerCase() === 'supervisor';
   const normalizedRole = String(profile?.role || '').toLowerCase().replaceAll('_', ' ');
   const isManager = profile?.active === true && ['supervisor', 'junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
 
@@ -748,9 +749,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           <strong style={{ display: 'block', fontSize: 15 }}>Connect your work groups</strong>
           <p style={{ ...muted, margin: '5px 0 0' }}>Add @md_shobbot to your work groups.</p>
         </div>
-        <a href="https://t.me/md_shobbot?startgroup=crm_group_analytics" target="_blank" rel="noreferrer" style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        {!isSupervisor && <a href="https://t.me/md_shobbot?startgroup=crm_group_analytics" target="_blank" rel="noreferrer" style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', whiteSpace: 'nowrap' }}>
           <span aria-hidden="true">＋</span> Add the bot to your chats
-        </a>
+        </a>}
       </div>
       {isAdmin && <details style={{ marginTop: 12, borderTop: '1px solid var(--crm-border)', paddingTop: 10, color: 'var(--crm-text)' }}>
         <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Admin setup details</summary>
