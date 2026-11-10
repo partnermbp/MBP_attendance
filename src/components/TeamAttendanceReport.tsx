@@ -78,7 +78,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     return matched;
   }, [scopedShifts, scopedAttendance]);
   const shiftRecords = useMemo(() => scopedShifts.map(s => {
-    const check = scopedAttendance.find(a => a.employee_id === s.employee_id && dayKey(a.work_date || a.check_in) === dayKey(s.starts_at) && new Date(a.check_in).getTime() <= new Date(s.ends_at).getTime() && new Date(a.check_in).getTime() >= new Date(s.starts_at).getTime() - 6 * 3600000);
+    const check = scopedAttendance.find(a => a.employee_id === s.employee_id && attendanceDay(a) === (a.work_timezone ? new Intl.DateTimeFormat('en-CA', { timeZone: a.work_timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(s.starts_at)) : dayKey(s.starts_at)) && new Date(a.check_in).getTime() <= new Date(s.ends_at).getTime() && new Date(a.check_in).getTime() >= new Date(s.starts_at).getTime() - 6 * 3600000);
     return { shift: s, check, late: Boolean(check && new Date(check.check_in).getTime() > new Date(s.starts_at).getTime() + 5 * 60000) };
   }), [scopedShifts, scopedAttendance]);
   const expected = scopedShifts.length, signed = matchedShiftIds.size, absent = expected - signed, late = shiftRecords.filter(r => r.late).length;
@@ -108,7 +108,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const sla15 = pct(sortedResponses.filter(v => v <= 900).length, sortedResponses.length);
   const sla30 = pct(sortedResponses.filter(v => v <= 1800).length, sortedResponses.length);
   const days: string[] = []; const cursor = new Date(appliedFrom + 'T12:00:00'); const last = new Date(appliedTo + 'T12:00:00');
-  while (cursor <= last && days.length < 62) { days.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
+  while (cursor <= last) { days.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
   const dailyCounts = days.map(d => new Set(scopedAttendance.filter(a => attendanceDay(a) === d).map(a => a.employee_id)).size);
   const roleCounts = scopedPeople.reduce((acc, p) => { acc[roleLabel(p.role)] = (acc[roleLabel(p.role)] || 0) + 1; return acc; }, {} as Record<string, number>);
   const managerRows = scopedPeople.filter(p => managerIds.has(p.id)).map(manager => {
