@@ -41,23 +41,36 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const [holidayName, setHolidayName] = useState('');
 
   const canReview = isAdmin || isSupervisor || ['junior','middle','senior','team_leader','team leader'].includes(String(profile?.role || '').toLowerCase());
-  const people = useMemo(() => profiles.filter(p => p.active && p.role !== 'admin'), [profiles]);
+  const people = useMemo(() => profiles.filter(p => p.active && p.role !== 'admin' && p.id !== profile?.id), [profiles, profile?.id]);
   const nameOf = (id: string) => { const p = profiles.find(x => x.id === id); return p?.full_name || p?.email || 'Employee'; };
 
   const load = useCallback(async () => {
     if (!supabase || !profile) return;
     setLoading(true);
-    const [l,c,f,h] = await Promise.all([
-      supabase.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).limit(1000),
-      supabase.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).limit(1000),
-      supabase.from('manager_followups').select('*').order('created_at',{ascending:false}).limit(1000),
-      supabase.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).limit(1000),
-    ]);
-    const errors = [l.error,c.error,f.error,h.error].filter(Boolean);
-    setLeaves((l.data || []) as Leave[]); setCorrections((c.data || []) as Correction[]);
-    setFollowups((f.data || []) as Followup[]); setHolidays((h.data || []) as Holiday[]);
-    setMessage(errors.length ? 'Some workforce records could not be loaded. Check table permissions and database connection.' : '');
-    setLoading(false);
+    const fetchPaged = async (queryForRange: (from: number, to: number) => any) => {
+      const rows: any[] = [];
+      for (let from = 0; from < 50000; from += 1000) {
+        const { data, error } = await queryForRange(from, from + 999);
+        if (error) throw error;
+        const page = data || [];
+        rows.push(...page);
+        if (page.length < 1000) break;
+      }
+      return rows;
+    };
+    try {
+      const [leaveRows, correctionRows, followupRows, holidayRows] = await Promise.all([
+        fetchPaged((from,to) => supabase.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase.from('manager_followups').select('*').order('created_at',{ascending:false}).range(from,to)),
+        fetchPaged((from,to) => supabase.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).range(from,to)),
+      ]);
+      setLeaves(leaveRows as Leave[]); setCorrections(correctionRows as Correction[]);
+      setFollowups(followupRows as Followup[]); setHolidays(holidayRows as Holiday[]);
+      setMessage('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Some workforce records could not be loaded.');
+    } finally { setLoading(false); }
   }, [profile]);
   useEffect(() => { void load(); }, [load]);
 
