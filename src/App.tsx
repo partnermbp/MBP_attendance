@@ -370,36 +370,79 @@ function AuthVectorScene() {
   return <div className="auth-vector-scene" aria-hidden="true">
     <svg className="auth-vector-art" viewBox="0 0 1000 560" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#F5B477"/><stop offset="1" stopColor="#D66B36"/></linearGradient>
-        <linearGradient id="rocketGlass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#B9E5FF"/><stop offset="1" stopColor="#4B8FB8"/></linearGradient>
-        <radialGradient id="planetGlow"><stop stopColor="#D88B54" stopOpacity=".3"/><stop offset="1" stopColor="#D88B54" stopOpacity="0"/></radialGradient>
+        <linearGradient id="authRocketShell" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="var(--auth-rocket-light,#fff0df)"/>
+          <stop offset=".52" stopColor="var(--auth-rocket-mid,#e7a16e)"/>
+          <stop offset="1" stopColor="var(--auth-rocket-dark,#b95f35)"/>
+        </linearGradient>
+        <linearGradient id="authRocketFin" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="var(--auth-rocket-mid,#e7a16e)"/><stop offset="1" stopColor="var(--auth-rocket-dark,#b95f35)"/>
+        </linearGradient>
+        <linearGradient id="authRocketWindow" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#EAF8FF"/><stop offset=".55" stopColor="#76B5D6"/><stop offset="1" stopColor="#315F7C"/>
+        </linearGradient>
+        <linearGradient id="authFlame" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="var(--auth-flame-light,#FFE1A8)"/><stop offset="1" stopColor="var(--auth-flame-dark,#E47C45)" stopOpacity=".12"/>
+        </linearGradient>
       </defs>
-      <circle cx="710" cy="270" r="205" fill="url(#planetGlow)"/>
-      <path d="M105 400C245 130 570 90 850 245" stroke="#D9A477" strokeOpacity=".23" strokeWidth="1.5" strokeDasharray="5 10"/>
-      <path d="M140 455C330 230 590 205 875 365" stroke="#8BB9D5" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 12"/>
-      <ellipse cx="690" cy="270" rx="120" ry="34" transform="rotate(-20 690 270)" stroke="#DDA16F" strokeOpacity=".45" strokeWidth="2"/>
-      <circle cx="690" cy="270" r="66" fill="#54758C" fillOpacity=".18" stroke="#9CC5D8" strokeOpacity=".4"/>
-      <path d="M650 270C668 239 712 238 731 268C711 300 669 302 650 270Z" fill="#7195A8" fillOpacity=".24"/>
-      <g className="auth-star auth-star-one" fill="#F6C58F"><path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/></g>
-      <g className="auth-star auth-star-two" fill="#A9D4E9"><path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/></g>
-      <g className="auth-star auth-star-three" fill="#F6C58F"><path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/></g>
-      <g transform="translate(310 250) rotate(-28)" className="auth-rocket">
-        <path d="M0 55C-7 15 8-35 36-64C64-35 79 15 72 55L36 82 0 55Z" fill="url(#rocketBody)" stroke="#F5C18F" strokeWidth="2"/>
-        <path d="M36-64C49-48 58-27 63-5L36 9 9-5C14-27 23-48 36-64Z" fill="#F3D8BE" fillOpacity=".88"/>
-        <circle cx="36" cy="22" r="13" fill="url(#rocketGlass)" stroke="#E8F4FA" strokeWidth="3"/>
-        <path d="M0 34L-22 65 3 61 15 48M72 34L94 65 69 61 57 48" fill="#7B9FB3" stroke="#A9C8D8" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M24 78C20 96 28 109 36 120C44 109 52 96 48 78" fill="#E9A15F" fillOpacity=".75"/>
-        <path d="M31 82C30 94 34 103 36 108C39 99 42 91 41 82" fill="#F8D9A9"/>
+
+      <g className="auth-star auth-star-one" fill="var(--auth-star-color,#D58B5B)">
+        <path d="M215 145l4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z"/>
       </g>
-      <circle cx="310" cy="250" r="102" stroke="#E9B17F" strokeOpacity=".14" strokeWidth="1"/>
-      <circle cx="310" cy="250" r="118" stroke="#E9B17F" strokeOpacity=".1" strokeWidth="1" strokeDasharray="2 9"/>
-      <circle cx="490" cy="130" r="4" fill="#B6D8E8" fillOpacity=".75"/>
-      <circle cx="900" cy="250" r="3" fill="#F1B57C" fillOpacity=".8"/>
-      <circle cx="130" cy="270" r="3" fill="#B6D8E8" fillOpacity=".8"/>
+      <g className="auth-star auth-star-two" fill="var(--auth-star-cool,#8EBBD6)">
+        <path d="M835 125l3 9 9 3-9 3-3 9-3-9-9-3 9-3 3-9Z"/>
+      </g>
+      <g className="auth-star auth-star-three" fill="var(--auth-star-color,#D58B5B)">
+        <path d="M870 430l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z"/>
+      </g>
+
+      <g className="auth-rocket" transform="translate(185 360) rotate(-28)">
+        <path d="M0 65C-12 20-4-42 34-104C72-42 80 20 68 65L34 91 0 65Z" fill="url(#authRocketShell)" stroke="var(--auth-rocket-outline,#A85D39)" strokeWidth="2.5"/>
+        <path d="M34-104C50-76 59-48 62-20L34-7 6-20C9-48 18-76 34-104Z" fill="var(--auth-nose-highlight,#FFF4E8)" fillOpacity=".82"/>
+        <path d="M-2 39L-34 85L8 70M70 39L102 85L60 70" fill="url(#authRocketFin)" stroke="var(--auth-rocket-outline,#A85D39)" strokeWidth="2.5" strokeLinejoin="round"/>
+        <path d="M24 79L34 122L44 79" fill="url(#authFlame)" opacity=".95"/>
+        <path d="M30 82L34 108L38 82" stroke="var(--auth-flame-core,#FFF0C8)" strokeWidth="4" strokeLinecap="round"/>
+        <circle cx="34" cy="5" r="16" fill="var(--auth-window-rim,#F8E5D2)" stroke="var(--auth-rocket-outline,#A85D39)" strokeWidth="3"/>
+        <circle cx="34" cy="5" r="11" fill="url(#authRocketWindow)"/>
+        <path d="M29-1Q35-8 40-1" stroke="#FFFFFF" strokeOpacity=".85" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M12 48L34 63L56 48" stroke="var(--auth-rocket-outline,#A85D39)" strokeOpacity=".5" strokeWidth="2"/>
+      </g>
+
+      <g className="auth-beacon" transform="translate(820 220)">
+        <path d="M-20 24L-13-12Q0-27 13-12L20 24Z" fill="var(--auth-beacon-shell,#E7A16E)" stroke="var(--auth-beacon-outline,#A85D39)" strokeWidth="2"/>
+        <rect x="-24" y="23" width="48" height="8" rx="3" fill="var(--auth-beacon-base,#A85D39)"/>
+        <rect x="-7" y="30" width="14" height="17" rx="2" fill="var(--auth-beacon-base,#A85D39)"/>
+        <path d="M-12-7Q0-20 12-7L8 7H-8Z" fill="var(--auth-beacon-light,#FFE0A9)" fillOpacity=".9"/>
+        <circle className="auth-beacon-pulse" cy="-3" r="28" stroke="var(--auth-beacon-light,#FFE0A9)" strokeWidth="1.5" strokeOpacity=".7"/>
+        <path d="M-18-15L-48-32M18-15L48-32" stroke="var(--auth-beacon-ray,#D58B5B)" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 5"/>
+      </g>
+
+      <g className="auth-debris auth-debris-a" fill="var(--auth-debris-fill,#C88C64)" stroke="var(--auth-debris-stroke,#A96E4C)" strokeWidth="1.4">
+        <path d="M500 115L518 107L529 122L514 136L497 128Z"/><path d="M510 115L518 128" strokeOpacity=".6"/>
+      </g>
+      <g className="auth-debris auth-debris-b" fill="var(--auth-debris-fill,#C88C64)" stroke="var(--auth-debris-stroke,#A96E4C)" strokeWidth="1.4">
+        <path d="M720 390L735 380L748 393L739 410L721 407Z"/><path d="M730 385L739 405" strokeOpacity=".6"/>
+      </g>
+      <g className="auth-debris auth-debris-c" fill="var(--auth-debris-fill,#C88C64)" stroke="var(--auth-debris-stroke,#A96E4C)" strokeWidth="1.3">
+        <path d="M390 455L402 444L415 452L411 468L395 470Z"/>
+      </g>
+      <g className="auth-debris auth-debris-d" fill="var(--auth-debris-fill,#C88C64)" stroke="var(--auth-debris-stroke,#A96E4C)" strokeWidth="1.2">
+        <path d="M940 300L950 292L961 301L955 314L941 313Z"/>
+      </g>
+
+      <g className="auth-shooting-star auth-shooting-star-a">
+        <path d="M590 78L520 112" stroke="url(#authRocketShell)" strokeWidth="2.2" strokeLinecap="round"/>
+        <circle cx="590" cy="78" r="2.6" fill="var(--auth-shooting-core,#FFF4DF)"/>
+      </g>
+      <g className="auth-shooting-star auth-shooting-star-b">
+        <path d="M920 470L850 505" stroke="var(--auth-shooting-trail,#91BBD4)" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="920" cy="470" r="2.2" fill="var(--auth-shooting-core,#FFF4DF)"/>
+      </g>
+      <path d="M90 470C210 410 270 390 360 380" stroke="var(--auth-orbit-line,#D9A477)" strokeOpacity=".18" strokeWidth="1.2" strokeDasharray="3 12"/>
+      <path d="M640 185C700 165 750 160 790 175" stroke="var(--auth-orbit-line,#D9A477)" strokeOpacity=".16" strokeWidth="1.2" strokeDasharray="2 10"/>
     </svg>
   </div>;
 }
-
 function CrmAmbientBackdrop() {
   return <div className="crm-ambient-backdrop" aria-hidden="true">
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
@@ -1844,7 +1887,32 @@ export default function App() {
         .install-guide-flow{animation:installGuideFlow 2.4s ease-in-out infinite;stroke-dasharray:4 5}.auth-screen-root{position:relative;isolation:isolate;overflow-x:hidden}
         .auth-screen-root>.auth-vector-scene{position:fixed;inset:74px 0 0;z-index:0;pointer-events:none;display:grid;place-items:center;overflow:hidden;opacity:.9}
         .auth-vector-art{width:min(100%,1100px);height:auto;max-height:calc(100vh - 90px);overflow:visible}
-        .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 6s ease-in-out infinite}
+        :root[data-crm-theme="day"]{
+          --auth-rocket-light:#FFF4E7;--auth-rocket-mid:#E9A06A;--auth-rocket-dark:#B85F36;--auth-rocket-outline:#985332;
+          --auth-nose-highlight:#FFF9F0;--auth-window-rim:#F7E6D5;--auth-flame-light:#FFE6B6;--auth-flame-dark:#E77A42;--auth-flame-core:#FFF7D8;
+          --auth-beacon-shell:#E8A16E;--auth-beacon-outline:#A85E3A;--auth-beacon-base:#936044;--auth-beacon-light:#FFE3B5;--auth-beacon-ray:#C47B4F;
+          --auth-debris-fill:#C98A62;--auth-debris-stroke:#A66B49;--auth-star-color:#D58B5B;--auth-star-cool:#78AFCF;--auth-shooting-core:#FFF8EA;--auth-shooting-trail:#D18B5B;--auth-orbit-line:#C8895E;
+        }
+        :root[data-crm-theme="night"]{
+          --auth-rocket-light:#EAF6FF;--auth-rocket-mid:#82B5D4;--auth-rocket-dark:#426E8C;--auth-rocket-outline:#355B78;
+          --auth-nose-highlight:#F5FBFF;--auth-window-rim:#D7EAF5;--auth-flame-light:#BDEAFF;--auth-flame-dark:#4B9BC5;--auth-flame-core:#E8F8FF;
+          --auth-beacon-shell:#719FBE;--auth-beacon-outline:#426F91;--auth-beacon-base:#345B78;--auth-beacon-light:#C9ECFF;--auth-beacon-ray:#77B6DB;
+          --auth-debris-fill:#729DB9;--auth-debris-stroke:#A2C9E1;--auth-star-color:#D8EAF6;--auth-star-cool:#80BBDD;--auth-shooting-core:#F2FBFF;--auth-shooting-trail:#79B9DB;--auth-orbit-line:#76A9C9;
+        }
+        .auth-rocket{animation:authRocketFloat 7s ease-in-out infinite;transform-origin:185px 360px}
+        .auth-debris{transform-box:fill-box;transform-origin:center;animation:authDebrisDrift 17s ease-in-out infinite}
+        .auth-debris-b{animation-duration:22s;animation-delay:-8s}.auth-debris-c{animation-duration:25s;animation-delay:-13s}.auth-debris-d{animation-duration:20s;animation-delay:-5s}
+        .auth-beacon{animation:authBeaconFloat 8s ease-in-out infinite}
+        .auth-beacon-pulse{transform-box:fill-box;transform-origin:center;animation:authBeaconPulse 3.6s ease-out infinite}
+        .auth-shooting-star{opacity:0;animation:authLoginShootingStar 13s ease-in-out infinite}
+        .auth-shooting-star-b{animation-delay:6.5s}
+        .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
+        @keyframes authRocketFloat{0%,100%{translate:0 0;rotate:0deg}50%{translate:0 -8px;rotate:1.2deg}}
+        @keyframes authDebrisDrift{0%,100%{translate:0 0;rotate:0deg;opacity:.5}50%{translate:16px -14px;rotate:22deg;opacity:.9}}
+        @keyframes authBeaconFloat{0%,100%{translate:0 0}50%{translate:0 -6px}}
+        @keyframes authBeaconPulse{0%{scale:.72;opacity:.65}75%,100%{scale:1.9;opacity:0}}
+        @keyframes authLoginShootingStar{0%,66%,100%{opacity:0;translate:0 0}69%{opacity:.85}76%{opacity:0;translate:-95px 48px}}
+                .auth-rocket{transform-box:fill-box;transform-origin:center;animation:authRocketFloat 6s ease-in-out infinite}
         .auth-star{transform-box:fill-box;transform-origin:center;animation:authTwinkle 3.8s ease-in-out infinite}
         .auth-star-two{animation-delay:-1.2s}.auth-star-three{animation-delay:-2.4s}
         .auth-vector-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--crm-bg,#101114) 0%,transparent 25%,transparent 75%,var(--crm-bg,#101114) 100%);opacity:.38}
@@ -1869,8 +1937,8 @@ export default function App() {
         @keyframes loaderPulse{0%,100%{opacity:.35;scale:.7}50%{opacity:1;scale:1.2}}
         @media(max-width:700px){.auth-vector-scene{inset:56px -8% 0;place-items:start center;opacity:.9}.auth-vector-art{width:175%;max-width:none;max-height:none;height:auto;transform:translateY(1vh)}.auth-planet-orange,.auth-moon-night{transform-origin:900px 265px}.auth-vector-scene:after{background:linear-gradient(180deg,var(--crm-bg,#101114) 0%,transparent 10%,transparent 88%,var(--crm-bg,#101114) 100%);opacity:.08}.auth-login-panel{width:min(460px,calc(100% - 24px))!important;margin:clamp(18px,4vh,32px) auto 24px!important;padding:20px 18px!important;background:color-mix(in srgb,var(--crm-panel-bg,#17191f) 25%,transparent)!important;backdrop-filter:blur(4px) saturate(125%);-webkit-backdrop-filter:blur(4px) saturate(125%);border-radius:16px!important}.auth-loading-stage{min-height:38vh;margin:0 auto 16px}.auth-permission-loading{min-height:clamp(220px,55vh,420px);margin:0 auto;padding:20px 12px}.vector-loader svg{width:124px;height:94px}}
         @media(max-width:390px){.auth-vector-art{width:195%;transform:translateY(3vh)}.auth-login-panel{margin-top:18px!important;padding:18px 14px!important}.auth-vector-scene{inset:52px -12% 0}}
-        @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
-        .crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
+        @media(prefers-reduced-motion:reduce){.auth-rocket,.auth-star,.auth-debris,.auth-beacon,.auth-beacon-pulse,.auth-shooting-star,.loader-rocket,.loader-orbit,.loader-dot{animation:none!important}.auth-vector-scene{opacity:.35}}
+.crm-reduced-motion .auth-rocket,.crm-reduced-motion .auth-star,.crm-reduced-motion .auth-debris,.crm-reduced-motion .auth-beacon,.crm-reduced-motion .auth-beacon-pulse,.crm-reduced-motion .auth-shooting-star,.crm-reduced-motion .loader-rocket,.crm-reduced-motion .loader-orbit,.crm-reduced-motion .loader-dot{animation:none!important}
         /* Restrained, corporate space ambience: decorative layers never intercept or cover CRM content. */
         .crm-layout{position:relative;isolation:isolate;background:transparent}
         .crm-layout>.crm-sidebar,.crm-layout>main{position:relative;z-index:1}
@@ -1903,14 +1971,21 @@ export default function App() {
         .auth-login-panel form,.auth-login-panel h1,.auth-login-panel p,.auth-login-panel label{position:relative;z-index:2}
         @media(max-width:700px){
           .auth-vector-scene{z-index:0;opacity:.58;inset:56px 0 0}
-          .auth-vector-art{width:150%;max-width:none;transform:translate(-7%,2vh)}
+          .auth-vector-art{width:155%;max-width:none;transform:translate(-2%,7vh)}
+          .auth-rocket{opacity:.5}
+          .auth-debris{opacity:.45}
+          .auth-shooting-star{opacity:0}
+
           .auth-rocket{opacity:.34}
           .auth-login-panel{z-index:3!important}
           .crm-ambient-backdrop{opacity:.46}
           .crm-ambient-backdrop svg{width:150%;left:-22%;opacity:.7}
         }
         @media(max-width:390px){
-          .auth-vector-art{width:142%;transform:translate(-10%,3vh)}
+          .auth-vector-art{width:148%;transform:translate(-1%,9vh)}
+          .auth-rocket{opacity:.38}
+          .auth-beacon{opacity:.62}
+
           .auth-rocket{opacity:.25}
         }
         @media(prefers-reduced-motion:reduce){
