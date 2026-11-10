@@ -1837,8 +1837,13 @@ export default function App() {
   salaryMonthStart.setHours(0, 0, 0, 0);
   const salaryMonthEnd = new Date(salaryMonthStart.getFullYear(), salaryMonthStart.getMonth() + 1, 0);
   let salaryWeekdays = 0;
+  const salaryEmployeeId = profile?.id || session?.user.id;
   for (let day = new Date(salaryMonthStart); day <= salaryMonthEnd; day.setDate(day.getDate() + 1)) {
-    if (day.getDay() !== 0 && day.getDay() !== 6) salaryWeekdays += 1;
+    if (day.getDay() === 0 || day.getDay() === 6) continue;
+    const key = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+    const holiday = workforceHolidays.some(item => item.holiday_date === key);
+    const onApprovedLeave = approvedLeave.some(item => item.employee_id === salaryEmployeeId && item.start_date <= key && item.end_date >= key);
+    if (!holiday && !onApprovedLeave) salaryWeekdays += 1;
   }
   const salaryRequiredMilliseconds = salaryWeekdays * DAILY_REQUIRED_WORK_MINUTES * 60000;
   const salaryMonthPrefix = `${salaryMonthStart.getFullYear()}-${String(salaryMonthStart.getMonth() + 1).padStart(2, '0')}`;
