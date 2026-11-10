@@ -70,8 +70,8 @@ type Coordinates = {
 
 const CRM_WEB_APP_URL = 'https://attendence.dpdns.org/';
 const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/app-debug.apk';
-const WINDOWS_EXE_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/windows-latest/MBP-Attendance-Setup-0.1.0.exe';
-const MACOS_DMG_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/macos-latest/MBP-Attendance-0.1.0-macOS.dmg';
+const WINDOWS_EXE_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/windows-latest/MBP-Attendance-Setup-0.1.1.exe';
+const MACOS_DMG_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/macos-latest/MBP-Attendance-0.1.1-macOS.dmg';
 const IOS_WEBCLIP_DOWNLOAD_URL = '/mbp-attendance-ios.mobileconfig';
 const BREAK_MINUTES = 60;
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000;
