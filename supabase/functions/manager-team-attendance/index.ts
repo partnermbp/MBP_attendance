@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     const shiftStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
     const shifts = await rest(
-      `shifts?employee_id=in.(${ids})&starts_at=gte.${encodeURIComponent(shiftStart)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=3000`
+      `shifts?employee_id=in.(${ids})&ends_at=gte.${encodeURIComponent(shiftStart)}&starts_at=lte.${encodeURIComponent(shiftEnd)}&select=id,employee_id,starts_at,ends_at&order=starts_at.asc&limit=3000`
     );
 
     // Managers receive attendance times only. GPS coordinates and derived
