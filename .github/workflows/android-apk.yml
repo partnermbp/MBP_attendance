@@ -1,7 +1,16 @@
 name: Build MBP Attendance Android APK
 
 on:
-  # App installers are intentionally manual while the web version is updated first.
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'capacitor.config.ts'
+      - 'scripts/android/**'
+      - 'scripts/branding/**'
+      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
 permissions:
