@@ -62,8 +62,8 @@ Deno.serve(async (req: Request) => {
     const profiles = await rest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,active&limit=1`);
     const profile = profiles?.[0];
     const role = String(profile?.role || "").toLowerCase().replaceAll("_", " ");
-    if (!profile?.active || !["junior", "middle", "senior", "team leader"].includes(role)) {
-      return json({ error: "Active manager account required" }, 403);
+    if (!profile?.active || !["supervisor", "junior", "middle", "senior", "team leader"].includes(role)) {
+      return json({ error: "Active manager or Supervisor account required" }, 403);
     }
 
     const teamIds = new Set<string>([String(user.id)]);
