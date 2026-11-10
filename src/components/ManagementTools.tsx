@@ -368,7 +368,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       setTranslationNotice('There are no text messages to translate in the loaded chat.');
       return;
     }
-    const missing = loaded.filter(message => !translations[selectedGroup + ':' + translationTarget + ':' + message.source_lang + ':' + message.id]);
+    // Translate from the newest messages backwards, while the chat itself remains chronological.
+    const missing = loaded
+      .filter(message => !translations[selectedGroup + ':' + translationTarget + ':' + message.source_lang + ':' + message.id])
+      .sort((a, b) => Number(b.id.split(':').at(-1)) - Number(a.id.split(':').at(-1)));
     if (!missing.length) {
       setTranslationsVisible(true);
       setTranslationNotice('Showing saved translations for the loaded messages.');
@@ -377,8 +380,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setTranslationLoading(true);
     setTranslationNotice('');
     try {
-      const allResults: Array<{ id: string; text: string }> = [];
+      let translatedCount = 0;
       for (let offset = 0; offset < missing.length; offset += 30) {
+        // Each completed newest-first batch is saved and shown before the next older batch starts.
         const batch = missing.slice(offset, offset + 30);
         const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
           body: { target_lang: translationTarget, source_lang: translationSource, messages: batch },
@@ -397,7 +401,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         if (data?.error) throw new Error(String(data.error));
         const results = Array.isArray(data?.translations) ? data.translations : [];
         if (results.length !== batch.length) throw new Error('The translation service returned an incomplete result. Please try again.');
-        allResults.push(...results);
+        translatedCount += results.length;
         setTranslations(current => {
           const next = { ...current };
           for (const result of results) {
@@ -409,9 +413,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
           return next;
         });
         setTranslationsVisible(true);
-        setTranslationNotice('Translated ' + allResults.length + ' of ' + missing.length + ' messages…');
+        const olderRemaining = missing.length - translatedCount;
+        setTranslationNotice(
+          'Translated newest ' + translatedCount + ' of ' + missing.length + ' messages' +
+          (olderRemaining > 0 ? ' · next: ' + Math.min(30, olderRemaining) + ' older messages…' : ' · complete.')
+        );
       }
-      setTranslationNotice('Translated ' + allResults.length + ' message' + (allResults.length === 1 ? '' : 's') + '.');
+      setTranslationNotice('Translated ' + translatedCount + ' message' + (translatedCount === 1 ? '' : 's') + ' · newest first.');
     } catch (error) {
       setTranslationNotice(error instanceof Error ? error.message : 'Could not translate the loaded messages.');
     } finally {
