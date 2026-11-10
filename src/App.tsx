@@ -1963,10 +1963,13 @@ export default function App() {
         @media(max-width:700px){.auth-vector-art{width:175%;transform:translate(-9%,2vh)}.auth-rocket-flight{opacity:.55}.auth-satellite-orbit{opacity:.7}}
         @media(prefers-reduced-motion:reduce){.auth-satellite-orbit,.auth-rocket-flight,.auth-debris,.auth-star{animation:none!important}}
         .crm-reduced-motion .auth-satellite-orbit,.crm-reduced-motion .auth-rocket-flight,.crm-reduced-motion .auth-debris,.crm-reduced-motion .auth-star{animation:none!important}
-        .auth-screen-root>.auth-vector-scene{z-index:0!important;opacity:.82}
-        .auth-vector-art{pointer-events:none;position:relative}
-        .auth-screen-root>.auth-vector-scene:after{z-index:0}
-        .auth-login-panel{z-index:3!important;position:relative}
+        /* Keep the complete decorative scene behind every login heading, notice and form. */
+        .auth-screen-root{position:relative!important;isolation:isolate!important;z-index:0}
+        .auth-screen-root>.auth-vector-scene{z-index:-1!important;opacity:.62!important;pointer-events:none!important}
+        .auth-screen-root>.auth-vector-scene .auth-vector-art{pointer-events:none!important;position:relative;z-index:0!important}
+        .auth-screen-root>.auth-vector-scene:after{z-index:0;pointer-events:none}
+        .auth-screen-root>*:not(.auth-vector-scene):not(style){position:relative;z-index:1}
+        .auth-login-panel{z-index:2!important;position:relative}
         .crm-brand-header{z-index:3!important}
         .auth-login-panel form,.auth-login-panel h1,.auth-login-panel p,.auth-login-panel label{position:relative;z-index:2}
         @media(max-width:700px){
@@ -2983,13 +2986,16 @@ export default function App() {
       {mapPreview && <div role="dialog" aria-modal="true" aria-label={mapPreview.title} onClick={() => setMapPreview(null)} style={{position:'fixed',inset:0,zIndex:100,display:'grid',placeItems:'center',padding:18,background:'#0009'}}><section onClick={e=>e.stopPropagation()} style={{width:'min(760px,100%)',background:'#151e30',color:'#f8fafc',border:'1px solid #475467',borderRadius:14,overflow:'hidden',boxShadow:'0 20px 70px #0008'}}><header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px'}}><strong>{mapPreview.title}</strong><button type="button" onClick={()=>setMapPreview(null)} aria-label="Close map" style={{background:'transparent',border:0,color:'#fff',cursor:'pointer'}}><X/></button></header><iframe title={mapPreview.title} src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapPreview.longitude-0.008}%2C${mapPreview.latitude-0.005}%2C${mapPreview.longitude+0.008}%2C${mapPreview.latitude+0.005}&layer=mapnik&marker=${mapPreview.latitude}%2C${mapPreview.longitude}`} style={{width:'100%',height:420,border:0,display:'block'}} loading="lazy"/><p style={{margin:0,padding:'10px 18px',color:'#b7c0d1',fontSize:12}}>Coordinates: {mapPreview.latitude.toFixed(5)}, {mapPreview.longitude.toFixed(5)}</p></section></div>}
       {message && (
         <p
+          className="crm-status-notice"
           role="status"
           style={{
             maxWidth: 760,
             margin: '12px auto',
             padding: 12,
             borderRadius: 8,
-            background: '#202b3e',
+            background: preferences.theme === 'day' ? 'rgba(255,255,255,.78)' : 'rgba(32,43,62,.72)',
+            color: preferences.theme === 'day' ? '#24344a' : '#edf3fc',
+            border: preferences.theme === 'day' ? '1px solid rgba(115,137,165,.35)' : '1px solid rgba(150,170,200,.22)',
             overflowWrap: 'anywhere',
           }}
         >
