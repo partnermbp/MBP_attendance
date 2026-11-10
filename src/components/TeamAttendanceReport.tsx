@@ -138,6 +138,35 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     const reasons = [personLate >= 3 ? personLate + ' late arrivals' : '', personMissed ? personMissed + ' missed shifts' : '', personAutoClosed ? personAutoClosed + ' auto-closed sessions' : '', personEarly ? personEarly + ' early departures' : ''].filter(Boolean);
     return { person, reasons, score: personLate + personMissed * 2 + personAutoClosed + personEarly };
   }).filter(item => item.reasons.length).sort((a,b) => b.score-a.score).slice(0,20);
+  const payrollRows = scopedPeople.map(person => {
+    const personShifts = scopedShifts.filter(shift => shift.employee_id === person.id);
+    const personRecords = scopedAttendance.filter(record => record.employee_id === person.id);
+    const byDay = new Map<string, number>();
+    personRecords.forEach(record => byDay.set(attendanceDay(record), (byDay.get(attendanceDay(record)) || 0) + creditedMinutes(record)));
+    const credited = [...byDay.values()].reduce((sum, minutes) => sum + minutes, 0);
+    const overtime = [...byDay.values()].reduce((sum, minutes) => sum + Math.max(0, minutes - 480), 0);
+    const leaveDays = days.filter(day => {
+      const d = new Date(day + 'T12:00:00');
+      return d.getDay() !== 0 && d.getDay() !== 6 && !holidays.some(h => h.holiday_date === day)
+        && approvedLeave.some(l => l.employee_id === person.id && l.start_date <= day && l.end_date >= day);
+    }).length;
+    const personShiftRows = shiftRecords.filter(row => row.shift.employee_id === person.id);
+    const missed = personShiftRows.filter(row => !row.check).length;
+    const lateCount = personShiftRows.filter(row => row.late).length;
+    const scheduled = personShifts.length;
+    const attended = scheduled - missed;
+    return { name: person.full_name || person.email || person.id, email: person.email || '', role: person.role, scheduled, attended, missed, late: lateCount, leaveDays, creditedHours: (credited/60).toFixed(2), overtimeHours: (overtime/60).toFixed(2), autoClosed: personRecords.filter(row => row.auto_closed).length, compliance: pct(attended, scheduled) };
+  });
+  const exportPayrollCsv = () => {
+    const headers = ['Employee','Email','Role','Scheduled shifts','Attended shifts','Missed shifts','Late shifts','Approved leave weekdays','Credited hours','Overtime hours','Auto-closed sessions','Attendance compliance %'];
+    const rows = payrollRows.map(row => [row.name,row.email,row.role,row.scheduled,row.attended,row.missed,row.late,row.leaveDays,row.creditedHours,row.overtimeHours,row.autoClosed,row.compliance]);
+    const csv = [headers,...rows].map(row => row.map(value => '"' + String(value ?? '').replace(/"/g,'""') + '"').join(',')).join('\\r\\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `attendance-payroll-summary-${appliedFrom}-to-${appliedTo}.csv`;
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  };
   const noSchedule = scopedShifts.length === 0;
   const card = (label: string, value: string | number, note: string, tone?: string) => <article style={{ ...panel, padding: 16 }}><div style={{ ...muted, marginBottom: 9 }}>{label}</div><div style={{ ...metricValue, color: tone || 'var(--crm-text)' }}>{value}</div><div style={{ ...muted, marginTop: 8 }}>{note}</div></article>;
 
@@ -145,6 +174,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
       <div><h1 style={{ margin: 0, fontSize: 25 }}>Team attendance report</h1><KnowMore>Metrics are calculated from saved attendance, scheduled shifts and attributable Telegram group activity. Some metrics require shift schedules and linked Telegram identities.</KnowMore></div>
       <button type="button" onClick={() => { setFrom(appliedFrom); setTo(appliedTo); }} style={{ border: '1px solid var(--crm-border)', borderRadius: 8, padding: '9px 12px', background: 'var(--crm-card-raised)', color: 'var(--crm-text)', cursor: 'pointer' }}>Refresh filters</button>
+      <button type="button" onClick={exportPayrollCsv} style={{ border: '1px solid var(--crm-border)', borderRadius: 8, padding: '9px 12px', background: 'var(--crm-accent-strong)', color: '#fff', cursor: 'pointer' }}>Export payroll attendance CSV</button>
     </header>
     <section style={{ ...panel, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'end' }}>
       <label style={{ fontSize: 12, color: 'var(--crm-text-muted)' }}>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{ display: 'block', marginTop: 5, padding: 9, borderRadius: 7, border: '1px solid var(--crm-border)', background: 'var(--crm-control-bg)', color: 'var(--crm-text)' }}/></label>
