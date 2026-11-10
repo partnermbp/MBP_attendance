@@ -3,6 +3,7 @@
 -- attendance times only and never selects GPS coordinates or derived location labels.
 
 drop policy if exists "Read permitted attendance" on public.attendance;
+drop policy if exists "Read own attendance or admin attendance" on public.attendance;
 
 create policy "Read own attendance or admin attendance"
 on public.attendance
