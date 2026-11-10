@@ -49,7 +49,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   }, [assignments, people]);
   const managers = useMemo(() => new Set([...people.values()].filter(p => managerRoles.has(p.role.toLowerCase().replaceAll(' ', '_')) || managerRoles.has(p.role.toLowerCase())).map(p => p.id)), [people]);
   const visiblePeople = useMemo(() => {
-    if (profile?.role.toLowerCase() === 'admin') return new Set([...people.keys()]);
+    if (['admin','supervisor'].includes(profile?.role.toLowerCase() || '')) return new Set([...people.keys()]);
     const seen = new Set<string>(profile?.id ? [profile.id] : []);
     const frontier = profile?.id ? [profile.id] : [];
     while (frontier.length) {
