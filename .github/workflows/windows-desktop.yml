@@ -1,15 +1,7 @@
 name: Build MBP Attendance Windows Desktop EXE
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'desktop/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/windows-desktop.yml'
+  # App installers are intentionally manual while the web version is updated first.
   workflow_dispatch:
 
 permissions:
