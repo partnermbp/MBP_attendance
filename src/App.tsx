@@ -2759,7 +2759,7 @@ export default function App() {
           </section>}
 
           {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
-          {activePage === 'workforce-operations' && <WorkforceOperations profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} />}
+          {activePage === 'workforce-operations' && <WorkforceOperations profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
           {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} approvedLeave={approvedLeave} holidays={workforceHolidays} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
