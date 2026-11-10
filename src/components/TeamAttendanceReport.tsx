@@ -160,7 +160,7 @@ export default function TeamAttendanceReport({ attendance, shifts, profiles, ass
   const exportPayrollCsv = () => {
     const headers = ['Employee','Email','Role','Scheduled shifts','Attended shifts','Missed shifts','Late shifts','Approved leave weekdays','Credited hours','Overtime hours','Auto-closed sessions','Attendance compliance %'];
     const rows = payrollRows.map(row => [row.name,row.email,row.role,row.scheduled,row.attended,row.missed,row.late,row.leaveDays,row.creditedHours,row.overtimeHours,row.autoClosed,row.compliance]);
-    const csv = [headers,...rows].map(row => row.map(value => '"' + String(value ?? '').replace(/"/g,'""') + '"').join(',')).join('\\r\\n');
+    const csv = [headers,...rows].map(row => row.map(value => '"' + String(value ?? '').replace(/"/g,'""') + '"').join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
