@@ -94,11 +94,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [messageReactionCounts, setMessageReactionCounts] = useState<MessageReactionCount[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [translationTarget, setTranslationTarget] = useState('EN-US');
-  const [translationSource, setTranslationSource] = useState('auto');
+  const [translationActivated, setTranslationActivated] = useState(false);
   const [messageSourceOverrides, setMessageSourceOverrides] = useState<Record<string, string>>({});
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translationLoading, setTranslationLoading] = useState(false);
-  const [translationsVisible, setTranslationsVisible] = useState(false);
   const [translationNotice, setTranslationNotice] = useState('');
   const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
   const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
@@ -355,77 +354,39 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
 
 
 
-  async function translateLoadedGroupMessages() {
-    if (!supabase || !selectedGroup || translationLoading) return;
-    const loaded = messages
-      .filter(message => String(message.telegram_chat_id) === selectedGroup && Boolean(message.message_text?.trim()))
-      .map(message => ({
-        id: String(message.telegram_chat_id) + ':' + String(message.telegram_message_id),
-        text: String(message.message_text || '').trim(),
-        source_lang: messageSourceOverrides[String(message.telegram_chat_id) + ':' + String(message.telegram_message_id)] || translationSource,
-      }));
-    if (!loaded.length) {
-      setTranslationNotice('There are no text messages to translate in the loaded chat.');
-      return;
-    }
-    // Translate from the newest messages backwards, while the chat itself remains chronological.
-    const missing = loaded
-      .filter(message => !translations[selectedGroup + ':' + translationTarget + ':' + message.source_lang + ':' + message.id])
-      .sort((a, b) => Number(b.id.split(':').at(-1)) - Number(a.id.split(':').at(-1)));
-    if (!missing.length) {
-      setTranslationsVisible(true);
-      setTranslationNotice('Showing saved translations for the loaded messages.');
-      return;
-    }
+  async function translateSingleGroupMessage(message: Message, sourceLanguage: string) {
+    if (!supabase || !selectedGroup || translationLoading || !message.message_text?.trim()) return;
+    const messageKey = String(message.telegram_chat_id) + ':' + String(message.telegram_message_id);
+    const cacheKey = selectedGroup + ':' + translationTarget + ':' + sourceLanguage + ':' + messageKey;
+    if (translations[cacheKey]) return;
     setTranslationLoading(true);
     setTranslationNotice('');
     try {
-      let translatedCount = 0;
-      for (let offset = 0; offset < missing.length; offset += 30) {
-        // Each completed newest-first batch is saved and shown before the next older batch starts.
-        const batch = missing.slice(offset, offset + 30);
-        const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
-          body: { target_lang: translationTarget, source_lang: translationSource, messages: batch },
-        });
-        if (error) {
-          const context = (error as any).context as Response | undefined;
-          let detail = error.message || 'Translation request failed.';
-          if (context) {
-            const payload = await context.clone().json().catch(() => null);
-            if (payload?.error) detail = String(payload.error);
-            else if (context.status === 429) detail = 'Translation provider is rate-limiting requests. Please wait a minute and try again.';
-            else detail = 'Translation service failed (' + context.status + '). Please try again.';
-          }
-          throw new Error(detail);
+      const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
+        body: {
+          target_lang: translationTarget,
+          source_lang: sourceLanguage === 'default' ? 'auto' : sourceLanguage,
+          messages: [{ id: messageKey, text: message.message_text.trim(), source_lang: sourceLanguage === 'default' ? 'auto' : sourceLanguage }],
+        },
+      });
+      if (error) {
+        const context = (error as any).context as Response | undefined;
+        let detail = error.message || 'Translation request failed.';
+        if (context) {
+          const payload = await context.clone().json().catch(() => null);
+          if (payload?.error) detail = String(payload.error);
+          else if (context.status === 429) detail = 'DeepL is temporarily rate-limiting requests. Please wait and try again.';
+          else detail = 'Translation service failed (' + context.status + '). Please try again.';
         }
-        if (data?.error) throw new Error(String(data.error));
-        const results = Array.isArray(data?.translations) ? data.translations : [];
-        if (results.length !== batch.length) throw new Error('The translation service returned an incomplete result. Please try again.');
-        translatedCount += results.length;
-        setTranslations(current => {
-          const next = { ...current };
-          for (const result of results) {
-            if (result?.id && typeof result?.text === 'string') {
-              const original = batch.find(message => message.id === String(result.id));
-              const cacheKey = selectedGroup + ':' + translationTarget + ':' + (original?.source_lang || translationSource) + ':' + String(result.id);
-              next[cacheKey] = result.text;
-              // Also keep a source-independent display key so the rendered message can
-              // always retrieve a completed translation even if its source selector changes.
-              next[selectedGroup + ':' + translationTarget + ':' + String(result.id)] = result.text;
-            }
-          }
-          return next;
-        });
-        setTranslationsVisible(true);
-        const olderRemaining = missing.length - translatedCount;
-        setTranslationNotice(
-          'Translated newest ' + translatedCount + ' of ' + missing.length + ' messages' +
-          (olderRemaining > 0 ? ' · next: ' + Math.min(30, olderRemaining) + ' older messages…' : ' · complete.')
-        );
+        throw new Error(detail);
       }
-      setTranslationNotice('Translated ' + translatedCount + ' message' + (translatedCount === 1 ? '' : 's') + ' · newest first.');
+      if (data?.error) throw new Error(String(data.error));
+      const result = Array.isArray(data?.translations) ? data.translations.find((item: any) => String(item?.id) === messageKey) : null;
+      if (!result || typeof result.text !== 'string') throw new Error('DeepL did not return a translation for this message.');
+      setTranslations(current => ({ ...current, [cacheKey]: result.text }));
+      setTranslationNotice('Message translated with DeepL.');
     } catch (error) {
-      setTranslationNotice(error instanceof Error ? error.message : 'Could not translate the loaded messages.');
+      setTranslationNotice(error instanceof Error ? error.message : 'Could not translate this message.');
     } finally {
       setTranslationLoading(false);
     }
@@ -814,7 +775,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     {!selectedGroup ? <div style={{ padding:34, border:'1px dashed #475467', borderRadius:14, textAlign:'center', color:'#b7c0d1', background:'#101828' }}><div style={{ fontSize:30, marginBottom:10 }}>💬</div><strong style={{ color:'#f8fafc' }}>Choose a group to open its chat</strong><p style={muted}>Messages stay hidden until you select a Telegram group above.</p></div> : <>
       <h3>Chat · {groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Selected group'}</h3>
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
-        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest at bottom · scroll up for older messages</div></div><div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span><select aria-label="Translation language" value={translationTarget} onChange={event => {setTranslationTarget(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="EN-US">English</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><select aria-label="Message source language" title="Choose a source language when automatic detection confuses Romanized Hindi and Bengali" value={translationSource} onChange={event => {setTranslationSource(event.target.value);setTranslationsVisible(false);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="auto">Detect source</option><option value="hi-IN">Hindi (including Latin)</option><option value="bn-IN">Bengali (including Latin)</option><option value="en-IN">English</option></select><button type="button" onClick={() => { if (translationsVisible) { setTranslationsVisible(false); setTranslationNotice('Original messages only.'); } else { void translateLoadedGroupMessages(); } }} disabled={translationLoading || !messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()))} style={{...button,padding:'7px 11px',fontSize:12,opacity:translationLoading?0.65:1,cursor:translationLoading?'wait':'pointer'}}>{translationLoading ? 'Translating…' : translationsVisible ? 'Hide translations' : messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()) && Boolean(translations[selectedGroup + ':' + translationTarget + ':' + (messageSourceOverrides[String(message.telegram_chat_id) + ':' + String(message.telegram_message_id)] || translationSource) + ':' + message.telegram_chat_id + ':' + message.telegram_message_id])) ? 'Show translations' : 'Translate loaded messages'}</button></div></header>
+        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest at bottom · scroll up for older messages</div></div><div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span><select aria-label="Translation language" value={translationTarget} onChange={event => {setTranslationTarget(event.target.value);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="EN-US">English</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><button type="button" onClick={() => {setTranslationActivated(value => !value);setTranslationNotice(translationActivated ? 'Per-message translation controls hidden.' : 'Translation activated. Choose a source language and translate messages individually.');}} disabled={translationLoading} style={{...button,padding:'7px 11px',fontSize:12}}>{translationActivated ? 'Deactivate Translation' : 'Activate Translation'}</button></div></header>
         <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtTop(event.currentTarget.scrollTop <= 32)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtTop && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', top:0, zIndex:2, alignSelf:'center', margin:'-6px 0 2px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↑ Load older messages'}</button>}
           {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).map(m => {
             const raw=m.raw_update || {};
@@ -824,9 +785,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
             const media=photo || doc;
             const mediaName=doc?.file_name || (photo ? 'Photo attachment' : msg.video ? 'Video attachment' : msg.voice ? 'Voice message' : msg.sticker ? 'Sticker' : null);
             const messageKey = String(m.telegram_chat_id) + ':' + String(m.telegram_message_id);
-            const messageSource = messageSourceOverrides[messageKey] || translationSource;
-            const messageTranslation = translations[selectedGroup + ':' + translationTarget + ':' + messageSource + ':' + m.telegram_chat_id + ':' + m.telegram_message_id]
-              || translations[selectedGroup + ':' + translationTarget + ':' + m.telegram_chat_id + ':' + m.telegram_message_id];
+            const messageSource = messageSourceOverrides[messageKey] || 'default';
+            const messageTranslation = translations[selectedGroup + ':' + translationTarget + ':' + messageSource + ':' + messageKey];
             const reactionSummary = new Map<string, { label: string; count: number }>();
             for (const row of messageReactions.filter(reaction => reaction.telegram_chat_id === m.telegram_chat_id && reaction.telegram_message_id === m.telegram_message_id)) {
               for (const reaction of row.reactions || []) {
@@ -847,8 +807,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
               <div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>
               {media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}
               <div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div>
-              {m.message_text?.trim() && <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:5,marginTop:4}}><label style={{fontSize:10,color:'#91a2b8'}}>Source</label><select aria-label={'Source language for message ' + messageKey} title="Override detection for this message only" value={messageSource} onChange={event => {setMessageSourceOverrides(current => ({...current,[messageKey]:event.target.value}));setTranslationsVisible(false);setTranslationNotice('Source language changed for this message. Translate again to apply it.');}} disabled={translationLoading} style={{maxWidth:160,padding:'3px 6px',border:'1px solid #40566f',borderRadius:6,background:'#132033',color:'#c7d9ee',fontSize:10}}><option value="auto">Auto detect</option><option value="hi-IN">Hindi (Latin/native)</option><option value="bn-IN">Bengali (Latin/native)</option><option value="en-IN">English</option></select></div>}
-              {translationsVisible && m.message_text?.trim() && messageTranslation && <div style={{marginTop:7,paddingTop:7,borderTop:'1px solid #45607c',color:'#c7d9ee',whiteSpace:'pre-wrap',overflowWrap:'anywhere',lineHeight:1.5,fontSize:13}}><div style={{fontSize:10,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color:'#8ed0ff',marginBottom:3}}>Translation · {translationTarget === 'EN-US' ? 'English' : translationTarget === 'BN' ? 'Bengali' : 'Russian'}</div>{messageTranslation}</div>}
+              {translationActivated && m.message_text?.trim() && <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:6,marginTop:7,flexWrap:'wrap'}}><label style={{fontSize:10,color:'#91a2b8'}}>Source</label><select aria-label={'Source language for message ' + messageKey} value={messageSource} onChange={event => {setMessageSourceOverrides(current => ({...current,[messageKey]:event.target.value}));setTranslationNotice('Source language selected for this message.');}} disabled={translationLoading} style={{maxWidth:150,padding:'4px 6px',border:'1px solid #40566f',borderRadius:6,background:'#132033',color:'#c7d9ee',fontSize:10}}><option value="default">Default (auto-detect)</option><option value="EN">English</option><option value="HI">Hindi</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><button type="button" onClick={() => void translateSingleGroupMessage(m, messageSource)} disabled={translationLoading || Boolean(messageTranslation)} style={{...button,padding:'5px 9px',fontSize:10,opacity:translationLoading || messageTranslation ? 0.6 : 1}}>{messageTranslation ? 'Translated' : translationLoading ? 'Translating…' : 'Translate'}</button></div>}
+              {translationActivated && m.message_text?.trim() && messageTranslation && <div style={{marginTop:7,paddingTop:7,borderTop:'1px solid #45607c',color:'#c7d9ee',whiteSpace:'pre-wrap',overflowWrap:'anywhere',lineHeight:1.5,fontSize:13}}><div style={{fontSize:10,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color:'#8ed0ff',marginBottom:3}}>Translation · {translationTarget === 'EN-US' ? 'English' : translationTarget === 'BN' ? 'Bengali' : 'Russian'}</div>{messageTranslation}</div>}
               {reactionSummary.size > 0 && <div aria-label="Message reactions" style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:7 }}>
                 {[...reactionSummary.entries()].map(([key, reaction]) => <span key={key} title="Current reaction count" style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 7px', borderRadius:999, background:'#2a3d55', border:'1px solid #45607c', color:'#f0f6ff', fontSize:12 }}>{reaction.label} <strong>{reaction.count}</strong></span>)}
               </div>}
