@@ -1,0 +1,10 @@
+revoke execute on function public.can_access_human_telegram() from anon;
+revoke execute on function public.can_view_employee(uuid) from anon;
+revoke execute on function public.get_my_team_hierarchy() from anon;
+revoke execute on function public.is_active_admin() from anon;
+revoke execute on function public.is_assigned_manager(uuid) from anon;
+revoke execute on function public.is_hierarchy_manager(uuid) from anon;
+revoke execute on function public.set_employee_role(uuid,text) from anon;
+revoke execute on function public.enforce_manager_employee_hierarchy() from anon;
+revoke execute on function public.enforce_one_pending_telegram_id_request() from anon;
+revoke execute on function public.revoke_ineligible_human_telegram_access() from anon;
