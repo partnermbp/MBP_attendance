@@ -16,7 +16,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 revoke all on function public.prevent_overlapping_leave_requests() from public, anon, authenticated;
 drop trigger if exists workforce_leave_no_overlap on public.workforce_leave_requests;
 create trigger workforce_leave_no_overlap
