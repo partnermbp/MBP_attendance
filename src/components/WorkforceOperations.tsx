@@ -14,7 +14,7 @@ const field: CSSProperties = { display: 'block', width: '100%', marginTop: 5, pa
 const action: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, background: 'var(--crm-accent-strong)', color: '#fff', fontWeight: 700, cursor: 'pointer' };
 const muted: React.CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
 
-export default function WorkforceOperations({ profile, profiles, isAdmin, isSupervisor }: { profile: Person | null; profiles: Person[]; isAdmin: boolean; isSupervisor: boolean }) {
+export default function WorkforceOperations({ profile, profiles, isAdmin, isSupervisor, attendance = [], shifts = [] }: { profile: Person | null; profiles: Person[]; isAdmin: boolean; isSupervisor: boolean; attendance?: Array<{id:string;employee_id?:string;check_in:string;check_out:string|null;work_date?:string|null;work_timezone?:string|null;auto_closed?:boolean|null}>; shifts?: Array<{id:string;employee_id?:string;starts_at:string;ends_at:string}> }) {
   const [tab, setTab] = useState<'leave'|'corrections'|'followups'|'holidays'>('leave');
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [corrections, setCorrections] = useState<Correction[]>([]);
@@ -99,10 +99,30 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const overdueFollowups = followups.filter(item => item.status !== 'resolved' && item.due_date && item.due_date < todayKey).length;
   const pendingLeave = leaves.filter(item => item.status === 'pending').length;
   const pendingCorrections = corrections.filter(item => item.status === 'pending').length;
+  const teamTodayKey = new Intl.DateTimeFormat('en-CA',{timeZone:attendance.find(x=>x.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const todayShifts = shifts.filter(shift => {
+    if (!shift.employee_id) return false;
+    const timezone = attendance.find(item=>item.employee_id===shift.employee_id && item.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(shift.starts_at)) === teamTodayKey;
+  });
+  const missedCheckins = todayShifts.filter(shift => {
+    if (new Date(shift.starts_at).getTime() > Date.now()-15*60000) return false;
+    return !attendance.some(item => item.employee_id===shift.employee_id && (item.work_date || (item.work_timezone ? new Intl.DateTimeFormat('en-CA',{timeZone:item.work_timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.check_in)) : item.check_in.slice(0,10)))===teamTodayKey && new Date(item.check_in).getTime() >= new Date(shift.starts_at).getTime()-6*3600000 && new Date(item.check_in).getTime() <= new Date(shift.ends_at).getTime());
+  }).length;
+  const autoClosedToday = attendance.filter(item => item.auto_closed && (item.work_date || item.check_in.slice(0,10)) === teamTodayKey).length;
 
   return <div style={{display:'grid',gap:14}}>
     <div><h1 style={{margin:'0 0 5px'}}>Workforce operations</h1><p style={muted}>Leave, attendance corrections, manager follow-ups and public holidays.</p></div>
     <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>{([['leave','Leave'],['corrections','Attendance corrections'],['followups','Manager follow-ups'],['holidays','Holidays']] as const).map(([id,label])=><button key={id} type="button" onClick={()=>setTab(id)} aria-pressed={tab===id} style={{...action,background:tab===id?'var(--crm-accent-strong)':'var(--crm-card-raised)',color:tab===id?'#fff':'var(--crm-text)',border:'1px solid var(--crm-border)'}}>{label}</button>)}</div>
+    <section style={{...panel,borderColor:missedCheckins||overdueFollowups||autoClosedToday?'#b45309':'var(--crm-border)'}}>
+      <strong>Attendance and follow-up alerts</strong>
+      <div style={{display:'flex',gap:18,flexWrap:'wrap',marginTop:10,fontSize:13}}>
+        <span>Missed check-ins today: <strong style={{color:missedCheckins?'#f87171':'var(--crm-text)'}}>{missedCheckins}</strong></span>
+        <span>Auto-closed sessions today: <strong>{autoClosedToday}</strong></span>
+        <span>Overdue follow-ups: <strong style={{color:overdueFollowups?'#f87171':'var(--crm-text)'}}>{overdueFollowups}</strong></span>
+      </div>
+      <p style={muted}>Alerts are calculated from loaded shift, attendance and follow-up records when this page opens.</p>
+    </section>
     <section style={{...panel,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:12}}>
       <div><div style={muted}>Pending leave</div><strong style={{fontSize:23}}>{pendingLeave}</strong></div>
       <div><div style={muted}>Pending corrections</div><strong style={{fontSize:23}}>{pendingCorrections}</strong></div>
