@@ -2131,6 +2131,66 @@ export default function App() {
         .auth-loading-stage .vector-loader svg {
           filter: drop-shadow(0 0 14px color-mix(in srgb, var(--crm-accent, #d9874e) 24%, transparent));
         }
+
+        /* Glass mode: stronger translucency for CRM navigation and surfaces. */
+        .crm-glassy .crm-layout>.crm-sidebar{
+          background:rgba(20,27,39,.34)!important;
+          border-right-color:rgba(160,181,210,.24)!important;
+          backdrop-filter:blur(26px) saturate(165%)!important;
+          -webkit-backdrop-filter:blur(26px) saturate(165%)!important;
+        }
+        .crm-glassy .crm-layout>main>section,
+        .crm-glassy .crm-layout>main>div>section{
+          background:rgba(24,31,45,.34)!important;
+          backdrop-filter:blur(26px) saturate(165%)!important;
+          -webkit-backdrop-filter:blur(26px) saturate(165%)!important;
+          border-color:rgba(160,181,210,.26)!important;
+        }
+        .crm-glassy .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"]){
+          background:rgba(27,35,50,.30)!important;
+          backdrop-filter:blur(20px) saturate(155%)!important;
+          -webkit-backdrop-filter:blur(20px) saturate(155%)!important;
+          border-color:rgba(160,181,210,.22)!important;
+        }
+        :root[data-crm-theme="day"].crm-glassy .crm-layout>.crm-sidebar{
+          background:rgba(235,243,253,.30)!important;
+          border-right-color:rgba(110,135,166,.25)!important;
+        }
+        :root[data-crm-theme="day"].crm-glassy .crm-layout>main>section,
+        :root[data-crm-theme="day"].crm-glassy .crm-layout>main>div>section{
+          background:rgba(239,246,255,.30)!important;
+          border-color:rgba(110,135,166,.24)!important;
+        }
+        :root[data-crm-theme="day"].crm-glassy .crm-layout :is(article,.crm-settings-section,.crm-settings-choice,[class*="card"]){
+          background:rgba(245,249,255,.27)!important;
+          border-color:rgba(110,135,166,.20)!important;
+        }
+        :root[data-crm-theme="night"].crm-glassy .crm-layout>.crm-sidebar{
+          background:rgba(12,17,28,.32)!important;
+        }
+        :root[data-crm-theme="night"].crm-glassy .crm-layout>main>section,
+        :root[data-crm-theme="night"].crm-glassy .crm-layout>main>div>section{
+          background:rgba(13,19,31,.32)!important;
+        }
+        /* The glass preference affects signed-in CRM surfaces, never removes login glass. */
+        .crm-glassy .auth-screen-root .auth-login-panel{
+          background:rgba(17,22,32,.30)!important;
+          border-color:rgba(160,181,210,.28)!important;
+          backdrop-filter:blur(18px) saturate(155%)!important;
+          -webkit-backdrop-filter:blur(18px) saturate(155%)!important;
+        }
+        :root[data-crm-theme="day"].crm-glassy .auth-screen-root .auth-login-panel{
+          background:rgba(245,249,255,.34)!important;
+          border-color:rgba(255,255,255,.62)!important;
+        }
+        :root[data-crm-theme="night"].crm-glassy .auth-screen-root .auth-login-panel{
+          background:rgba(13,18,29,.34)!important;
+        }
+        @media(max-width:760px){
+          .crm-glassy .crm-layout>.crm-sidebar{backdrop-filter:blur(18px) saturate(145%)!important;-webkit-backdrop-filter:blur(18px) saturate(145%)!important}
+          .crm-glassy .crm-layout>main>section,
+          .crm-glassy .crm-layout>main>div>section{backdrop-filter:blur(16px) saturate(140%)!important;-webkit-backdrop-filter:blur(16px) saturate(140%)!important}
+        }
       `}</style>
       <header className="crm-brand-header" style={{ maxWidth: 1440, margin: '0 auto', position:'relative',zIndex:1,display:'flex',justifyContent:'center',alignItems:'center',width:'100%',padding:'20px 16px 14px' }}>
         <p className="crm-brand-title" style={{ fontWeight: 800, textAlign:'center',margin:0,letterSpacing:'0.18em',fontSize:'clamp(18px,2.5vw,25px)',lineHeight:1.2 }}>ATTENDANCE <span style={{fontWeight:400,opacity:.82}}>CRM</span></p>
