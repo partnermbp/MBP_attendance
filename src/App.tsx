@@ -2800,16 +2800,19 @@ export default function App() {
         </p>
       )}
 
-      <p
-        style={{
-          maxWidth: 760,
-          margin: '20px auto',
-          color: '#98a2b3',
-          fontSize: 13,
-        }}
-      >
-        Authorized accounts only. Contact your manager in case you do not have access.
-      </p>
+      {screen === 'login' && (
+        <p
+          style={{
+            maxWidth: 760,
+            margin: '20px auto',
+            color: '#98a2b3',
+            fontSize: 13,
+            textAlign: 'center',
+          }}
+        >
+          Authorized accounts only. Contact your manager in case you do not have access.
+        </p>
+      )}
     </main>
   );
 }
