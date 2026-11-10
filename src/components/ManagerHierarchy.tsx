@@ -184,6 +184,30 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
 
   return <section style={{display:'grid',gap:14,marginTop:18}}>
     <header><h1 style={{margin:0,fontSize:25}}>Manager hierarchy</h1><KnowMore>Select a manager to view their reporting line and activity.</KnowMore></header>
+    {profile && profile.role.toLowerCase() !== 'admin' && <section style={panel}>
+      <strong>Today's reporting-line attendance</strong>
+      <p style={muted}>Current shift status for you and everyone assigned below you. Exact GPS data is not displayed.</p>
+      <div style={{display:'grid',gap:8,marginTop:12}}>
+        {[...visiblePeople].map(id => {
+          const person = people.get(id);
+          if (!person) return null;
+          const ownAttendance = attendance.filter(a => a.employee_id === id);
+          const timezone = ownAttendance.find(a => a.work_timezone)?.work_timezone || undefined;
+          const dayKey = (value: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(value));
+          const todayKey = dayKey(new Date().toISOString());
+          const shift = shifts.find(item => item.employee_id === id && dayKey(item.starts_at) === todayKey);
+          const todayRecords = ownAttendance.filter(item => (item.work_date || dayKey(item.check_in)) === todayKey);
+          const open = todayRecords.find(item => !item.check_out);
+          const latest = todayRecords[0];
+          const status = open ? 'Checked in' : latest?.check_out ? 'Checked out' : shift && Date.now() >= new Date(shift.starts_at).getTime() ? 'Not checked in' : shift ? 'Upcoming' : 'No shift scheduled';
+          const tone = status === 'Checked in' ? '#22c55e' : status === 'Not checked in' ? '#ef4444' : status === 'Checked out' ? '#60a5fa' : 'var(--crm-text-muted)';
+          return <div key={id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'8px 0',borderBottom:'1px solid var(--crm-border)'}}>
+            <span style={{minWidth:0}}><strong>{person.full_name || person.email || 'Team member'}</strong><small style={{display:'block',...muted}}>{roleName(person.role)}{shift ? ' · Starts '+new Date(shift.starts_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',timeZone:timezone}) : ''}</small></span>
+            <strong style={{fontSize:12,color:tone,whiteSpace:'nowrap'}}>{status}</strong>
+          </div>;
+        })}
+      </div>
+    </section>}
     {roots.length ? <div style={{...panel,display:'grid',gap:5}}>{roots.map(root=>renderNode(root,0,new Set()))}</div> : <div style={{...panel,textAlign:'center',padding:30}}><GitBranch size={28} color="var(--crm-accent)"/><strong style={{display:'block',marginTop:10}}>No manager hierarchy available</strong><p style={muted}>No active manager reporting lines are visible to this account yet.</p></div>}
     {isAdmin && <KnowMore>Manager profiles show attendance and coarse activity only. Exact GPS coordinates and map pins remain restricted to Admin.</KnowMore>}
   </section>;
