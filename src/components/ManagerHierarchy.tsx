@@ -10,7 +10,7 @@ type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: str
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
 
-const managerRoles = new Set(['middle', 'senior', 'team_leader', 'team leader']);
+const managerRoles = new Set(['junior', 'middle', 'senior', 'team_leader', 'team leader']);
 const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
 const roleName = (role: string) => role.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 const duration = (seconds: number | null) => {
@@ -152,9 +152,13 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
           {[...scope].map(id => {
             const person = people.get(id);
             if (!person) return null;
+            const personAttendance = attendance.filter(a => a.employee_id === id);
+            const timezone = personAttendance.find(a => a.work_timezone)?.work_timezone || undefined;
+            const dayKey = (value: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(value));
+            const todayKey = dayKey(new Date().toISOString());
             const personShifts = shifts.filter(s => s.employee_id === id);
-            const todayShift = personShifts.find(s => new Date(s.starts_at).toDateString() === new Date().toDateString());
-            const todayAttendance = attendance.filter(a => a.employee_id === id && (a.work_date || (a.work_timezone ? new Intl.DateTimeFormat('en-CA',{timeZone:a.work_timezone}).format(new Date(a.check_in)) : a.check_in.slice(0,10))) === (todayShift ? todayShift.starts_at.slice(0,10) : new Date().toLocaleDateString('en-CA')));
+            const todayShift = personShifts.find(s => dayKey(s.starts_at) === todayKey);
+            const todayAttendance = personAttendance.filter(a => (a.work_date || dayKey(a.check_in)) === todayKey);
             const open = todayAttendance.find(a => !a.check_out);
             const latest = todayAttendance[0];
             const now = Date.now();
