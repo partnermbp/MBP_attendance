@@ -1374,7 +1374,7 @@ export default function App() {
       setMfaChallengeTicket('');
       mfaLoginInProgressRef.current = false;
       await recordCrmLogin('password_2fa');
-      setMessage('All login verification steps completed successfully.');
+      setMessage('');
       setScreen('signed-in');
       await loadDashboard(authData.session.user.id);
     } catch (error) {
