@@ -760,6 +760,7 @@ export default function App() {
         if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
         else {
           setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
+          setShifts((Array.isArray(teamAttendanceResult.data?.shifts) ? teamAttendanceResult.data.shifts : []) as Shift[]);
           setTelegramMembers((Array.isArray(teamAttendanceResult.data?.telegram_members) ? teamAttendanceResult.data.telegram_members : []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>);
           setTelegramResponseMetrics((Array.isArray(teamAttendanceResult.data?.telegram_metrics) ? teamAttendanceResult.data.telegram_metrics : []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
         }
@@ -2750,7 +2751,7 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'manager-hierarchy' && (isAdmin || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
+          {activePage === 'manager-hierarchy' && (isAdmin || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
           {activePage === 'team-attendance' && isAdmin && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
