@@ -13,6 +13,7 @@ type DeviceRow = {
   location_tracking_enabled: boolean; location_consent_at: string | null; location_points: number;
 };
 type LocationRow = { id:number; latitude:number; longitude:number; accuracy_m:number|null; altitude_m:number|null; heading_deg:number|null; speed_mps:number|null; recorded_at:string; source:string };
+type NetworkRow = {id:number;previous_ip:string|null;current_ip:string;source:string;recorded_at:string};
 
 function deviceMetadata() {
   const ua = navigator.userAgent || '';
@@ -133,6 +134,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [rows,setRows]=useState<DeviceRow[]>([]);
   const [selected,setSelected]=useState<string|null>(null);
   const [points,setPoints]=useState<LocationRow[]>([]);
+  const [networkEvents,setNetworkEvents]=useState<NetworkRow[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [pointsLoading,setPointsLoading]=useState(false);
@@ -144,11 +146,15 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
   useEffect(()=>{
-    if(!selected){setPoints([]);return;}
+    if(!selected){setPoints([]);setNetworkEvents([]);return;}
     let alive=true;setPointsLoading(true);
-    void supabase.rpc('admin_device_location_points',{p_session_id:selected}).then(({data,error})=>{
+    void Promise.all([
+      supabase.rpc('admin_device_location_points',{p_session_id:selected}),
+      supabase.from('device_network_events').select('id,previous_ip,current_ip,source,recorded_at').eq('session_id',selected).order('recorded_at',{ascending:false}).limit(100),
+    ]).then(([locationResult,networkResult])=>{
       if(!alive)return;
-      if(error)setError(error.message);else setPoints((data||[]) as LocationRow[]);
+      if(locationResult.error)setError(locationResult.error.message);else setPoints((locationResult.data||[]) as LocationRow[]);
+      if(networkResult.error)setError(networkResult.error.message);else setNetworkEvents((networkResult.data||[]) as NetworkRow[]);
       setPointsLoading(false);
     });
     return()=>{alive=false;};
@@ -164,7 +170,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     {error&&<p role="alert" style={{color:'#fda29b'}}>{error}</p>}
     {!loading&&!rows.length&&!error&&<p>No device sessions have been registered yet.</p>}
     {!loading&&rows.length>0&&<div style={{overflowX:'auto'}}><table style={{width:'100%',minWidth:1000,borderCollapse:'collapse'}}>
-      <thead><tr>{['User','App','Version','Device / OS','IP','Last activity','Location tracking','Route'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead>
+      <thead><tr>{['User','App','Version','Device / OS','IP','Last activity','Status','Location tracking','Details / route'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead>
       <tbody>{rows.map(r=><tr key={r.session_id}>
         <td style={cell}>{r.full_name||'Unknown'}<br/><span style={{opacity:.7}}>{r.email||''}</span><br/><span style={{opacity:.65}}>{r.role}</span></td>
         <td style={cell}>{r.app_platform}<br/><span style={{opacity:.7}}>{r.app_runtime}</span></td>
@@ -172,11 +178,15 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
         <td style={cell}>{[r.device_model,r.os_name,r.os_version,r.browser_name].filter(Boolean).join(' · ')||'Limited by platform'}</td>
         <td style={cell}>{r.ip_address||'Not yet captured'}<br/><span style={{opacity:.7}}>{r.ip_source||''}</span></td>
         <td style={cell}>{new Date(r.last_seen_at).toLocaleString()}</td>
+        <td style={cell}>{Date.now()-new Date(r.last_seen_at).getTime()<180000?'Recently active':'Inactive / stale'}</td>
         <td style={cell}>{r.location_tracking_enabled?'Enabled':'Off'}<br/><span style={{opacity:.7}}>{r.location_points} points</span></td>
-        <td style={cell}><button type="button" onClick={()=>setSelected(r.session_id)} disabled={!r.location_points} style={{padding:'6px 9px'}}>{selected===r.session_id?'Selected':'View route'}</button></td>
+        <td style={cell}><button type="button" onClick={()=>setSelected(r.session_id)} style={{padding:'6px 9px'}}>{selected===r.session_id?'Selected':'Details'}</button></td>
       </tr>)}</tbody></table></div>}
     {selectedRow&&<section style={{marginTop:16,padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
       <h3 style={{marginTop:0}}>Shift route · {selectedRow.full_name||selectedRow.email||'User'}</h3>
+      <h4>Network / IP history</h4>
+      {!pointsLoading&&!networkEvents.length&&<p style={{fontSize:12,opacity:.7}}>No IP changes recorded for this session.</p>}
+      {networkEvents.length>0&&<div style={{overflowX:'auto',marginBottom:14}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Time','Previous IP','Observed IP','Source'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead><tbody>{networkEvents.map(n=><tr key={n.id}><td style={cell}>{new Date(n.recorded_at).toLocaleString()}</td><td style={cell}>{n.previous_ip||'First observation'}</td><td style={cell}>{n.current_ip}</td><td style={cell}>{n.source}</td></tr>)}</tbody></table></div>}
       {pointsLoading&&<p>Loading location points…</p>}
       {!pointsLoading&&!points.length&&<p>No location points were recorded for this session.</p>}
       {points.length>0&&<>
