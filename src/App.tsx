@@ -2095,7 +2095,6 @@ export default function App() {
               ];
               const steps = installationGuide === 'ios' ? iosSteps : macSteps;
               const step = steps[Math.min(installationStep, steps.length - 1)];
-              const uiText = {color:'#1c1c1e'};
               const smallText = {fontSize:10,color:'#6e6e73'};
               const iosMock = <div style={{width:'100%',maxWidth:350,margin:'0 auto',border:'7px solid #202126',borderRadius:30,background:'#f2f2f7',overflow:'hidden',boxShadow:'0 12px 30px rgba(0,0,0,.24)',color:'#1c1c1e',fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif'}}>
                 <div style={{height:25,padding:'5px 17px 0',display:'flex',justifyContent:'space-between',fontSize:10,fontWeight:700,background:'#f2f2f7'}}><span>9:41</span><span>● ● ▰</span></div>
