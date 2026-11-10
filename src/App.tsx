@@ -2509,7 +2509,7 @@ export default function App() {
             </section>
           </div>}
           <main style={{minWidth:0}}>
-          {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => !record.check_out)} />}
+          {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => record.employee_id === profile.id && !record.check_out)} />}
           <section style={panelStyle}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
 
