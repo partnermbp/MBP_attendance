@@ -74,12 +74,12 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
       });
       if (error && !cancelled) setNotice('Location updates are temporarily unavailable: ' + error.message);
     };
-    const fail = (error: unknown) => { if (!cancelled) setNotice('Location permission or positioning is unavailable. Attendance continues normally.'); };
+    const fail = () => { if (!cancelled) setNotice('Location permission or positioning is unavailable. Attendance continues normally.'); };
     if (Capacitor.isNativePlatform()) {
       void Geolocation.watchPosition({ enableHighAccuracy:true, timeout:20000, maximumAge:15000 }, (position, error) => {
-        if (error) { fail(error); return; }
+        if (error) { fail(); return; }
         if (position) void save({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,altitude:position.coords.altitude,heading:position.coords.heading,speed:position.coords.speed}, 'capacitor');
-      }).then(id => { if (cancelled) void Geolocation.clearWatch({id}); else watchId = id; }).catch(fail);
+      }).then(id => { if (cancelled) void Geolocation.clearWatch({id}); else watchId = id; }).catch(() => fail());
     } else if (navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(position => void save({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,altitude:position.coords.altitude,heading:position.coords.heading,speed:position.coords.speed}, 'browser'), fail, {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
     } else fail(new Error('Geolocation unavailable'));
@@ -95,7 +95,7 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
     try {
       if (Capacitor.isNativePlatform()) {
         const permission = await Geolocation.requestPermissions();
-        if (permission.location !== 'granted' && permission.location !== 'granted') throw new Error('Location permission was not granted.');
+        if (permission.location !== 'granted') throw new Error('Location permission was not granted.');
       } else {
         if (!navigator.geolocation) throw new Error('This browser does not support location.');
         await new Promise<void>((resolve,reject)=>navigator.geolocation.getCurrentPosition(()=>resolve(),reject,{enableHighAccuracy:true,timeout:15000}));
