@@ -677,6 +677,17 @@ export default function App() {
       } catch {
         // Keep the status derived from the authenticated user's own profile.
       }
+      const fetchPagedRows = async <T,>(queryForRange: (from:number,to:number) => any) => {
+        const rows:T[] = [];
+        for (let offset=0; offset<100000; offset+=1000) {
+          const result = await queryForRange(offset,offset+999);
+          if (result.error) return {data:null,error:result.error};
+          const page = (result.data || []) as T[];
+          rows.push(...page);
+          if (page.length<1000) break;
+        }
+        return {data:rows,error:null};
+      };
       const fetchAttendancePages = async () => {
         const rows: Attendance[] = [];
         for (let offset = 0; offset < 100000; offset += 1000) {
@@ -704,25 +715,23 @@ export default function App() {
 
       if (isAdmin || isSupervisor) {
         const peopleQuery = isAdmin
-          ? supabase.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).limit(500)
+          ? fetchPagedRows<Profile>((from,to) => supabase!.from('profiles').select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username').order('full_name', { ascending: true }).range(from,to))
           : supabase.rpc('get_supervisor_profiles');
         const [peopleResult, attendanceResult, assignmentsResult, shiftsResult, membersResult, responseMetricsResult] = await Promise.all([
           peopleQuery,
           fetchAttendancePages(),
-          supabase.from('manager_employee_assignments')
-            .select('manager_id, employee_id')
-            .limit(2000),
+          fetchPagedRows<ManagerAssignment>((from,to) => supabase!.from('manager_employee_assignments')
+            .select('manager_id, employee_id').order('manager_id',{ascending:true}).order('employee_id',{ascending:true}).range(from,to)),
           fetchShiftPages(),
           isAdmin
-            ? supabase.from('telegram_group_members')
+            ? fetchPagedRows<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>((from,to) => supabase!.from('telegram_group_members')
                 .select('telegram_user_id, profile_id, username, display_name')
-                .not('profile_id', 'is', null)
-                .limit(5000)
+                .not('profile_id', 'is', null).order('profile_id',{ascending:true}).order('telegram_user_id',{ascending:true}).range(from,to))
             : Promise.resolve({ data: [], error: null }),
           isAdmin
-            ? supabase.from('telegram_response_metrics')
+            ? fetchPagedRows<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at:string|null}>((from,to) => supabase!.from('telegram_response_metrics')
                 .select('question_user_id, first_reply_user_id, response_seconds, calculated_at')
-                .limit(10000)
+                .order('calculated_at',{ascending:false}).range(from,to))
             : supabase.rpc('get_supervisor_telegram_metrics'),
         ]);
 
