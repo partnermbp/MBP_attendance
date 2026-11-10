@@ -9,7 +9,8 @@ type Attendance = { id: string; employee_id?: string; check_in: string; check_ou
 type TelegramMember = { telegram_user_id?: number; profile_id: string | null; username?: string | null; display_name?: string | null; verified_at?: string | null };
 type TelegramMetric = { question_user_id: number | null; first_reply_user_id: number | null; response_seconds: number | null };
 
-const managerRoles = new Set(['junior', 'middle', 'senior', 'team_leader', 'team leader']);
+const managerRoles = new Set(['middle', 'senior', 'team_leader', 'team leader']);
+const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
 const roleName = (role: string) => role.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 const duration = (seconds: number | null) => {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -35,7 +36,9 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   const children = useMemo(() => {
     const result = new Map<string, string[]>();
     assignments.forEach(a => {
-      if (!people.has(a.manager_id) || !people.has(a.employee_id)) return;
+      const manager = people.get(a.manager_id);
+      const employee = people.get(a.employee_id);
+      if (!manager || !employee || roleRank(manager.role) <= roleRank(employee.role) || roleRank(manager.role) === 0 || roleRank(employee.role) === 0) return;
       const ids = result.get(a.manager_id) || [];
       if (!ids.includes(a.employee_id)) ids.push(a.employee_id);
       result.set(a.manager_id, ids);
@@ -57,7 +60,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
   }, [managers, profile, children]);
   const roots = [...visibleManagers].filter(id => {
     if (id === profile?.id && profile?.role.toLowerCase() !== 'admin') return true;
-    const parents = assignments.filter(a => a.employee_id === id && visibleManagers.has(a.manager_id));
+    const parents = assignments.filter(a => a.employee_id === id && visibleManagers.has(a.manager_id) && (children.get(a.manager_id) || []).includes(id));
     return parents.length === 0;
   }).map(id => people.get(id)!).filter(Boolean).sort((a,b)=>(a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
   const selected = selectedId ? people.get(selectedId) : null;
