@@ -2403,10 +2403,10 @@ export default function App() {
             <button type="button" className={['attendance','attendance-records','team-attendance'].includes(activePage)?'is-active':''} aria-current={['attendance','attendance-records','team-attendance'].includes(activePage)?'page':undefined} onClick={()=>{setActivePage('attendance-records');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
               <CalendarDays size={19}/><span>Attendance</span>
             </button>
-            {(isAdmin||canManageTeam)&&<button type="button" className={activePage==='team'||activePage==='manager-hierarchy'||activePage.startsWith('team-')?'is-active':''} aria-current={activePage==='team'||activePage==='manager-hierarchy'||activePage.startsWith('team-')?'page':undefined} onClick={()=>{setActivePage('team');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+            {(isAdmin||isSupervisor||canManageTeam)&&<button type="button" className={activePage==='team'||activePage==='manager-hierarchy'||activePage.startsWith('team-')?'is-active':''} aria-current={activePage==='team'||activePage==='manager-hierarchy'||activePage.startsWith('team-')?'page':undefined} onClick={()=>{setActivePage('team');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
               <Users size={19}/><span>Team</span>
             </button>}
-            {(isAdmin||canManageTeam||canUseHumanTelegram)&&<button type="button" className={activePage==='telegram'||activePage.startsWith('telegram-')?'is-active':''} aria-current={activePage==='telegram'||activePage.startsWith('telegram-')?'page':undefined} onClick={()=>{setActivePage(canUseHumanTelegram?'telegram-human':'telegram-analytics');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
+            {(isAdmin||isSupervisor||canManageTeam||canUseHumanTelegram)&&<button type="button" className={activePage==='telegram'||activePage.startsWith('telegram-')?'is-active':''} aria-current={activePage==='telegram'||activePage.startsWith('telegram-')?'page':undefined} onClick={()=>{setActivePage(canUseHumanTelegram?'telegram-human':'telegram-analytics');setMobileMoreOpen(false);window.scrollTo(0,0);}}>
               <MessageCircle size={19}/><span>Telegram</span>
             </button>}
             <button type="button" className={mobileMoreOpen||['settings','security','requests'].includes(activePage)?'is-active':''} aria-expanded={mobileMoreOpen} onClick={()=>setMobileMoreOpen(v=>!v)}>
