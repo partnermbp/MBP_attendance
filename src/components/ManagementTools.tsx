@@ -93,6 +93,10 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [messageReactions, setMessageReactions] = useState<MessageReaction[]>([]);
   const [messageReactionCounts, setMessageReactionCounts] = useState<MessageReactionCount[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [translationTarget, setTranslationTarget] = useState('EN');
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [translationNotice, setTranslationNotice] = useState('');
   const [groupMessagesHasMore, setGroupMessagesHasMore] = useState(false);
   const [groupMessagesLoadingOlder, setGroupMessagesLoadingOlder] = useState(false);
   const [groupMessagesAtTop, setGroupMessagesAtTop] = useState(false);
@@ -332,6 +336,51 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setGroupMessagesLoadingOlder(false);
   }
 
+
+
+  async function translateLoadedGroupMessages() {
+    if (!supabase || !selectedGroup || translationLoading) return;
+    const loaded = messages
+      .filter(message => String(message.telegram_chat_id) === selectedGroup && Boolean(message.message_text?.trim()))
+      .map(message => ({
+        id: String(message.telegram_chat_id) + ':' + String(message.telegram_message_id),
+        text: String(message.message_text || '').trim(),
+      }));
+    if (!loaded.length) {
+      setTranslationNotice('There are no text messages to translate in the loaded chat.');
+      return;
+    }
+    const missing = loaded.filter(message => !translations[selectedGroup + ':' + translationTarget + ':' + message.id]);
+    if (!missing.length) {
+      setTranslationNotice('All currently loaded text messages are already translated into this language.');
+      return;
+    }
+    setTranslationLoading(true);
+    setTranslationNotice('');
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-message-translate', {
+        body: { target_lang: translationTarget, messages: missing },
+      });
+      if (error) throw new Error(error.message || 'Translation request failed.');
+      if (data?.error) throw new Error(String(data.error));
+      const results = Array.isArray(data?.translations) ? data.translations : [];
+      if (results.length !== missing.length) throw new Error('The translation service returned an incomplete result. Please try again.');
+      setTranslations(current => {
+        const next = { ...current };
+        for (const result of results) {
+          if (result?.id && typeof result?.text === 'string') {
+            next[selectedGroup + ':' + translationTarget + ':' + String(result.id)] = result.text;
+          }
+        }
+        return next;
+      });
+      setTranslationNotice('Translated ' + results.length + ' message' + (results.length === 1 ? '' : 's') + '.');
+    } catch (error) {
+      setTranslationNotice(error instanceof Error ? error.message : 'Could not translate the loaded messages.');
+    } finally {
+      setTranslationLoading(false);
+    }
+  }
 
   useEffect(() => {
     return () => { if (activeMedia?.url) URL.revokeObjectURL(activeMedia.url); };
@@ -710,11 +759,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Average response</div><strong style={{ fontSize: 24 }}>{prettyDuration(avgSeconds)}</strong></article>
     </div>
     {notice && <p role="status" style={{ padding: 10, background: '#202b3e', borderRadius: 8, overflowWrap: 'anywhere' }}>{notice}</p>}
+    {translationNotice && page === 'telegram-analytics' && <p role="status" style={{padding:'7px 10px',margin:'8px 0',background:'#202b3e',borderRadius:8,color:'#c7d9ee',fontSize:12,overflowWrap:'anywhere'}}>{translationNotice}</p>}
     {loading && <p style={muted}>Loading management data…</p>}
     {!selectedGroup ? <div style={{ padding:34, border:'1px dashed #475467', borderRadius:14, textAlign:'center', color:'#b7c0d1', background:'#101828' }}><div style={{ fontSize:30, marginBottom:10 }}>💬</div><strong style={{ color:'#f8fafc' }}>Choose a group to open its chat</strong><p style={muted}>Messages stay hidden until you select a Telegram group above.</p></div> : <>
       <h3>Chat · {groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Selected group'}</h3>
       <div style={{ border:'1px solid #344054', borderRadius:14, overflow:'hidden', background:'#0e1726' }}>
-        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span></header>
+        <header style={{ padding:'13px 16px', background:'#18263a', borderBottom:'1px solid #344054', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}><div><strong>{groups.find(g=>String(g.telegram_chat_id)===selectedGroup)?.title || 'Telegram group'}</strong><div style={{ ...muted, marginTop:3 }}>{messages.length} captured messages · newest first</div></div><div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}><span style={{ fontSize:11, color:'#8dd8ae' }}>● CRM archive</span><select aria-label="Translation language" value={translationTarget} onChange={event => {setTranslationTarget(event.target.value);setTranslationNotice('');}} disabled={translationLoading} style={{padding:'7px 9px',border:'1px solid #475467',borderRadius:8,background:'#101828',color:'#f8fafc',fontSize:12}}><option value="EN">English</option><option value="BN">Bengali</option><option value="RU">Russian</option></select><button type="button" onClick={() => void translateLoadedGroupMessages()} disabled={translationLoading || !messages.some(message => String(message.telegram_chat_id)===selectedGroup && Boolean(message.message_text?.trim()))} style={{...button,padding:'7px 11px',fontSize:12,opacity:translationLoading?0.65:1,cursor:translationLoading?'wait':'pointer'}}>{translationLoading ? 'Translating…' : 'Translate loaded messages'}</button></div></header>
         <div ref={groupMessagesContainerRef} onScroll={event => setGroupMessagesAtTop(event.currentTarget.scrollTop <= 24)} style={{ position:'relative', padding:16, display:'flex', flexDirection:'column', gap:10, maxHeight:480, overflowY:'auto', backgroundImage:'radial-gradient(#24344b 0.7px, transparent 0.7px)', backgroundSize:'14px 14px' }}>{groupMessagesHasMore && groupMessagesAtTop && <button type="button" disabled={groupMessagesLoadingOlder} onClick={() => void loadOlderGroupMessages()} style={{ position:'sticky', top:0, zIndex:2, alignSelf:'center', margin:'-6px 0 2px', padding:'6px 13px', border:'1px solid #ffffff35', borderRadius:999, background:'rgba(18, 28, 43, .58)', color:'#e8eef8', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', cursor:groupMessagesLoadingOlder?'wait':'pointer', fontSize:12, boxShadow:'0 2px 10px #0003' }}>{groupMessagesLoadingOlder ? 'Loading older messages…' : '↑ Load older messages'}</button>}
           {[...messages].filter(m=>String(m.telegram_chat_id)===selectedGroup).reverse().map(m => {
             const raw=m.raw_update || {};
@@ -743,6 +793,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
               <div style={{ color:'#8ed0ff', fontSize:12, fontWeight:700, marginBottom:5 }}>{m.display_name || (m.username ? '@'+m.username : 'Unknown sender')}</div>
               {media && <div style={{margin:'6px 0',padding:10,border:'1px solid #41566e',background:'#132033',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}><span style={{fontSize:24}}>{photo ? '🖼️' : msg.video ? '🎞️' : msg.voice || msg.audio ? '🎙️' : msg.sticker ? '✨' : '📎'}</span><span style={{fontSize:12,overflowWrap:'anywhere',flex:1,minWidth:120}}><strong>{mediaName || 'Attachment'}</strong><br/><span style={{color:'#9aaec5'}}>{media.file_size ? (media.file_size > 1048576 ? (media.file_size / 1048576).toFixed(1)+' MB' : Math.max(1,Math.round(media.file_size / 1024))+' KB')+' · ' : ''}Private on-demand preview</span></span><button type="button" style={{...button,padding:'7px 10px',fontSize:12}} disabled={mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id} onClick={() => void openAttachment(m, mediaName || 'Telegram attachment')}>{mediaLoading===m.telegram_chat_id+':'+m.telegram_message_id ? 'Loading…' : 'Preview'}</button>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id] && <p role="alert" style={{width:'100%',margin:'4px 0 0',color:'#fda29b',fontSize:12,overflowWrap:'anywhere'}}>{mediaErrors[m.telegram_chat_id+':'+m.telegram_message_id]}</p>}</div>}
               <div style={{ whiteSpace:'pre-wrap', overflowWrap:'anywhere', lineHeight:1.5, fontSize:14 }}>{m.message_text || (!media ? '[non-text message]' : '')}</div>
+              {m.message_text?.trim() && translations[selectedGroup + ':' + translationTarget + ':' + m.telegram_chat_id + ':' + m.telegram_message_id] && <div style={{marginTop:7,paddingTop:7,borderTop:'1px solid #45607c',color:'#c7d9ee',whiteSpace:'pre-wrap',overflowWrap:'anywhere',lineHeight:1.5,fontSize:13}}><div style={{fontSize:10,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',color:'#8ed0ff',marginBottom:3}}>Translation · {translationTarget === 'EN' ? 'English' : translationTarget === 'BN' ? 'Bengali' : 'Russian'}</div>{translations[selectedGroup + ':' + translationTarget + ':' + m.telegram_chat_id + ':' + m.telegram_message_id]}</div>}
               {reactionSummary.size > 0 && <div aria-label="Message reactions" style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:7 }}>
                 {[...reactionSummary.entries()].map(([key, reaction]) => <span key={key} title="Current reaction count" style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 7px', borderRadius:999, background:'#2a3d55', border:'1px solid #45607c', color:'#f0f6ff', fontSize:12 }}>{reaction.label} <strong>{reaction.count}</strong></span>)}
               </div>}
