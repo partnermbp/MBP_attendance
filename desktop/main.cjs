@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, session } = require("electron");
+const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
 
 const APP_URL = "https://attendence.dpdns.org/";
@@ -38,14 +38,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  const ses = session.defaultSession;
-  ses.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(permission === "geolocation" || permission === "notifications");
-  });
-  ses.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === "geolocation" || permission === "notifications";
-  });
-
+  // Leave Chromium's permission flow intact. Location access must be explicitly
+  // granted by the employee from the CRM; never silently auto-approve it.
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
