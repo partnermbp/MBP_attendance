@@ -43,50 +43,6 @@ async function mfaSessionApproved(accessToken: string): Promise<boolean> {
   } catch { return false; }
 }
 
-function coordinateKey(lat: number | null, lng: number | null) {
-  return lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)
-    ? null
-    : `${lat.toFixed(1)},${lng.toFixed(1)}`;
-}
-
-async function regionCountry(lat: number, lng: number): Promise<{ region: string | null; country: string | null }> {
-  const roundedLat = Number(lat.toFixed(1));
-  const roundedLng = Number(lng.toFixed(1));
-  const url = new URL("https://nominatim.openstreetmap.org/reverse");
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("lat", String(roundedLat));
-  url.searchParams.set("lon", String(roundedLng));
-  url.searchParams.set("zoom", "5");
-  url.searchParams.set("addressdetails", "1");
-
-  // Retry transient rate-limit/network/server errors once. A single failed lookup
-  // should not permanently turn an otherwise valid GPS point into "Location unavailable".
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await fetch(url, { headers: { "User-Agent": "AttendanceCRM/1.0 (coarse region-country labels)" } });
-      if (!response.ok) {
-        if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          continue;
-        }
-        return { region: null, country: null };
-      }
-      const data = await response.json();
-      const address = data?.address || {};
-      const region = address.state || address.province || address.region || address.state_district || null;
-      const country = address.country || null;
-      return { region: region ? String(region) : null, country: country ? String(country) : null };
-    } catch {
-      if (attempt === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-        continue;
-      }
-      return { region: null, country: null };
-    }
-  }
-  return { region: null, country: null };
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -186,18 +142,14 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    const records = (rows || []).map((row: any) => {
-      const inLabel = labels.get("in:" + row.id) || { region: row.check_in_region || null, country: row.check_in_country || null };
-      const outLabel = labels.get("out:" + row.id) || { region: row.check_out_region || null, country: row.check_out_country || null };
-      return {
-        id: row.id,
-        employee_id: row.employee_id,
-        check_in: row.check_in,
-        check_out: row.check_out,
-        work_date: row.work_date,
-        work_timezone: row.work_timezone,
-      };
-    });
+    const records = (rows || []).map((row: any) => ({
+      id: row.id,
+      employee_id: row.employee_id,
+      check_in: row.check_in,
+      check_out: row.check_out,
+      work_date: row.work_date,
+      work_timezone: row.work_timezone,
+    }));
     return json({ records, telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
   } catch (error) {
     console.error("Manager attendance lookup failed:", error);
