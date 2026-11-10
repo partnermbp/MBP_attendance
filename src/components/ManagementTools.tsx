@@ -234,6 +234,15 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   useEffect(() => {
+    if (!supabase || !isAdmin || !(page === 'team' || page === 'team-assignments')) return;
+    const channel = supabase.channel('crm-manager-assignment-refresh')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'manager_employee_assignments' }, () => { void load(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => { void load(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [supabase, isAdmin, profile?.id, page]);
+
+  useEffect(() => {
     void load();
     if (page !== 'telegram-analytics' || !selectedGroup) return;
     const refresh = window.setInterval(() => { void load(); }, 30000);
@@ -427,7 +436,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase()));
+  const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+  const managers = profiles.filter(p => p.active && ['middle','senior','team_leader'].includes(p.role.toLowerCase().replaceAll(' ', '_')));
+  const validAssignments = assignments.filter(a => {
+    const parent = profiles.find(p => p.id === a.manager_id && p.active);
+    const child = profiles.find(p => p.id === a.employee_id && p.active);
+    return Boolean(parent && child && roleRank(parent.role) > roleRank(child.role) && roleRank(parent.role) > 0 && roleRank(child.role) > 0);
+  });
+  const invalidAssignments = assignments.filter(a => !validAssignments.some(valid => valid.manager_id === a.manager_id && valid.employee_id === a.employee_id));
+  const managerIds = new Set(managers.map(p => p.id));
+  const hasValidManagerParent = new Set(validAssignments.filter(a => managerIds.has(a.manager_id) && managerIds.has(a.employee_id)).map(a => a.employee_id));
+  const rootManagers = managers.filter(person => !hasValidManagerParent.has(person.id)).sort((a,b) => roleRank(b.role)-roleRank(a.role) || (a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
   const employees = profiles.filter(p => p.active && p.role.toLowerCase() !== 'admin' && !['manager','employee'].includes(p.role.toLowerCase()));
   const inviteRoles = isAdmin ? ['team_leader','senior','middle','junior','telemarketing'] : normalizedRole === 'team leader' ? ['senior','middle','junior'] : normalizedRole === 'senior' ? ['middle','junior'] : ['junior'];
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
@@ -486,9 +505,17 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <tbody>{profiles.filter(p=>p.active && p.role.toLowerCase()!=='admin').map(p=><tr key={p.id}>
           <td style={cell}>{p.full_name || p.email || p.id}</td><td style={cell}>{p.role}</td>
           <td style={cell}><select style={input} value={roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_')} onChange={e=>setRoleSelections(current=>({...current,[p.id]:e.target.value}))}>
-            {['junior','middle','senior','team_leader','telemarketing'].map(role=><option key={role} value={role}>{role==='team_leader'?'Team Leader':role[0].toUpperCase()+role.slice(1)}</option>)}
+            {['junior','middle','senior','team_leader','telemarketing'].map(role=>{
+              const parentLinks=assignments.filter(a=>a.employee_id===p.id).map(a=>profiles.find(x=>x.id===a.manager_id)).filter((x):x is Person=>Boolean(x));
+              const childLinks=assignments.filter(a=>a.manager_id===p.id).map(a=>profiles.find(x=>x.id===a.employee_id)).filter((x):x is Person=>Boolean(x));
+              const proposedRank=roleRank(role);
+              const invalidParent=parentLinks.some(parent=>roleRank(parent.role)<=proposedRank || proposedRank===0);
+              const invalidChild=childLinks.some(child=>proposedRank<=roleRank(child.role) || proposedRank===0);
+              const disabled=(invalidParent||invalidChild) && role!==p.role.toLowerCase().replaceAll(' ','_');
+              return <option key={role} value={role} disabled={disabled}>{role==='team_leader'?'Team Leader':role[0].toUpperCase()+role.slice(1)}{disabled?' — conflicts with reporting line':''}</option>;
+            })}
           </select></td>
-          <td style={cell}><button type="button" style={button} disabled={loading || (roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_'))===p.role.toLowerCase().replaceAll(' ','_')} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {error}=await supabase.rpc('set_employee_role',{target_profile:p.id,new_role:roleSelections[p.id]});setNotice(error?'Could not update role: '+error.message:'Role updated.');if(!error)await load();setLoading(false);}}>Save role</button></td>
+          <td style={cell}><button type="button" style={button} disabled={loading || (roleSelections[p.id] ?? p.role.toLowerCase().replaceAll(' ','_'))===p.role.toLowerCase().replaceAll(' ','_')} onClick={async()=>{if(!supabase)return;setLoading(true);setNotice('');const {error}=await supabase.rpc('set_employee_role',{target_profile:p.id,new_role:roleSelections[p.id]});const detail=error?.message?.toLowerCase()||'';setNotice(error?(detail.includes('reporting hierarchy')?'Role change blocked: it would make this employee’s existing reporting line invalid. Reassign the manager or reports first.':'Could not update role: '+error.message):'Role updated.');if(!error)await load();setLoading(false);}}>Save role</button></td>
         </tr>)}</tbody></table></div>
     </>}
     {isAdmin && (page === 'team' || page === 'team-links') && <>
@@ -508,20 +535,52 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     </>}
     {isAdmin && (page === 'team' || page === 'team-assignments') && <>
       <h3>Assign employees to managers</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        <label>Manager<select style={input} value={managerId} onChange={e => setManagerId(e.target.value)}><option value="">Choose manager</option>{managers.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
-        <label>Employee<select style={input} value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.filter(p => {
-          const selectedManager = profiles.find(m => m.id === managerId);
-          const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
-          return !managerId || Boolean(selectedManager && rank(selectedManager.role) > rank(p.role) && rank(p.role) > 0);
-        }).map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}</select></label>
+      <KnowMore>Invited employees are automatically placed under the manager who invited them after registration is completed. Use these controls only to correct or change an existing reporting line.</KnowMore>
+      <details style={{margin:'8px 0 16px',padding:'10px 12px',border:'1px solid #344054',borderRadius:8,background:'var(--crm-card-raised)'}}>
+        <summary style={{cursor:'pointer',fontSize:13,fontWeight:650}}>Change an assignment manually</summary>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:12,marginTop:12}}>
+          <label>Manager<select style={input} value={managerId} onChange={e=>{setManagerId(e.target.value);setEmployeeId('');}}><option value="">Choose manager</option>{managers.map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select></label>
+          <label>Employee<select style={input} value={employeeId} onChange={e=>setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.filter(p=>!managerId || Boolean(profiles.find(x=>x.id===managerId) && roleRank(profiles.find(x=>x.id===managerId)!.role)>roleRank(p.role) && roleRank(p.role)>0)).map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select></label>
+        </div>
+        {assignmentNotice&&<p role="status" aria-live="polite" style={{margin:'8px 0 0',fontSize:12,lineHeight:1.4,color:assignmentNotice==='Assignment saved.'?'#75e0a7':'#fda29b',overflowWrap:'anywhere'}}>{assignmentNotice}</p>}
+        <button type="button" style={{...button,marginTop:8}} disabled={loading||!managerId||!employeeId} onClick={()=>void addAssignment()}>Save assignment</button>
+      </details>
+      <div style={{display:'grid',gap:7}}>
+        {rootManagers.map(person=>{
+          const direct=validAssignments.filter(a=>a.manager_id===person.id);
+          const expanded=Boolean(expandedManagers[person.id]);
+          const renderAssignmentNode=(manager:Person,depth=0):ReactElement=>{
+            const children=validAssignments.filter(a=>a.manager_id===manager.id).map(a=>profiles.find(p=>p.id===a.employee_id)).filter((p):p is Person=>Boolean(p)).sort((a,b)=>roleRank(b.role)-roleRank(a.role)||(a.full_name||a.email||'').localeCompare(b.full_name||b.email||''));
+            const childManagers=children.filter(p=>managerIds.has(p.id));
+            const childEmployees=children.filter(p=>!managerIds.has(p.id));
+            const isExpanded=Boolean(expandedManagers[manager.id]);
+            return <div key={manager.id} style={{marginLeft:depth?Math.min(depth,5)*16:0,borderLeft:depth?'1px solid var(--crm-border)':0,paddingLeft:depth?10:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0'}}>
+                {children.length>0?<button type="button" aria-label={isExpanded?'Collapse reports':'Expand reports'} onClick={()=>setExpandedManagers(current=>({...current,[manager.id]:!current[manager.id]}))} style={{display:'grid',placeItems:'center',width:24,height:24,padding:0,flexShrink:0,border:'1px solid var(--crm-border)',borderRadius:5,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}>{isExpanded?'⌄':'›'}</button>:<span style={{width:24,flexShrink:0}}/>}
+                <span style={{minWidth:0,flex:1}}><strong style={{display:'block',fontSize:13}}>{manager.full_name||manager.email||'Manager'}</strong><small style={muted}>{manager.role.replaceAll('_',' ')} · {children.length} direct reports</small></span>
+              </div>
+              {isExpanded&&<div style={{display:'grid',gap:3,paddingBottom:5}}>
+                {childManagers.map(child=>renderAssignmentNode(child,depth+1))}
+                {childEmployees.map(child=><div key={child.id} style={{display:'flex',alignItems:'center',gap:8,marginLeft:Math.min(depth+1,5)*16,padding:'7px 8px',borderRadius:6,background:'var(--crm-card-raised)'}}>
+                  <span style={{width:24,flexShrink:0}}/>
+                  <span style={{flex:1,minWidth:0,fontSize:12}}>{child.full_name||child.email||'Employee'} <small style={muted}>· {child.role.replaceAll('_',' ')}</small></span>
+                  <button type="button" style={{...button,padding:'5px 9px',fontSize:11,background:'#b42318'}} disabled={loading} onClick={()=>void removeAssignment({manager_id:manager.id,employee_id:child.id,created_at:validAssignments.find(a=>a.manager_id===manager.id&&a.employee_id===child.id)?.created_at||''})}>Remove</button>
+                </div>)}
+                {childManagers.map(child=><div key={'remove-'+child.id} style={{display:'none'}} />)}
+              </div>}
+            </div>;
+          };
+          return <div key={person.id} style={{border:'1px solid var(--crm-border)',borderRadius:8,padding:'8px 12px',background:'var(--crm-card-bg)'}}>
+            {renderAssignmentNode(person)}
+            {direct.length>0&&expanded&&<div style={{display:'flex',justifyContent:'flex-end',paddingTop:4}}><span style={{fontSize:10,color:'var(--crm-text-muted)'}}>Expand a manager to view reports and controls</span></div>}
+          </div>;
+        })}
+        {rootManagers.length===0&&<p style={muted}>No top-level managers found.</p>}
       </div>
-      {assignmentNotice && <p role="status" aria-live="polite" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4, color: assignmentNotice === 'Assignment saved.' ? '#75e0a7' : '#fda29b', overflowWrap: 'anywhere' }}>{assignmentNotice}</p>}
-      <button type="button" style={{ ...button, marginTop: 8 }} disabled={loading || !managerId || !employeeId} onClick={() => void addAssignment()}>Save assignment</button>
-      <div style={{ overflowX: 'auto', marginTop: 14 }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead><tr><th style={cell}>Manager</th><th style={cell}>Employee</th><th style={cell}>Assigned</th><th style={cell}>Action</th></tr></thead>
-        <tbody>{assignments.map(a => <tr key={a.manager_id + ':' + a.employee_id}><td style={cell}>{personName(a.manager_id)}</td><td style={cell}>{personName(a.employee_id)}</td><td style={cell}>{new Date(a.created_at).toLocaleDateString()}</td><td style={cell}><button type="button" style={{ ...button, background: '#b42318' }} disabled={loading} onClick={() => void removeAssignment(a)}>Remove</button></td></tr>)}</tbody>
-      </table></div>
+      {invalidAssignments.length>0&&<details style={{marginTop:12,padding:'10px 12px',border:'1px solid #854d0e',borderRadius:8}}>
+        <summary style={{cursor:'pointer',fontSize:12,color:'#fbbf24'}}>Assignments needing correction ({invalidAssignments.length})</summary>
+        <div style={{display:'grid',gap:6,marginTop:8}}>{invalidAssignments.map(a=><div key={a.manager_id+':'+a.employee_id} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:12}}><span style={{flex:1,minWidth:180}}>{personName(a.manager_id)} → {personName(a.employee_id)}</span><button type="button" style={{...button,padding:'5px 9px',fontSize:11,background:'#b42318'}} disabled={loading} onClick={()=>void removeAssignment(a)}>Remove invalid link</button></div>)}</div>
+      </details>}
     </>}
     {(isManager || isAdmin) && <>
       {(page === 'team' || page === 'team-invitations') && (isAdmin || (isManager && normalizedRole !== 'junior')) && <>
