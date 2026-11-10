@@ -746,7 +746,7 @@ export default function App() {
           setTelegramResponseMetrics((Array.isArray(teamAttendanceResult.data?.telegram_metrics) ? teamAttendanceResult.data.telegram_metrics : []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null}>);
         }
         if (shiftsResult.error) setMessage(current => current || 'Could not load shifts: ' + shiftsResult.error.message);
-        else setShifts(previous => {
+        else setShifts(() => {
           const teamShifts = Array.isArray(teamAttendanceResult.data?.shifts) ? teamAttendanceResult.data.shifts as Shift[] : [];
           const ownShifts = ((shiftsResult.data ?? []) as Shift[]).map(shift => ({ ...shift, employee_id: userId }));
           const byId = new Map([...teamShifts, ...ownShifts].map(shift => [shift.id, shift]));
