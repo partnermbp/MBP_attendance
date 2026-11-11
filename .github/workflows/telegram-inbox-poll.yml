@@ -11,6 +11,15 @@ on:
     # Five minutes is the shortest supported interval; actual starts can still be delayed.
     - cron: "2-59/5 * * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run the full inbox sync or only resolve Telegram handler requests"
+        required: false
+        type: choice
+        options:
+          - full
+          - lookup_only
+        default: full
 
 permissions:
   contents: read
@@ -55,8 +64,18 @@ jobs:
         if: steps.config.outputs.configured == 'true'
         run: python -m pip install -r scripts/telegram/requirements.txt
 
+      - name: Resolve Telegram handler requests only
+        if: steps.config.outputs.configured == 'true' && inputs.mode == 'lookup_only'
+        run: python scripts/telegram/resolve_handler_requests.py
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Poll inbox and deliver queued replies
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && inputs.mode != 'lookup_only'
         run: python scripts/telegram/poll_inbox.py
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
