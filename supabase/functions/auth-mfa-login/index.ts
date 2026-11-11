@@ -402,10 +402,17 @@ async function deviceRegistered(req: Request, body: any) {
   return reply({ ok: true, notified: isNewInstallation });
 }
 
-async function logoutNotice(req: Request) {
+async function logoutNotice(req: Request, body: any) {
   const auth = await caller(req);
   if (!auth) return reply({ error: "Authenticated session required." }, 401);
-  await notifyUserTelegram(auth.user.id, "Attendance CRM security notice: your account signed out successfully. If this was not you, change your password and contact an administrator.");
+  const reason = body?.reason === "inactivity_timeout" ? "inactivity_timeout" : "user_requested";
+  await db.from("crm_security_events").insert({
+    profile_id: auth.user.id, event_type: "logout", outcome: "success",
+    details: { reason, source: "authenticated_mfa_edge_function" },
+  });
+  await notifyUserTelegram(auth.user.id, "Attendance CRM security notice: your account signed out successfully. Reason: " +
+    (reason === "inactivity_timeout" ? "60-minute inactivity timeout" : "manual sign-out") +
+    ". If this was not you, change your password and contact an administrator.");
   return reply({ ok: true });
 }
 
@@ -451,7 +458,7 @@ Deno.serve(async (req: Request) => {
     if (body?.action === "finish") return await finish(req, body);
     if (body?.action === "device_registered") return await deviceRegistered(req, body);
     if (body?.action === "device_ip_changed") return await deviceIpChanged(req, body);
-    if (body?.action === "logout_notice") return await logoutNotice(req);
+    if (body?.action === "logout_notice") return await logoutNotice(req, body);
     if (body?.action === "validate") return await validate(req);
     return reply({ error: "Unknown action." }, 400);
   } catch (error) {
