@@ -74,7 +74,7 @@ async function deviceMetadata() {
   };
 }
 
-export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: { supabase: SupabaseClient; userId: string; hasActiveShift: boolean }) {
+export function DeviceTelemetryController({ supabase, userId, hasActiveShift, showDeviceSecurityInfo = true }: { supabase: SupabaseClient; userId: string; hasActiveShift: boolean; showDeviceSecurityInfo?: boolean }) {
   const [sessionId, setSessionId] = useState<string|null>(null);
   const [tracking, setTracking] = useState(false);
   const [notice, setNotice] = useState('');
@@ -178,8 +178,8 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
     setNotice(error ? 'Could not update tracking preference: '+error.message : 'Location sharing is paused.');
   },[sessionId,supabase]);
   return <section aria-label="Device security and shift location" style={{margin:'12px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10,background:'var(--crm-surface,rgba(255,255,255,.03))'}}>
-    <strong style={{fontSize:13}}>Device & security information</strong>
-    <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>This app records its platform, version, operating system/browser, timezone and server-observed network IP for account security. Detailed device and location records are visible only to Admin.</p>
+    {showDeviceSecurityInfo&&<><strong style={{fontSize:13}}>Device & security information</strong>
+    <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>This app records its platform, version, operating system/browser, timezone and server-observed network IP for account security. Detailed device and location records are visible only to Admin.</p></>}
     {hasActiveShift&&sessionId&&<>
       <strong style={{fontSize:13}}>Optional shift location sharing</strong>
       <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>When enabled, your location is recorded during this active shift and is visible only to Admin. You can pause it at any time. Location sharing stops automatically at checkout.</p>
