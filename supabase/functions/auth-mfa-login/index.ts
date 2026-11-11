@@ -77,6 +77,39 @@ async function sendTelegram(chatId: number, code: string) {
   });
   if (!response.ok) throw new Error("Telegram code delivery failed");
 }
+
+async function notifyUserTelegram(userId: string, message: string) {
+  try {
+    const { data: profile } = await db.from("profiles")
+      .select("role,telegram_user_id,telegram_verified_at")
+      .eq("id", userId).maybeSingle();
+    if (!profile || String(profile.role || "").toLowerCase() === "supervisor" ||
+        !profile.telegram_user_id || !profile.telegram_verified_at) return;
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: Number(profile.telegram_user_id), text: message, disable_web_page_preview: true }),
+    });
+    if (!response.ok) console.error("CRM security Telegram notification delivery failed");
+  } catch (error) {
+    console.error("CRM security Telegram notification failed:", error instanceof Error ? error.message : "unknown");
+  }
+}
+async function recordOtpFailure(userId: string, eventType: "failed_email_otp" | "failed_telegram_otp", attemptCount: number) {
+  await db.from("crm_security_events").insert({
+    profile_id: userId, event_type: eventType, outcome: "failure",
+    details: { attempt_count: attemptCount, threshold: 5 },
+  });
+  if (attemptCount >= 5) {
+    await db.from("crm_security_events").insert({
+      profile_id: userId, event_type: "security_alert_triggered", outcome: "info",
+      details: { category: eventType, attempt_count: attemptCount },
+    });
+    await notifyUserTelegram(userId,
+      "Attendance CRM security alert: five incorrect " +
+      (eventType === "failed_email_otp" ? "corporate email" : "Telegram") +
+      " verification codes were entered for your account. If this was not you, change your password and contact an administrator.");
+  }
+}
 async function sendCorporateEmailOtp(email: string, code: string) {
   if (!SMTP2GO_API_KEY || !SMTP2GO_FROM_EMAIL) throw new Error("Corporate email delivery is not configured");
   const response = await fetch("https://api.smtp2go.com/v3/email/send", {
@@ -169,6 +202,7 @@ async function begin(req: Request, body: any) {
     try {
       const weekIndex = await currentWeek(auth.user.id);
       await completeSession(auth.user.id, auth.sessionId, weekIndex);
+      await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful sign-in to your account was completed using your verified invitation. If this was not you, contact an administrator.");
       return reply({ ok: true, stage: "complete", verification: "invitation_verified" });
     } catch {
       return reply({ error: "Your registration is complete, but the first session could not be approved. Sign in again." }, 500);
@@ -195,6 +229,7 @@ async function begin(req: Request, body: any) {
   if (admin) {
     try {
       await completeSession(auth.user.id, auth.sessionId, weekIndex);
+      await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful administrator sign-in was completed. If this was not you, contact an administrator immediately.");
       return reply({ ok: true, stage: "complete", verification: "password_only" });
     } catch {
       return reply({ error: "Unable to approve this admin login." }, 500);
@@ -276,7 +311,9 @@ async function emailVerified(req: Request, body: any) {
   }
   if (Number(challenge.attempts) >= 5) return reply({ error: "Too many incorrect attempts. Start login again." }, 429);
   if (await sha(code) !== challenge.email_otp_hash) {
-    await db.from("crm_login_challenges").update({ attempts: Number(challenge.attempts) + 1 }).eq("id", challenge.id);
+    const nextAttempts = Number(challenge.attempts) + 1;
+    await db.from("crm_login_challenges").update({ attempts: nextAttempts }).eq("id", challenge.id);
+    await recordOtpFailure(auth.user.id, "failed_email_otp", nextAttempts);
     return reply({ error: "Incorrect corporate email code." }, 400);
   }
   if (auth.user.email!.trim().toLowerCase() !== String(challenge.email).toLowerCase()) {
@@ -320,7 +357,9 @@ async function finish(req: Request, body: any) {
   if (!challenge.telegram_otp_hash || !challenge.telegram_otp_expires_at || challenge.telegram_otp_expires_at <= new Date().toISOString()) return reply({ error: "The Telegram code expired. Start login again." }, 400);
   if (Number(challenge.attempts) >= 5) return reply({ error: "Too many incorrect attempts. Start login again." }, 429);
   if (await sha(code) !== challenge.telegram_otp_hash) {
-    await db.from("crm_login_challenges").update({ attempts: Number(challenge.attempts) + 1 }).eq("id", challenge.id);
+    const nextAttempts = Number(challenge.attempts) + 1;
+    await db.from("crm_login_challenges").update({ attempts: nextAttempts }).eq("id", challenge.id);
+    await recordOtpFailure(auth.user.id, "failed_telegram_otp", nextAttempts);
     return reply({ error: "Incorrect Telegram code." }, 400);
   }
   const weekIndex = await currentWeek(auth.user.id);
@@ -334,6 +373,7 @@ async function finish(req: Request, body: any) {
     if (statusError) throw new Error("Unable to save weekly email verification");
     await completeSession(auth.user.id, auth.sessionId, weekIndex);
     await db.from("crm_login_challenges").update({ stage: "complete", completed_at: new Date().toISOString() }).eq("id", challenge.id);
+    await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful sign-in to your account was completed after Telegram verification. If this was not you, contact an administrator.");
     return reply({ ok: true, stage: "complete" });
   } catch { return reply({ error: "Unable to approve this login session." }, 500); }
 }
