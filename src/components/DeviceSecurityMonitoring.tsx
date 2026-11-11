@@ -191,7 +191,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [alertsLoading,setAlertsLoading]=useState(true);
   const [error,setError]=useState('');
   const reload=useCallback(async()=>{
-    setLoading(true);setError('');
+    setError('');
     const [{data:alerts,error:alertsError},{data:locations,error:locationError},{data:concurrent,error:concurrentError},{data:authFailures,error:authFailureError},{data:reviewRows,error:reviewError}]=await Promise.all([
       supabase.rpc('admin_security_risk_alerts'),
       supabase.rpc('admin_location_risk_alerts'),
