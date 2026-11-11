@@ -1314,7 +1314,11 @@ export default function App() {
       .single();
     if (queueError || !queued?.id) throw new Error('Could not start Telegram handler verification. Please try again.');
 
-    await supabase!.functions.invoke('telegram-inbox-refresh', { body: {} });
+    const { data: refreshResult, error: refreshError } = await supabase!.functions.invoke('telegram-inbox-refresh', { body: { action: 'lookup_only' } });
+    if (refreshError || !refreshResult?.ok) {
+      const detail = refreshResult?.error || (refreshError ? await getFunctionRequestError(refreshError) : 'The lookup worker did not accept the request.');
+      throw new Error('Could not start Telegram handler verification: ' + detail);
+    }
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
       await new Promise(resolve => window.setTimeout(resolve, 2000));
