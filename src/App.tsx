@@ -1307,9 +1307,11 @@ export default function App() {
       throw new Error('Enter a valid Telegram handler, for example @username (5–32 characters), or a numeric Telegram ID.');
     }
 
+    const requesterId = session?.user?.id || profile?.id;
+    if (!requesterId) throw new Error('Your login session is unavailable. Please sign in again.');
     const { data: queued, error: queueError } = await supabase!
       .from('telegram_inbox_search_requests')
-      .insert({ requested_by: profile?.id, query: username, purpose, status: 'pending' })
+      .insert({ requested_by: requesterId, query: username, purpose, status: 'pending' })
       .select('id')
       .single();
     if (queueError || !queued?.id) throw new Error('Could not start Telegram handler verification. Please try again.');
