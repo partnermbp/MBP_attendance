@@ -1,20 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { Device } from '@capacitor/device';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DeviceRow = {
-  session_id: string; user_id: string; full_name: string | null; email: string | null; role: string;
-  app_platform: string; app_runtime: string; app_version: string | null; os_name: string | null;
-  os_version: string | null; device_model: string | null; browser_name: string | null;
-  ip_address: string | null; ip_source: string | null; timezone: string | null;
-  started_at: string; last_seen_at: string; ended_at: string | null;
-  location_tracking_enabled: boolean; location_consent_at: string | null; location_points: number;
-};
-type LocationRow = { id:number; latitude:number; longitude:number; accuracy_m:number|null; altitude_m:number|null; heading_deg:number|null; speed_mps:number|null; recorded_at:string; source:string };
-type NetworkRow = {id:number;previous_ip:string|null;current_ip:string;source:string;recorded_at:string};
 type RiskAlert = {alert_key:string;severity:string;category:string;title:string;description:string;evidence:Record<string,unknown>;first_seen:string;last_seen:string;affected_accounts:number};
 type SecurityReview = {alert_key:string;status:string;review_note:string;reviewed_by:string;updated_at:string};
 function appInstanceId() {
