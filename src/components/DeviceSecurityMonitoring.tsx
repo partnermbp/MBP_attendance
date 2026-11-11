@@ -16,6 +16,7 @@ type DeviceRow = {
 type LocationRow = { id:number; latitude:number; longitude:number; accuracy_m:number|null; altitude_m:number|null; heading_deg:number|null; speed_mps:number|null; recorded_at:string; source:string };
 type NetworkRow = {id:number;previous_ip:string|null;current_ip:string;source:string;recorded_at:string};
 type RiskAlert = {alert_key:string;severity:string;category:string;title:string;description:string;evidence:Record<string,unknown>;first_seen:string;last_seen:string;affected_accounts:number};
+type SecurityReview = {alert_key:string;status:string;review_note:string;reviewed_by:string;updated_at:string};
 function appInstanceId() {
   const key = 'mbp_crm_app_instance_id';
   try {
@@ -181,6 +182,11 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
 export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseClient}) {
   const [rows,setRows]=useState<DeviceRow[]>([]);
   const [riskAlerts,setRiskAlerts]=useState<RiskAlert[]>([]);
+  const [locationAlerts,setLocationAlerts]=useState<RiskAlert[]>([]);
+  const [reviews,setReviews]=useState<SecurityReview[]>([]);
+  const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
+  const [reviewStatuses,setReviewStatuses]=useState<Record<string,string>>({});
+  const [reviewBusy,setReviewBusy]=useState<string|null>(null);
   const [alertsLoading,setAlertsLoading]=useState(true);
   const [selected,setSelected]=useState<string|null>(null);
   const [points,setPoints]=useState<LocationRow[]>([]);
@@ -190,9 +196,16 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [pointsLoading,setPointsLoading]=useState(false);
   const reload=useCallback(async()=>{
     setLoading(true);setError('');
-    const [{data,error},{data:alerts,error:alertsError}]=await Promise.all([supabase.rpc('admin_device_security_overview'),supabase.rpc('admin_security_risk_alerts')]);
+    const [{data,error},{data:alerts,error:alertsError},{data:locations,error:locationError},{data:reviewRows,error:reviewError}]=await Promise.all([
+      supabase.rpc('admin_device_security_overview'),
+      supabase.rpc('admin_security_risk_alerts'),
+      supabase.rpc('admin_location_risk_alerts'),
+      supabase.from('security_alert_reviews').select('alert_key,status,review_note,reviewed_by,updated_at'),
+    ]);
     if(error)setError(error.message);else setRows((data||[]) as DeviceRow[]);
     if(alertsError)setError(prev=>prev ? prev+' · '+alertsError.message : alertsError.message);else setRiskAlerts((alerts||[]) as RiskAlert[]);
+    if(locationError)setError(prev=>prev ? prev+' · '+locationError.message : locationError.message);else setLocationAlerts((locations||[]) as RiskAlert[]);
+    if(reviewError)setError(prev=>prev ? prev+' · '+reviewError.message : reviewError.message);else setReviews((reviewRows||[]) as SecurityReview[]);
     setLoading(false);setAlertsLoading(false);
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
@@ -211,6 +224,15 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     });
     return()=>{alive=false;};
   },[selected,supabase]);
+  const allRiskAlerts=[...riskAlerts,...locationAlerts];
+  const saveReview=async(alert:RiskAlert)=>{
+    const status=reviewStatuses[alert.alert_key]||reviews.find(r=>r.alert_key===alert.alert_key)?.status||'in_review';
+    setReviewBusy(alert.alert_key);
+    const {error}=await supabase.rpc('admin_review_security_alert',{p_alert_key:alert.alert_key,p_status:status,p_review_note:reviewNotes[alert.alert_key]??reviews.find(r=>r.alert_key===alert.alert_key)?.review_note??''});
+    if(error)setError('Could not save alert review: '+error.message);
+    else await reload();
+    setReviewBusy(null);
+  };
   const selectedRow=useMemo(()=>rows.find(r=>r.session_id===selected),[rows,selected]);
   const cell:CSSProperties={padding:9,borderBottom:'1px solid var(--crm-border,#394150)',textAlign:'left',verticalAlign:'top',fontSize:12};
   return <section style={{marginTop:18}}>
@@ -221,11 +243,11 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     <section style={{margin:'14px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <div><h3 style={{margin:'0 0 4px'}}>Fraud & account-sharing alerts</h3><p style={{fontSize:12,opacity:.7,margin:0}}>Automatically correlated signals from the last 30 days. Alerts are for manual review; no account is automatically restricted.</p></div>
-        <span style={{fontSize:12,opacity:.75}}>{riskAlerts.length} active signals</span>
+        <span style={{fontSize:12,opacity:.75}}>{allRiskAlerts.length} active signals</span>
       </div>
       {alertsLoading&&<p>Checking risk signals…</p>}
-      {!alertsLoading&&!riskAlerts.length&&<p style={{fontSize:12,opacity:.7}}>No matching device/IP patterns detected in the current 30-day window.</p>}
-      {riskAlerts.map(alert=><article key={alert.alert_key} style={{marginTop:10,padding:10,borderRadius:8,border:'1px solid var(--crm-border,#394150)',background:'var(--crm-surface,rgba(255,255,255,.025))'}}>
+      {!alertsLoading&&!allRiskAlerts.length&&<p style={{fontSize:12,opacity:.7}}>No matching device/IP/location patterns detected in the current 30-day window.</p>}
+      {allRiskAlerts.map(alert=><article key={alert.alert_key} style={{marginTop:10,padding:10,borderRadius:8,border:'1px solid var(--crm-border,#394150)',background:'var(--crm-surface,rgba(255,255,255,.025))'}}>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <strong>{alert.title}</strong>
           <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',padding:'3px 7px',borderRadius:5,background:alert.severity==='high'?'rgba(220,38,38,.16)':alert.severity==='medium'?'rgba(217,119,6,.16)':'rgba(100,116,139,.16)',color:alert.severity==='high'?'#f87171':alert.severity==='medium'?'#fbbf24':'#94a3b8'}}>{alert.severity} severity</span>
@@ -234,6 +256,14 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
         <p style={{fontSize:12,margin:'6px 0'}}>{alert.description}</p>
         <div style={{fontSize:11,opacity:.75,overflowWrap:'anywhere'}}>First seen: {new Date(alert.first_seen).toLocaleString()} · Last seen: {new Date(alert.last_seen).toLocaleString()}</div>
         <details style={{fontSize:12,marginTop:7}}><summary style={{cursor:'pointer'}}>Review evidence</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:11}}>{JSON.stringify(alert.evidence,null,2)}</pre></details>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:9}}>
+          <select aria-label="Alert review status" value={reviewStatuses[alert.alert_key]||reviews.find(r=>r.alert_key===alert.alert_key)?.status||'in_review'} onChange={e=>setReviewStatuses(prev=>({...prev,[alert.alert_key]:e.target.value}))} style={{padding:7,borderRadius:6}}>
+            <option value="in_review">In review</option><option value="false_positive">False positive</option><option value="confirmed">Confirmed</option><option value="resolved">Resolved</option>
+          </select>
+          <input aria-label="Administrator review note" placeholder="Admin review note (optional)" value={reviewNotes[alert.alert_key]??reviews.find(r=>r.alert_key===alert.alert_key)?.review_note??''} onChange={e=>setReviewNotes(prev=>({...prev,[alert.alert_key]:e.target.value}))} style={{flex:'1 1 220px',minWidth:160,padding:7,borderRadius:6}} />
+          <button type="button" disabled={reviewBusy===alert.alert_key} onClick={()=>void saveReview(alert)} style={{padding:'7px 10px',borderRadius:6}}>{reviewBusy===alert.alert_key?'Saving…':'Save review'}</button>
+        </div>
+        {reviews.find(r=>r.alert_key===alert.alert_key)&&<p style={{fontSize:11,opacity:.65,marginBottom:0}}>Last reviewed: {new Date(reviews.find(r=>r.alert_key===alert.alert_key)!.updated_at).toLocaleString()}</p>}
       </article>)}
     </section>
     {loading&&<p>Loading device sessions…</p>}
