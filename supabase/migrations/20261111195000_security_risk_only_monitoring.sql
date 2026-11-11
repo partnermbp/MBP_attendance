@@ -13,6 +13,16 @@ create index if not exists device_ip_observations_ip_last_seen_idx on public.dev
 alter table public.device_ip_observations enable row level security;
 revoke all on public.device_ip_observations from public,anon,authenticated;
 grant select,insert,update,delete on public.device_ip_observations to service_role;
+insert into public.device_ip_observations(user_id,ip_address,ip_source,first_seen_at,last_seen_at,observation_count)
+select user_id,ip_address,max(ip_source),min(started_at),max(last_seen_at),count(*)::integer
+from public.device_security_sessions
+where ip_address is not null and last_seen_at>now()-interval '30 days'
+group by user_id,ip_address
+on conflict(user_id,ip_address) do update set
+ first_seen_at=least(public.device_ip_observations.first_seen_at,excluded.first_seen_at),
+ last_seen_at=greatest(public.device_ip_observations.last_seen_at,excluded.last_seen_at),
+ observation_count=greatest(public.device_ip_observations.observation_count,excluded.observation_count),
+ ip_source=excluded.ip_source;
 alter table public.device_security_sessions add column if not exists ip_change_window_started_at timestamptz;
 alter table public.device_security_sessions add column if not exists ip_change_count_1h integer not null default 0;
 
