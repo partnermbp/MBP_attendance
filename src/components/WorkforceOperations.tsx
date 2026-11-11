@@ -45,7 +45,6 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
 
   const roleKey = String(profile?.role || '').toLowerCase().replaceAll(' ', '_');
   const isTeamLeader = roleKey === 'team_leader';
-  const canReview = isAdmin || isSupervisor || isTeamLeader;
   const canCreateFollowup = isAdmin || ['junior','middle','senior','team_leader'].includes(roleKey);
   const people = useMemo(() => profiles.filter(p => p.active && p.id !== profile?.id && p.role !== 'admin' && (isAdmin || reportIds.includes(p.id))), [profiles, profile?.id, reportIds, isAdmin]);
   const nameOf = (id: string) => { const p = profiles.find(x => x.id === id); return p?.full_name || p?.email || 'Employee'; };
