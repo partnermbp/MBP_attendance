@@ -2,7 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye, Download, Smartphone } from 'lucide-react';
+import { Menu, X, MapPin, LayoutDashboard, Users, CalendarDays, MessageCircle, MoreHorizontal, LogOut, ShieldAlert, ChevronDown, ChevronRight, UserCog, Link2, GitBranch, UserPlus, Settings as SettingsIcon, Sun, Moon, Monitor, RotateCcw, Clock3, Palette, Eye, Download, Smartphone, Search } from 'lucide-react';
 import type { CSSProperties, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -564,6 +564,8 @@ export default function App() {
   const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null;response_samples?:Array<{response_seconds:number;calculated_at:string|null}>;question_samples?:Array<{calculated_at:string|null;answered:boolean}>}>>([]);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
   const [humanTelegramAccess, setHumanTelegramAccess] = useState(false);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -1836,6 +1838,38 @@ export default function App() {
   const canViewAdmin = isAdmin || isSupervisor;
   const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
   const canUseHumanTelegram = isAdmin || (profile?.active === true && normalizedRole === 'telemarketing' && humanTelegramAccess);
+
+  const globalSearchPages: Array<{id:CrmPage;label:string;keywords:string;allowed:boolean}> = [
+    {id:'dashboard',label:'Dashboard',keywords:'home overview statistics summary my work',allowed:true},
+    {id:'attendance-records',label:'Attendance records',keywords:'attendance history check in check out times hours records',allowed:true},
+    {id:'workforce-operations',label:'Workforce operations',keywords:'leave vacation absence attendance correction request follow up followup holiday',allowed:true},
+    {id:'team-attendance',label:'Team attendance report',keywords:'team attendance report statistics lateness overtime shifts performance',allowed:canViewAdmin||canManageTeam},
+    {id:'manager-hierarchy',label:'Manager hierarchy',keywords:'team tree reporting line subordinates employees hierarchy',allowed:isAdmin||isSupervisor||canManageTeam},
+    {id:'team',label:'Team management',keywords:'team employees people staff',allowed:isAdmin||isSupervisor||canManageTeam},
+    {id:'team-roles',label:'Employee role management',keywords:'roles permissions promote demote access',allowed:isAdmin},
+    {id:'team-links',label:'Link Telegram members',keywords:'telegram link identity group user mapping',allowed:isAdmin},
+    {id:'team-assignments',label:'Assign employees to managers',keywords:'manager assignment reporting line assign subordinate',allowed:isAdmin},
+    {id:'team-invitations',label:isAdmin?'Admin invitation':'Employee invitations',keywords:'invite invitation add employee account',allowed:isAdmin||canManageTeam},
+    {id:'telegram-human',label:'Human Telegram chat',keywords:'telegram inbox messages chat reply telemarketing',allowed:canUseHumanTelegram},
+    {id:'telegram-analytics',label:'Telegram group analytics',keywords:'telegram group analytics response time messages activity',allowed:isAdmin||isSupervisor||canManageTeam},
+    {id:'security',label:'Security & devices',keywords:'security device ip login audit suspicious activity',allowed:isAdmin},
+    {id:'requests',label:'Requests',keywords:'telegram id change requests approvals',allowed:isAdmin},
+    {id:'downloads',label:'Downloads',keywords:'android ios iphone windows macos app installer apk dmg',allowed:true},
+    {id:'settings',label:'Settings',keywords:'preferences appearance theme timezone display',allowed:true},
+  ];
+  const normalizedGlobalSearch = globalSearchQuery.trim().toLowerCase();
+  const globalSearchMatches = normalizedGlobalSearch ? globalSearchPages.filter(item=>item.allowed && (item.label+' '+item.keywords).toLowerCase().includes(normalizedGlobalSearch)).slice(0,8) : globalSearchPages.filter(item=>item.allowed).slice(0,6);
+  const globalSearchPeople = normalizedGlobalSearch && (isAdmin||isSupervisor||canManageTeam)
+    ? profiles.filter(person=>person.active && person.role.toLowerCase()!=='admin' && ((person.full_name||'')+' '+(person.email||'')+' '+person.role.replaceAll('_',' ')).toLowerCase().includes(normalizedGlobalSearch)).slice(0,8)
+    : [];
+  const openGlobalSearchPage = (page:CrmPage) => {
+    setActivePage(page); setGlobalSearchOpen(false); setGlobalSearchQuery('');
+    setAttendanceMenuOpen(page==='attendance-records'||page==='workforce-operations'||page==='team-attendance');
+    setTeamMenuOpen(['team','manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(page));
+    setTelegramMenuOpen(page==='telegram-human'||page==='telegram-analytics');
+    setMobileMoreOpen(false); setMapPreview(null); window.scrollTo(0,0);
+  };
+
   useEffect(() => {
     const client = supabase;
     if (!client || !isAdmin || screen !== 'signed-in' || !['team', 'team-assignments', 'team-roles'].includes(activePage)) return;
@@ -2533,7 +2567,32 @@ export default function App() {
           <main style={{minWidth:0}}>
           {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => record.employee_id === profile.id && !record.check_out) || salaryAttendance.some(record => record.employee_id === profile.id && !record.check_out)} showDeviceSecurityInfo={isAdmin} />}
           <section style={panelStyle}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18,color:'#98a2b3',fontSize:13}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:18,color:'#98a2b3',fontSize:13}}>
+            <div style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Human Telegram chat','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
+            <button type="button" onClick={()=>{setGlobalSearchOpen(true);setGlobalSearchQuery('');}} aria-label="Search CRM" title="Search CRM" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,flexShrink:0,width:34,height:32,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}><Search size={16}/></button>
+          </div>
+          {globalSearchOpen && <div role="dialog" aria-modal="true" aria-label="Search CRM" onMouseDown={event=>{if(event.target===event.currentTarget)setGlobalSearchOpen(false);}} style={{position:'fixed',inset:0,zIndex:10000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'min(12vh,90px) 16px 24px',background:'rgba(0,0,0,.62)',backdropFilter:'blur(5px)'}}>
+            <div style={{width:'min(620px,100%)',maxHeight:'76vh',overflowY:'auto',border:'1px solid var(--crm-border)',borderRadius:12,background:'var(--crm-panel-bg)',boxShadow:'0 24px 80px rgba(0,0,0,.45)',padding:16,color:'var(--crm-text)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <Search size={19} color="var(--crm-muted)"/>
+                <input autoFocus value={globalSearchQuery} onChange={event=>setGlobalSearchQuery(event.target.value)} onKeyDown={event=>{if(event.key==='Escape')setGlobalSearchOpen(false);if(event.key==='Enter'&&globalSearchMatches[0])openGlobalSearchPage(globalSearchMatches[0].id);}} placeholder="Search functions, pages or people…" aria-label="Search functions, pages or people" style={{flex:1,minWidth:0,padding:'12px 4px',border:0,outline:0,background:'transparent',color:'var(--crm-text)',fontSize:16}}/>
+                <button type="button" aria-label="Close search" onClick={()=>setGlobalSearchOpen(false)} style={{border:0,background:'transparent',color:'var(--crm-muted)',cursor:'pointer',padding:5}}><X size={18}/></button>
+              </div>
+              <div style={{height:1,background:'var(--crm-border)',margin:'8px 0 12px'}}/>
+              {!normalizedGlobalSearch && <div style={{fontSize:12,color:'var(--crm-muted)',marginBottom:10}}>Quick access · start typing to find a CRM function or user</div>}
+              {globalSearchPeople.length>0 && <>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--crm-muted)',margin:'12px 4px 6px'}}>People</div>
+                {globalSearchPeople.map(person=><button key={person.id} type="button" onClick={()=>{if(canViewAdmin){setSelectedEmployeeId(person.id);openGlobalSearchPage('attendance-records');}else{openGlobalSearchPage('manager-hierarchy');}}} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 9px',border:0,borderRadius:7,background:'transparent',color:'var(--crm-text)',textAlign:'left',cursor:'pointer'}}>
+                  <span style={{display:'grid',placeItems:'center',width:30,height:30,borderRadius:99,background:'var(--crm-accent-soft)',color:'var(--crm-accent)',fontSize:12,fontWeight:700}}>{(person.full_name||person.email||'?').trim().charAt(0).toUpperCase()}</span>
+                  <span style={{minWidth:0,flex:1}}><strong style={{display:'block',fontSize:13}}>{person.full_name||person.email}</strong><small style={{color:'var(--crm-muted)'}}>{person.email||person.role.replaceAll('_',' ')}</small></span><span style={{fontSize:11,color:'var(--crm-muted)'}}>{canViewAdmin?'Attendance':'Hierarchy'}</span>
+                </button>)}
+              </>}
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--crm-muted)',margin:'12px 4px 6px'}}>CRM functions</div>
+              {globalSearchMatches.map(item=><button key={item.id} type="button" onClick={()=>openGlobalSearchPage(item.id)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,width:'100%',padding:'10px 9px',border:0,borderRadius:7,background:'transparent',color:'var(--crm-text)',textAlign:'left',cursor:'pointer'}}><span style={{fontSize:13}}>{item.label}</span><span style={{fontSize:11,color:'var(--crm-muted)'}}>Open <span aria-hidden="true">↗</span></span></button>)}
+              {normalizedGlobalSearch&&!globalSearchMatches.length&&!globalSearchPeople.length&&<div style={{padding:'20px 8px',textAlign:'center',fontSize:13,color:'var(--crm-muted)'}}>No matching CRM functions or people found.</div>}
+              <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--crm-border)',fontSize:11,color:'var(--crm-muted)'}}>Search results only include pages and people available to your account.</div>
+            </div>
+          </div>}
 
           {activePage === 'downloads' && <>
             <h1 style={{marginTop:0}}>Downloads</h1>
