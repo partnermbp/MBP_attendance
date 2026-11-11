@@ -201,7 +201,7 @@ async function verifyInviteEmailOtp(req: Request) {
   const otp = typeof body?.otp === "string" ? body.otp.trim() : "";
   if (!/^[a-f0-9]{64}$/i.test(token) || !/^\d{6}$/.test(otp)) return jsonResponse({ error: "Enter the six-digit code sent to your corporate email." }, 400);
   const { data: invite, error: inviteError } = await supabase.from("manager_invitations")
-    .select("id, corporate_email, redeemed_at, expires_at").eq("token_hash", await sha256Hex(token)).maybeSingle();
+    .select("id, invited_by, corporate_email, redeemed_at, expires_at").eq("token_hash", await sha256Hex(token)).maybeSingle();
   if (inviteError || !invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) return jsonResponse({ error: "Invitation is invalid, expired, or already used." }, 400);
   const { data: verification, error } = await supabase.from("manager_invitation_email_verifications")
     .select("id, email, otp_hash, otp_expires_at, attempts, verified_at")
@@ -211,7 +211,18 @@ async function verifyInviteEmailOtp(req: Request) {
   if (!verification.otp_hash || !verification.otp_expires_at || new Date(verification.otp_expires_at).getTime() <= Date.now()) return jsonResponse({ error: "The email code expired. Request a new one." }, 400);
   if (verification.attempts >= 5) return jsonResponse({ error: "Too many incorrect attempts. Request a new code." }, 429);
   if (await sha256Hex(otp) !== verification.otp_hash) {
-    await supabase.from("manager_invitation_email_verifications").update({ attempts: verification.attempts + 1 }).eq("id", verification.id);
+    const nextAttempts = verification.attempts + 1;
+    await supabase.from("manager_invitation_email_verifications").update({ attempts: nextAttempts }).eq("id", verification.id);
+    if (invite.invited_by) {
+      await supabase.from("crm_security_events").insert({
+        profile_id: invite.invited_by, event_type: "failed_email_otp", outcome: "failure",
+        details: { category: "invitation_email_otp", invitation_id: invite.id, attempt_count: nextAttempts },
+      });
+      if (nextAttempts === 5) await supabase.from("crm_security_events").insert({
+        profile_id: invite.invited_by, event_type: "security_alert_triggered", outcome: "info",
+        details: { category: "invitation_email_otp", invitation_id: invite.id, attempt_count: nextAttempts },
+      });
+    }
     return jsonResponse({ error: "Incorrect corporate email code." }, 400);
   }
   const ticket = randomToken();
@@ -274,6 +285,10 @@ async function createInvitedAccount(req: Request) {
     .update({ telegram_username: tg.telegram_username ?? null })
     .eq("id", created.user.id);
   if (usernameError) console.error("Could not save verified Telegram username:", usernameError.message);
+  await supabase.from("crm_security_events").insert({
+    profile_id: created.user.id, event_type: "invitation_accepted", outcome: "success",
+    details: { invitation_id: invite.id, invited_role: invite.invited_role },
+  });
   return jsonResponse({ ok: true, email: invite.corporate_email, message: "Both identity checks passed and your CRM account has been created." });
 }
 
@@ -295,7 +310,18 @@ async function verifyInviteTelegramOtp(req: Request) {
   if (!verification.otp_hash || !verification.otp_expires_at || new Date(verification.otp_expires_at).getTime() <= Date.now()) return jsonResponse({ error: "The code has expired. Request a new Telegram verification." }, 400);
   if (verification.attempts >= 5) return jsonResponse({ error: "Too many incorrect attempts. Request a new verification." }, 429);
   if (await sha256Hex(otp) !== verification.otp_hash) {
-    await supabase.from("manager_invitation_telegram_verifications").update({ attempts: verification.attempts + 1 }).eq("id", verification.id);
+    const nextAttempts = verification.attempts + 1;
+    await supabase.from("manager_invitation_telegram_verifications").update({ attempts: nextAttempts }).eq("id", verification.id);
+    if (invite.invited_by) {
+      await supabase.from("crm_security_events").insert({
+        profile_id: invite.invited_by, event_type: "failed_telegram_otp", outcome: "failure",
+        details: { category: "invitation_telegram_otp", invitation_id: invite.id, attempt_count: nextAttempts },
+      });
+      if (nextAttempts === 5) await supabase.from("crm_security_events").insert({
+        profile_id: invite.invited_by, event_type: "security_alert_triggered", outcome: "info",
+        details: { category: "invitation_telegram_otp", invitation_id: invite.id, attempt_count: nextAttempts },
+      });
+    }
     return jsonResponse({ error: "Incorrect code. Check the Telegram message and try again." }, 400);
   }
   if (!verification.telegram_user_id) return jsonResponse({ error: "Telegram has not confirmed this account yet. Open the bot and press Start." }, 400);
