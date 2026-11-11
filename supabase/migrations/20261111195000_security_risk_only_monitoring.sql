@@ -168,6 +168,7 @@ revoke all on function public.record_crm_login(text) from public,anon;
 grant execute on function public.record_crm_login(text) to authenticated;
 drop trigger if exists crm_login_security_audit on public.crm_login_events;
 drop trigger if exists device_security_events_audit on public.device_security_sessions;
+drop trigger if exists attendance_correction_security_audit on public.attendance_correction_requests;
 delete from public.crm_security_events where event_type in ('login_success','logout','device_registered','device_ip_changed','invitation_accepted','attendance_correction_submitted','attendance_correction_reviewed','attendance_correction_applied');
 truncate table public.crm_login_events;
 truncate table public.device_network_events;
