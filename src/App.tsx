@@ -288,26 +288,19 @@ type SecurityAuditEvent = {
 };
 function SecurityActivityPanel() {
   const [events,setEvents]=useState<SecurityActivity[]>([]);
-  const [audit,setAudit]=useState<SecurityAuditEvent[]>([]);
-  const [profileLabels,setProfileLabels]=useState<Record<string,string>>({});
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [refreshKey,setRefreshKey]=useState(0);
   useEffect(()=>{
     let cancelled=false;
     void (async()=>{
-      if(!supabase){setError('Security log is unavailable because the database is not configured.');setLoading(false);return;}
-      const [{data:suspicious,error:suspiciousError},{data:security,error:securityError},{data:people,error:peopleError}]=await Promise.all([
-        supabase.from('suspicious_activities').select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at').order('created_at',{ascending:false}).limit(300),
-        supabase.from('crm_security_events').select('id,profile_id,event_type,outcome,login_method,app_platform,app_version,os_name,browser_name,ip_address,ip_source,details,occurred_at').order('occurred_at',{ascending:false}).limit(1000),
-        supabase.from('profiles').select('id,full_name,email').limit(2000)
-      ]);
+      if(!supabase){setError('Security monitoring is unavailable because the database is not configured.');setLoading(false);return;}
+      const {data,error}=await supabase.from('suspicious_activities')
+        .select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at')
+        .order('created_at',{ascending:false}).limit(100);
       if(cancelled)return;
-      if(suspiciousError)setError('Could not load suspicious activities: '+suspiciousError.message);
-      else setEvents((suspicious||[]) as SecurityActivity[]);
-      if(securityError)setError(prev=>prev?prev+' · Could not load security audit: '+securityError.message:'Could not load security audit: '+securityError.message);
-      else setAudit((security||[]) as SecurityAuditEvent[]);
-      if(!peopleError)setProfileLabels(Object.fromEntries((people||[]).map(person=>[person.id,person.full_name||person.email||person.id])));
+      if(error)setError('Could not load risk events: '+error.message);
+      else setEvents((data||[]) as SecurityActivity[]);
       setLoading(false);
     })();
     return()=>{cancelled=true;};
@@ -315,45 +308,25 @@ function SecurityActivityPanel() {
   const cellStyle:CSSProperties={padding:9,borderBottom:'1px solid #344054',textAlign:'left',verticalAlign:'top',overflowWrap:'anywhere',fontSize:12};
   return <section style={{marginTop:20}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-      <h1>Security</h1><button type="button" onClick={()=>{setLoading(true);setRefreshKey(v=>v+1);}} style={{padding:'7px 11px',borderRadius:7}}>Refresh logs</button>
+      <div><h1>Security</h1><p style={{color:'#b7c0d1',marginTop:4}}>Only flagged identity-reuse and suspicious invitation attempts appear here. Routine sign-ins, logouts and device heartbeats are excluded.</p></div>
+      <button type="button" onClick={()=>{setLoading(true);setRefreshKey(v=>v+1);}} style={{padding:'7px 11px',borderRadius:7}}>Refresh alerts</button>
     </div>
-    <h2>Security event history</h2>
-    <p style={{color:'#b7c0d1'}}>Admin-only audit of sign-ins, devices, network changes, failed verification, role changes and security decisions. IP data is server-observed gateway metadata and may represent a shared proxy or carrier network.</p>
-    {loading&&<p>Loading security events…</p>}
+    <h2>Suspicious invitation & identity activity</h2>
+    {loading&&<p>Checking flagged activity…</p>}
     {error&&<p role="alert" style={{color:'#fda29b'}}>{error}</p>}
-    {!loading&&!audit.length&&!error&&<p style={{color:'#b7c0d1'}}>No security events recorded yet.</p>}
-    {!!audit.length&&<div style={{overflowX:'auto',marginBottom:24}}>
-      <table style={{width:'100%',borderCollapse:'collapse',minWidth:1050}}>
-        <thead><tr>{['Time','Account ID','Event','Outcome','Login method','App / device','Observed IP','Details'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
-        <tbody>{audit.map(event=><tr key={event.id}>
-          <td style={cellStyle}>{new Date(event.occurred_at).toLocaleString()}</td>
-          <td style={cellStyle}>{event.profile_id?(profileLabels[event.profile_id]||'Unknown account')+' · '+event.profile_id:'Unavailable'}</td>
-          <td style={cellStyle}>{event.event_type.replaceAll('_',' ')}</td>
-          <td style={cellStyle}>{event.outcome}</td>
-          <td style={cellStyle}>{event.login_method||'—'}</td>
-          <td style={cellStyle}>{[event.app_platform,event.app_version,event.os_name,event.browser_name].filter(Boolean).join(' · ')||'—'}</td>
-          <td style={cellStyle}>{event.ip_address||'Not captured'}<br/><span style={{opacity:.65}}>{event.ip_source||''}</span></td>
-          <td style={cellStyle}>{JSON.stringify(event.details||{})}</td>
-        </tr>)}</tbody>
-      </table>
-    </div>}
-    <h2>Suspicious Activities</h2>
-    <p style={{color:'#b7c0d1'}}>Attempts to reuse a Telegram identity already registered to another CRM account. This audit log is visible to Admin only.</p>
-    {!loading&&!events.length&&!error&&<p style={{color:'#b7c0d1'}}>No suspicious activities recorded.</p>}
+    {!loading&&!events.length&&!error&&<p style={{color:'#b7c0d1'}}>No flagged invitation or identity-reuse attempts recorded.</p>}
     {!!events.length&&<div style={{overflowX:'auto'}}>
       <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
-        <thead><tr>{['Time','Activity','Inviter manager','Invitee Admin Panel Name','Invitee email','Telegram ID','Telegram username','Details'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
+        <thead><tr>{['Time','Risk event','Inviter','Invitee','Email','Telegram identity','Evidence'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
         <tbody>{events.map(event=><tr key={event.id}>
           <td style={cellStyle}>{new Date(event.created_at).toLocaleString()}</td><td style={cellStyle}>{event.event_type.replaceAll('_',' ')}</td>
           <td style={cellStyle}>{event.inviter_name||'Unavailable'}</td><td style={cellStyle}>{event.invitee_admin_panel_name||'Unavailable'}</td>
-          <td style={cellStyle}>{event.invitee_email||'Unavailable'}</td><td style={cellStyle}>{event.telegram_user_id??'Unavailable'}</td>
-          <td style={cellStyle}>{event.telegram_username?'@'+event.telegram_username:'Not provided'}</td><td style={cellStyle}>{event.details}</td>
+          <td style={cellStyle}>{event.invitee_email||'Unavailable'}</td><td style={cellStyle}>{event.telegram_username?'@'+event.telegram_username:'ID '+(event.telegram_user_id??'unavailable')}</td><td style={cellStyle}>{event.details}</td>
         </tr>)}</tbody>
       </table>
     </div>}
   </section>;
 }
-
 
 
 function AuthVectorScene() {
