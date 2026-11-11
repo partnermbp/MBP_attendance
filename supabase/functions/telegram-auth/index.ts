@@ -213,14 +213,10 @@ async function verifyInviteEmailOtp(req: Request) {
   if (await sha256Hex(otp) !== verification.otp_hash) {
     const nextAttempts = verification.attempts + 1;
     await supabase.from("manager_invitation_email_verifications").update({ attempts: nextAttempts }).eq("id", verification.id);
-    if (invite.invited_by) {
+    if (invite.invited_by && nextAttempts === 5) {
       await supabase.from("crm_security_events").insert({
-        profile_id: invite.invited_by, event_type: "failed_email_otp", outcome: "failure",
-        details: { category: "invitation_email_otp", invitation_id: invite.id, attempt_count: nextAttempts },
-      });
-      if (nextAttempts === 5) await supabase.from("crm_security_events").insert({
         profile_id: invite.invited_by, event_type: "security_alert_triggered", outcome: "info",
-        details: { category: "invitation_email_otp", invitation_id: invite.id, attempt_count: nextAttempts },
+        details: { category: "invitation_email_otp", invitation_id: invite.id, attempt_count: nextAttempts, threshold: 5 },
       });
     }
     return jsonResponse({ error: "Incorrect corporate email code." }, 400);
