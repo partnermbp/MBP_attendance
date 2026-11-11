@@ -280,12 +280,7 @@ type SecurityActivity = {
   telegram_user_id: number | null; telegram_username: string | null;
   details: string; created_at: string;
 };
-type SecurityAuditEvent = {
-  id:number; profile_id:string|null; event_type:string; outcome:string;
-  login_method:string|null; app_platform:string|null; app_version:string|null;
-  os_name:string|null; browser_name:string|null; ip_address:string|null;
-  ip_source:string|null; details:Record<string,unknown>; occurred_at:string;
-};
+
 function SecurityActivityPanel() {
   const [events,setEvents]=useState<SecurityActivity[]>([]);
   const [loading,setLoading]=useState(true);
