@@ -217,12 +217,12 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     else await reload();
     setReviewBusy(null);
   };
-  const cell:CSSProperties={padding:9,borderBottom:'1px solid var(--crm-border,#394150)',textAlign:'left',verticalAlign:'top',fontSize:12};
   return <section style={{marginTop:18}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <div><h2 style={{marginBottom:4}}>Security risk alerts</h2><p style={{fontSize:12,opacity:.7,marginTop:0}}>Only suspicious account, device, network, location and authentication patterns are shown here.</p></div>
       <button type="button" onClick={()=>void reload()} style={{padding:'8px 12px',borderRadius:7}}>Refresh</button>
     </div>
+    {error&&<p role="alert" style={{color:'#fda29b',fontSize:12}}>{error}</p>}
     <section style={{margin:'14px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
         <div><h3 style={{margin:'0 0 4px'}}>Fraud & account-sharing alerts</h3><p style={{fontSize:12,opacity:.7,margin:0}}>Only threshold-level or cross-account risk signals from the last 30 days. Routine logins, heartbeats and normal device registrations are excluded. Alerts require manual review; no account is automatically restricted.</p></div>
