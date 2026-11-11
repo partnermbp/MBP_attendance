@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { Device } from '@capacitor/device';
