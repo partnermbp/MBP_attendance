@@ -95,14 +95,11 @@ async function notifyUserTelegram(userId: string, message: string) {
   }
 }
 async function recordOtpFailure(userId: string, eventType: "failed_email_otp" | "failed_telegram_otp", attemptCount: number) {
-  await db.from("crm_security_events").insert({
-    profile_id: userId, event_type: eventType, outcome: "failure",
-    details: { attempt_count: attemptCount, threshold: 5 },
-  });
+  // Keep only a threshold-level risk event, not every incorrect code entry.
   if (attemptCount >= 5) {
     await db.from("crm_security_events").insert({
       profile_id: userId, event_type: "security_alert_triggered", outcome: "info",
-      details: { category: eventType, attempt_count: attemptCount },
+      details: { category: eventType, attempt_count: attemptCount, threshold: 5 },
     });
     await notifyUserTelegram(userId,
       "Attendance CRM security alert: five incorrect " +
