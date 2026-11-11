@@ -1,0 +1,1 @@
+revoke all on function public.record_crm_security_event(text,text,text,text,text,text,text,jsonb) from public,anon,authenticated;
