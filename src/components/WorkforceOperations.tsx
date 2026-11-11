@@ -20,6 +20,7 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [followups, setFollowups] = useState<Followup[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [reportIds, setReportIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -42,8 +43,10 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
   const [holidayDate, setHolidayDate] = useState('');
   const [holidayName, setHolidayName] = useState('');
 
-  const canReview = isAdmin || isSupervisor || ['junior','middle','senior','team_leader','team leader'].includes(String(profile?.role || '').toLowerCase());
-  const people = useMemo(() => profiles.filter(p => p.active && p.role !== 'admin' && p.id !== profile?.id), [profiles, profile?.id]);
+  const roleKey = String(profile?.role || '').toLowerCase().replaceAll(' ', '_');
+  const isTeamLeader = roleKey === 'team_leader';
+  const canReview = isAdmin || isSupervisor || isTeamLeader;
+  const people = useMemo(() => profiles.filter(p => p.active && p.id !== profile?.id && reportIds.includes(p.id)), [profiles, profile?.id, reportIds]);
   const nameOf = (id: string) => { const p = profiles.find(x => x.id === id); return p?.full_name || p?.email || 'Employee'; };
 
   const load = useCallback(async () => {
@@ -61,12 +64,17 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
       return rows;
     };
     try {
-      const [leaveRows, correctionRows, followupRows, holidayRows] = await Promise.all([
+      const [leaveRows, correctionRows, followupRows, holidayRows, assignmentRows] = await Promise.all([
         fetchPaged((from,to) => supabase!.from('workforce_leave_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase!.from('attendance_correction_requests').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase!.from('manager_followups').select('*').order('created_at',{ascending:false}).range(from,to)),
         fetchPaged((from,to) => supabase!.from('workforce_holidays').select('*').order('holiday_date',{ascending:true}).range(from,to)),
+        fetchPaged((from,to) => supabase!.from('manager_employee_assignments').select('manager_id,employee_id').range(from,to)),
       ]);
+      const descendants = new Set<string>();
+      const queue = [profile.id];
+      while (queue.length) { const managerId = queue.shift()!; for (const row of assignmentRows as Array<{manager_id:string;employee_id:string}>) if (row.manager_id === managerId && !descendants.has(row.employee_id)) { descendants.add(row.employee_id); queue.push(row.employee_id); } }
+      setReportIds([...descendants]);
       setLeaves(leaveRows as Leave[]); setCorrections(correctionRows as Correction[]);
       setFollowups(followupRows as Followup[]); setHolidays(holidayRows as Holiday[]);
       setMessage('');
@@ -90,15 +98,17 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     catch (e) { setMessage(e instanceof Error ? e.message : 'The action could not be completed.'); }
     finally { setBusy(false); }
   }
-  const review = async (table: 'workforce_leave_requests'|'attendance_correction_requests', id: string, status: 'approved'|'rejected') =>
-    run(() => supabase!.from(table).update({status,reviewed_by:profile?.id,reviewed_at:new Date().toISOString()}).eq('id',id), status === 'approved' ? 'Request approved.' : 'Request rejected.');
+  const review = async (kind: 'leave'|'correction', id: string, decision: 'approved'|'rejected') =>
+    run(() => supabase!.rpc('review_workforce_request',{request_kind:kind,request_id:id,decision,note:null}), decision === 'approved' ? 'Request approved / forwarded to next stage.' : 'Request rejected.');
+  const cancelRequest = async (kind: 'leave'|'correction', id: string) =>
+    run(() => supabase!.rpc('cancel_workforce_request',{request_kind:kind,request_id:id}), 'Request cancelled.');
   const button = (label: string, onClick: () => void, disabled = busy) => <button type="button" disabled={disabled} onClick={onClick} style={{...action,opacity:disabled ? 0.55 : 1}}>{label}</button>;
 
   const todayKey = new Date().toISOString().slice(0,10);
   const openFollowups = followups.filter(item => item.status !== 'resolved').length;
   const overdueFollowups = followups.filter(item => item.status !== 'resolved' && item.due_date && item.due_date < todayKey).length;
-  const pendingLeave = leaves.filter(item => item.status === 'pending').length;
-  const pendingCorrections = corrections.filter(item => item.status === 'pending').length;
+  const pendingLeave = leaves.filter(item => ['pending','pending_team_leader','pending_admin'].includes(item.status)).length;
+  const pendingCorrections = corrections.filter(item => ['pending','pending_team_leader','pending_admin'].includes(item.status)).length;
   const todayShifts = shifts.filter(shift => {
     if (!shift.employee_id) return false;
     const timezone = attendance.find(item=>item.employee_id===shift.employee_id && item.work_timezone)?.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -150,7 +160,7 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
         <label style={muted}>Reason<input value={leaveReason} onChange={e=>setLeaveReason(e.target.value)} style={field} placeholder="Optional"/></label>
         <div>{button('Submit request',()=>{const form=document.querySelector<HTMLFormElement>('[data-leave-form]');form?.requestSubmit();},!leaveStart||!leaveEnd)}</div>
       </form></section>
-      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Leave requests</h2>{leaves.length?leaves.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.leave_type} · {x.start_date} to {x.end_date} · {x.status}</div>{x.reason&&<p style={muted}>{x.reason}</p>}</div>{canReview&&x.status==='pending'&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('workforce_leave_requests',x.id,'approved'))}{button('Reject',()=>void review('workforce_leave_requests',x.id,'rejected'))}</div>}</article>):<p style={muted}>No leave requests yet.</p>}</section>
+      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Leave requests</h2>{leaves.length?leaves.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.leave_type} · {x.start_date} to {x.end_date} · {x.status}</div>{x.reason&&<p style={muted}>{x.reason}</p>}</div>{x.employee_id===profile?.id&&['pending','pending_team_leader','pending_admin'].includes(x.status)&&button('Cancel request',()=>void cancelRequest('leave',x.id))}{((isTeamLeader&&x.status==='pending_team_leader'&&x.team_leader_reviewer_id===profile?.id)||((isAdmin||isSupervisor)&&x.status==='pending_admin'))&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('leave',x.id,'approved'))}{button('Reject',()=>void review('leave',x.id,'rejected'))}</div>}{x.team_leader_reviewed_at&&<p style={muted}>Team leader review: {x.team_leader_review_note||'Completed'} · {x.status==='pending_admin'?'Forwarded for final review':''}</p>}</article>):<p style={muted}>No leave requests yet.</p>}</section>
     </>}
     {tab==='corrections' && <>
       <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Request attendance correction</h2><form data-correction-form onSubmit={e=>{e.preventDefault();if(!profile)return;void run(()=>supabase!.from('attendance_correction_requests').insert({employee_id:profile.id,attendance_id:selectedSession||null,work_date:workDate,requested_check_in:checkIn?new Date(checkIn).toISOString():null,requested_check_out:checkOut?new Date(checkOut).toISOString():null,reason:correctionReason}), 'Correction request submitted.');setCheckIn('');setCheckOut('');setSelectedSession('');setCorrectionReason('');}} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
@@ -161,12 +171,12 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
         <label style={muted}>Reason<input required value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} style={field}/></label>
         <div>{button('Submit correction',()=>{document.querySelector<HTMLFormElement>('[data-correction-form]')?.requestSubmit();},!checkIn&&!checkOut||!correctionReason.trim())}</div>
       </form></section>
-      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Correction requests</h2>{corrections.length?corrections.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.work_date} · IN {x.requested_check_in?new Date(x.requested_check_in).toLocaleString():'unchanged'} · OUT {x.requested_check_out?new Date(x.requested_check_out).toLocaleString():'unchanged'} · {x.status}{x.attendance_id?' · linked session':''}</div><p style={muted}>{x.reason}</p></div>{canReview&&x.status==='pending'&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('attendance_correction_requests',x.id,'approved'))}{button('Reject',()=>void review('attendance_correction_requests',x.id,'rejected'))}</div>}{isAdmin&&x.status==='approved'&&x.attendance_id&&!x.applied_at&&button('Apply to attendance',()=>void run(()=>supabase!.rpc('apply_attendance_correction',{request_id:x.id}),'Correction applied and original values archived.'))}{x.applied_at&&<span style={muted}>Applied {new Date(x.applied_at).toLocaleString()}</span>}</article>):<p style={muted}>No correction requests yet.</p>}</section>
+      <section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Correction requests</h2>{corrections.length?corrections.map(x=><article key={x.id} style={{padding:'11px 0',borderBottom:'1px solid var(--crm-border)',display:'flex',gap:12,justifyContent:'space-between',flexWrap:'wrap'}}><div><strong>{nameOf(x.employee_id)}</strong><div style={muted}>{x.work_date} · IN {x.requested_check_in?new Date(x.requested_check_in).toLocaleString():'unchanged'} · OUT {x.requested_check_out?new Date(x.requested_check_out).toLocaleString():'unchanged'} · {x.status}{x.attendance_id?' · linked session':''}</div><p style={muted}>{x.reason}</p></div>{x.employee_id===profile?.id&&['pending','pending_team_leader','pending_admin'].includes(x.status)&&button('Cancel request',()=>void cancelRequest('correction',x.id))}{((isTeamLeader&&x.status==='pending_team_leader'&&x.team_leader_reviewer_id===profile?.id)||((isAdmin||isSupervisor)&&x.status==='pending_admin'))&&<div style={{display:'flex',gap:6}}>{button('Approve',()=>void review('correction',x.id,'approved'))}{button('Reject',()=>void review('correction',x.id,'rejected'))}</div>}{isAdmin&&x.status==='approved'&&x.attendance_id&&!x.applied_at&&button('Apply to attendance',()=>void run(()=>supabase!.rpc('apply_attendance_correction',{request_id:x.id}),'Correction applied and original values archived.'))}{x.applied_at&&<span style={muted}>Applied {new Date(x.applied_at).toLocaleString()}</span>}</article>):<p style={muted}>No correction requests yet.</p>}</section>
     </>}
     {tab==='followups' && <>
       {canReview&&<section style={panel}><h2 style={{marginTop:0,fontSize:16}}>Create follow-up</h2><form data-followup-form onSubmit={e=>{e.preventDefault();if(!profile)return;void run(()=>supabase!.from('manager_followups').insert({employee_id:targetEmployee,assigned_to:assignedTo||profile.id,created_by:profile.id,title:followTitle,notes:followNotes||null,due_date:followDue||null,priority:followPriority}), 'Follow-up assigned.');setFollowTitle('');setFollowNotes('');}} style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
         <label style={muted}>Employee<select required value={targetEmployee} onChange={e=>setTargetEmployee(e.target.value)} style={field}><option value="">Select employee</option>{people.map(p=><option key={p.id} value={p.id}>{nameOf(p.id)}</option>)}</select></label>
-        <label style={muted}>Assigned manager<select value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} style={field}><option value={profile?.id}>{nameOf(profile?.id||'')}</option>{profiles.filter(p=>p.active&&p.id!==profile?.id&&['supervisor','junior','middle','senior','team_leader','team leader'].includes(p.role.toLowerCase())).map(p=><option key={p.id} value={p.id}>{nameOf(p.id)}</option>)}</select></label>
+        <label style={muted}>Assigned manager<select value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} style={field}><option value={profile?.id}>{nameOf(profile?.id||'')}</option>{people.filter(p=>['supervisor','junior','middle','senior','team_leader','team leader'].includes(p.role.toLowerCase().replaceAll(' ','_'))).map(p=><option key={p.id} value={p.id}>{nameOf(p.id)}</option>)}</select></label>
         <label style={muted}>Title<input required value={followTitle} onChange={e=>setFollowTitle(e.target.value)} style={field}/></label>
         <label style={muted}>Due date<input type="date" value={followDue} onChange={e=>setFollowDue(e.target.value)} style={field}/></label>
         <label style={muted}>Priority<select value={followPriority} onChange={e=>setFollowPriority(e.target.value)} style={field}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option></select></label>
