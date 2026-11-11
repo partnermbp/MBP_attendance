@@ -95,7 +95,17 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
         .then(({ error: notificationError }) => {
           if (notificationError) console.warn('Device security notification could not be delivered:', notificationError.message);
         });
-      heartbeat = setInterval(() => { void supabase.rpc('heartbeat_device_security_session', { p_session_id: id }); }, 60000);
+      heartbeat = setInterval(() => {
+        void supabase.rpc('heartbeat_device_security_session', { p_session_id: id }).then(({ data: ipChanged, error: heartbeatError }) => {
+          if (heartbeatError) return;
+          if (ipChanged === true) {
+            void supabase.functions.invoke('auth-mfa-login', { body: { action: 'device_ip_changed', session_id: id } })
+              .then(({ error: notificationError }) => {
+                if (notificationError) console.warn('Network-change notice could not be delivered:', notificationError.message);
+              });
+          }
+        });
+      }, 60000);
     })();
     return () => {
       alive = false;
