@@ -289,6 +289,7 @@ type SecurityAuditEvent = {
 function SecurityActivityPanel() {
   const [events,setEvents]=useState<SecurityActivity[]>([]);
   const [audit,setAudit]=useState<SecurityAuditEvent[]>([]);
+  const [profileLabels,setProfileLabels]=useState<Record<string,string>>({});
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [refreshKey,setRefreshKey]=useState(0);
@@ -296,15 +297,17 @@ function SecurityActivityPanel() {
     let cancelled=false;
     void (async()=>{
       if(!supabase){setError('Security log is unavailable because the database is not configured.');setLoading(false);return;}
-      const [{data:suspicious,error:suspiciousError},{data:security,error:securityError}]=await Promise.all([
+      const [{data:suspicious,error:suspiciousError},{data:security,error:securityError},{data:people,error:peopleError}]=await Promise.all([
         supabase.from('suspicious_activities').select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at').order('created_at',{ascending:false}).limit(300),
-        supabase.from('crm_security_events').select('id,profile_id,event_type,outcome,login_method,app_platform,app_version,os_name,browser_name,ip_address,ip_source,details,occurred_at').order('occurred_at',{ascending:false}).limit(1000)
+        supabase.from('crm_security_events').select('id,profile_id,event_type,outcome,login_method,app_platform,app_version,os_name,browser_name,ip_address,ip_source,details,occurred_at').order('occurred_at',{ascending:false}).limit(1000),
+        supabase.from('profiles').select('id,full_name,email').limit(2000)
       ]);
       if(cancelled)return;
       if(suspiciousError)setError('Could not load suspicious activities: '+suspiciousError.message);
       else setEvents((suspicious||[]) as SecurityActivity[]);
       if(securityError)setError(prev=>prev?prev+' · Could not load security audit: '+securityError.message:'Could not load security audit: '+securityError.message);
       else setAudit((security||[]) as SecurityAuditEvent[]);
+      if(!peopleError)setProfileLabels(Object.fromEntries((people||[]).map(person=>[person.id,person.full_name||person.email||person.id])));
       setLoading(false);
     })();
     return()=>{cancelled=true;};
@@ -324,7 +327,7 @@ function SecurityActivityPanel() {
         <thead><tr>{['Time','Account ID','Event','Outcome','Login method','App / device','Observed IP','Details'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
         <tbody>{audit.map(event=><tr key={event.id}>
           <td style={cellStyle}>{new Date(event.occurred_at).toLocaleString()}</td>
-          <td style={cellStyle}>{event.profile_id||'Unavailable'}</td>
+          <td style={cellStyle}>{event.profile_id?(profileLabels[event.profile_id]||'Unknown account')+' · '+event.profile_id:'Unavailable'}</td>
           <td style={cellStyle}>{event.event_type.replaceAll('_',' ')}</td>
           <td style={cellStyle}>{event.outcome}</td>
           <td style={cellStyle}>{event.login_method||'—'}</td>
