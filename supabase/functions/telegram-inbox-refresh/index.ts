@@ -41,12 +41,31 @@ Deno.serve(async (req: Request) => {
     const { data: userData, error: userError } = await userClient.auth.getUser();
     const user = userData.user;
     if (userError || !user) return json(401, { error: "Your session is invalid. Please sign in again." });
-    const { data: mfaApproved, error: mfaError } = await userClient.rpc("is_auth_mfa_current");
-    if (mfaError || mfaApproved !== true) return json(403, { error: "Complete secure login verification first." });
-
     const adminClient = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const body = await req.json().catch(() => ({}));
+    const lookupOnly = body?.action === "lookup_only";
+    if (lookupOnly) {
+      const token = authorization.slice("Bearer ".length);
+      let sessionId = "";
+      try {
+        const segment = token.split(".")[1] || "";
+        const normalized = segment.replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(normalized + "=".repeat((4 - normalized.length % 4) % 4)));
+        sessionId = String(payload.session_id || "");
+      } catch { /* Invalid JWT session claim. */ }
+      if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return json(403, { error: "Your login challenge is invalid. Sign in again." });
+      const { data: challenge, error: challengeError } = await adminClient
+        .from("crm_login_challenges").select("id")
+        .eq("user_id", user.id).eq("session_id", sessionId).eq("stage", "telegram")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (challengeError || !challenge) return json(403, { error: "The pending Telegram login challenge has expired. Sign in again." });
+    } else {
+      const { data: mfaApproved, error: mfaError } = await userClient.rpc("is_auth_mfa_current");
+      if (mfaError || mfaApproved !== true) return json(403, { error: "Complete secure login verification first." });
+    }
     const { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("id,role,active")
@@ -77,7 +96,7 @@ Deno.serve(async (req: Request) => {
     }
     const runsData = await runsResponse.json();
     const activeRun = (runsData.workflow_runs ?? []).find((run: any) => run.status === "queued" || run.status === "in_progress");
-    if (activeRun) {
+    if (activeRun && !lookupOnly) {
       return json(200, { ok: true, running: true, message: "A Telegram sync is already queued or running." });
     }
 
@@ -86,7 +105,7 @@ Deno.serve(async (req: Request) => {
       {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: "main" }),
+        body: JSON.stringify({ ref: "main", inputs: { mode: lookupOnly ? "lookup_only" : "full" } }),
       },
     );
 
@@ -96,7 +115,7 @@ Deno.serve(async (req: Request) => {
       return json(502, { error: "GitHub could not start the Telegram worker. Check the server token permissions and workflow configuration." });
     }
 
-    return json(200, { ok: true, running: true, message: "Telegram sync requested." });
+    return json(200, { ok: true, running: true, message: lookupOnly ? "Telegram handler lookup requested." : "Telegram sync requested." });
   } catch (_error) {
     console.error("Unexpected error while requesting Telegram sync.");
     return json(500, { error: "Could not start Telegram sync due to a server error." });
