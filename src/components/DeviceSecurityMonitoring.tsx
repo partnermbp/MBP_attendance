@@ -193,6 +193,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [rows,setRows]=useState<DeviceRow[]>([]);
   const [riskAlerts,setRiskAlerts]=useState<RiskAlert[]>([]);
   const [locationAlerts,setLocationAlerts]=useState<RiskAlert[]>([]);
+  const [concurrentAlerts,setConcurrentAlerts]=useState<RiskAlert[]>([]);
   const [reviews,setReviews]=useState<SecurityReview[]>([]);
   const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
   const [reviewStatuses,setReviewStatuses]=useState<Record<string,string>>({});
@@ -206,15 +207,17 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [pointsLoading,setPointsLoading]=useState(false);
   const reload=useCallback(async()=>{
     setLoading(true);setError('');
-    const [{data,error},{data:alerts,error:alertsError},{data:locations,error:locationError},{data:reviewRows,error:reviewError}]=await Promise.all([
+    const [{data,error},{data:alerts,error:alertsError},{data:locations,error:locationError},{data:concurrent,error:concurrentError},{data:reviewRows,error:reviewError}]=await Promise.all([
       supabase.rpc('admin_device_security_overview'),
       supabase.rpc('admin_security_risk_alerts'),
       supabase.rpc('admin_location_risk_alerts'),
+      supabase.rpc('admin_concurrent_session_alerts'),
       supabase.from('security_alert_reviews').select('alert_key,status,review_note,reviewed_by,updated_at'),
     ]);
     if(error)setError(error.message);else setRows((data||[]) as DeviceRow[]);
     if(alertsError)setError(prev=>prev ? prev+' · '+alertsError.message : alertsError.message);else setRiskAlerts((alerts||[]) as RiskAlert[]);
     if(locationError)setError(prev=>prev ? prev+' · '+locationError.message : locationError.message);else setLocationAlerts((locations||[]) as RiskAlert[]);
+    if(concurrentError)setError(prev=>prev ? prev+' · '+concurrentError.message : concurrentError.message);else setConcurrentAlerts((concurrent||[]) as RiskAlert[]);
     if(reviewError)setError(prev=>prev ? prev+' · '+reviewError.message : reviewError.message);else setReviews((reviewRows||[]) as SecurityReview[]);
     setLoading(false);setAlertsLoading(false);
   },[supabase]);
@@ -234,7 +237,7 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     });
     return()=>{alive=false;};
   },[selected,supabase]);
-  const allRiskAlerts=[...riskAlerts,...locationAlerts];
+  const allRiskAlerts=[...riskAlerts,...locationAlerts,...concurrentAlerts];
   const saveReview=async(alert:RiskAlert)=>{
     const status=reviewStatuses[alert.alert_key]||reviews.find(r=>r.alert_key===alert.alert_key)?.status||'in_review';
     setReviewBusy(alert.alert_key);
