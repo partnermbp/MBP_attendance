@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/deploy-auth-mfa-login.yml"
       - "supabase/functions/auth-mfa-login/**"
+      - "supabase/functions/auth-security-events/**"
       - "supabase/functions/telegram-auth/**"
       - "supabase/functions/telegram-inbox-refresh/**"
       - "supabase/functions/telegram-inbox-status/**"
@@ -30,6 +31,7 @@ jobs:
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || (echo "Missing SUPABASE_ACCESS_TOKEN repository secret" && exit 1)
           supabase functions deploy auth-mfa-login --project-ref "ncpcpckajzzqxxxonfnv" --yes
+          supabase functions deploy auth-security-events --project-ref "ncpcpckajzzqxxxonfnv" --no-verify-jwt --yes
           supabase functions deploy telegram-auth --project-ref "ncpcpckajzzqxxxonfnv" --no-verify-jwt --yes
           supabase functions deploy telegram-inbox-refresh --project-ref "ncpcpckajzzqxxxonfnv" --yes
           supabase functions deploy telegram-inbox-status --project-ref "ncpcpckajzzqxxxonfnv" --yes
