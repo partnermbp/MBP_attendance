@@ -402,6 +402,23 @@ async function deviceRegistered(req: Request, body: any) {
   return reply({ ok: true, notified: isNewInstallation });
 }
 
+async function deviceIpChanged(req: Request, body: any) {
+  const auth = await caller(req);
+  const sessionId = typeof body?.session_id === "string" ? body.session_id : "";
+  if (!auth || !/^[0-9a-f-]{36}$/i.test(sessionId)) return reply({ error: "Authenticated device session required." }, 401);
+  const { data: event } = await db.from("device_network_events")
+    .select("previous_ip,current_ip,recorded_at")
+    .eq("session_id", sessionId).eq("user_id", auth.user.id)
+    .order("recorded_at", { ascending: false }).limit(1).maybeSingle();
+  if (event) {
+    await notifyUserTelegram(auth.user.id,
+      "Attendance CRM security notice: the network address observed for one of your active app sessions changed.\nPrevious observed address: " +
+      String(event.previous_ip || "not previously available") + "\nNew observed address: " + String(event.current_ip) +
+      "\nTime: " + new Date(event.recorded_at).toLocaleString("en-GB", { timeZone: "UTC" }) + " UTC.\nGateway addresses can represent VPNs, carrier networks or proxies. If this was unexpected, contact an administrator.");
+  }
+  return reply({ ok: true });
+}
+
 async function validate(req: Request) {
   const auth = await caller(req);
   if (!auth) return reply({ ok: false, valid: false }, 401);
@@ -426,6 +443,7 @@ Deno.serve(async (req: Request) => {
     if (body?.action === "email_verified") return await emailVerified(req, body);
     if (body?.action === "finish") return await finish(req, body);
     if (body?.action === "device_registered") return await deviceRegistered(req, body);
+    if (body?.action === "device_ip_changed") return await deviceIpChanged(req, body);
     if (body?.action === "validate") return await validate(req);
     return reply({ error: "Unknown action." }, 400);
   } catch (error) {
