@@ -90,6 +90,10 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift }: 
       }
       if (error || !data) { setNotice('Device registration is currently unavailable.'); return; }
       const id = String(data); activeId = id; setSessionId(id);
+      void supabase.functions.invoke('auth-mfa-login', { body: { action: 'device_registered', session_id: id } })
+        .then(({ error: notificationError }) => {
+          if (notificationError) console.warn('Device security notification could not be delivered:', notificationError.message);
+        });
       heartbeat = setInterval(() => { void supabase.rpc('heartbeat_device_security_session', { p_session_id: id }); }, 60000);
     })();
     return () => {
