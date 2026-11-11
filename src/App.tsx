@@ -1115,7 +1115,7 @@ export default function App() {
     setMessage('');
     try {
       const { data: created, error: createError } = await supabase.functions.invoke('telegram-auth', {
-        body: { action: 'create_invited_account', invitation_token: inviteToken, registration_ticket: ticket, email_registration_ticket: emailTicket, password },
+        body: { action: 'create_invited_account', invitation_token: inviteToken, registration_ticket: ticket, email_registration_ticket: emailTicket, password, registration_device_id: (()=>{try{return localStorage.getItem('mbp_crm_app_instance_id')}catch{return null}})() },
       });
       if (createError || !created?.ok) {
         let serverMessage = created?.error || '';
