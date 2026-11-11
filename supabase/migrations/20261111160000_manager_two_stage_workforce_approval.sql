@@ -35,7 +35,7 @@ as $$
   order by x.depth desc limit 1;
 $$;
 revoke all on function public.get_top_team_leader(uuid) from public, anon;
-grant execute on function public.get_top_team_leader(uuid) to authenticated;
+revoke all on function public.get_top_team_leader(uuid) from public, anon, authenticated;
 
 create or replace function public.route_workforce_request_to_team_leader()
 returns trigger language plpgsql security definer set search_path = public
