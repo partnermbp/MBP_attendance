@@ -402,6 +402,13 @@ async function deviceRegistered(req: Request, body: any) {
   return reply({ ok: true, notified: isNewInstallation });
 }
 
+async function logoutNotice(req: Request) {
+  const auth = await caller(req);
+  if (!auth) return reply({ error: "Authenticated session required." }, 401);
+  await notifyUserTelegram(auth.user.id, "Attendance CRM security notice: your account signed out successfully. If this was not you, change your password and contact an administrator.");
+  return reply({ ok: true });
+}
+
 async function deviceIpChanged(req: Request, body: any) {
   const auth = await caller(req);
   const sessionId = typeof body?.session_id === "string" ? body.session_id : "";
@@ -444,6 +451,7 @@ Deno.serve(async (req: Request) => {
     if (body?.action === "finish") return await finish(req, body);
     if (body?.action === "device_registered") return await deviceRegistered(req, body);
     if (body?.action === "device_ip_changed") return await deviceIpChanged(req, body);
+    if (body?.action === "logout_notice") return await logoutNotice(req);
     if (body?.action === "validate") return await validate(req);
     return reply({ error: "Unknown action." }, 400);
   } catch (error) {
