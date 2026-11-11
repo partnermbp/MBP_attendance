@@ -1192,6 +1192,11 @@ export default function App() {
     try {
       const { data: authData, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error || !authData.session || !authData.user) {
+        if (error) {
+          void supabase.functions.invoke('auth-security-events', {
+            body: { action: 'failed_password', email: normalizedEmail },
+          }).catch((auditError) => console.warn('Failed-password audit could not be submitted:', auditError));
+        }
         mfaLoginInProgressRef.current = false;
         setMessage(error?.message || 'Unable to establish your login session. Please try again.');
         return;
