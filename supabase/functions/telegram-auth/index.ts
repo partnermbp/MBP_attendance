@@ -285,10 +285,43 @@ async function createInvitedAccount(req: Request) {
     .update({ telegram_username: tg.telegram_username ?? null })
     .eq("id", created.user.id);
   if (usernameError) console.error("Could not save verified Telegram username:", usernameError.message);
-  await supabase.from("crm_security_events").insert({
-    profile_id: created.user.id, event_type: "invitation_accepted", outcome: "success",
-    details: { invitation_id: invite.id, invited_role: invite.invited_role },
-  });
+  // Invitation completion is normally not an alert. Flag only if its network
+  // or browser installation was already observed under another active account.
+  const forwarded = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "").split(",")[0].trim();
+  const observedIp = /^[0-9a-fA-F:.]+$/.test(forwarded) ? forwarded : null;
+  const registrationDeviceId = typeof body?.registration_device_id === "string" && body.registration_device_id.length <= 160
+    ? body.registration_device_id : null;
+  const [deviceMatch, ipMatch] = await Promise.all([
+    registrationDeviceId
+      ? supabase.from("device_security_sessions").select("user_id,app_platform,started_at").eq("app_instance_id", registrationDeviceId).neq("user_id", created.user.id).gte("last_seen_at", new Date(Date.now()-30*86400000).toISOString()).limit(10)
+      : Promise.resolve({data:[],error:null}),
+    observedIp
+      ? supabase.from("device_ip_observations").select("user_id,first_seen_at,last_seen_at,ip_source").eq("ip_address", observedIp).neq("user_id", created.user.id).gte("last_seen_at", new Date(Date.now()-30*86400000).toISOString()).limit(10)
+      : Promise.resolve({data:[],error:null}),
+  ]);
+  const matchedAccounts = new Set<string>();
+  for (const row of [...(deviceMatch.data || []), ...(ipMatch.data || [])]) if (row.user_id) matchedAccounts.add(String(row.user_id));
+  if (matchedAccounts.size) {
+    const { data: inviter } = await supabase.from("profiles").select("full_name,email").eq("id", invite.invited_by).maybeSingle();
+    const { error: riskError } = await supabase.from("suspicious_activities").insert({
+      event_type: "invitation_shared_device_or_network",
+      inviter_id: invite.invited_by,
+      inviter_name: inviter?.full_name || inviter?.email || null,
+      invitee_admin_panel_name: invite.admin_panel_name,
+      invitee_email: invite.corporate_email,
+      telegram_username: tg.telegram_username ?? null,
+      details: JSON.stringify({
+        invitation_id: invite.id,
+        matched_existing_accounts: Array.from(matchedAccounts),
+        shared_installation: Boolean(deviceMatch.data?.length),
+        shared_observed_ip: Boolean(ipMatch.data?.length),
+        observed_ip: observedIp,
+        ip_source: observedIp ? "supabase_gateway_forwarded_for" : null,
+        note: "Potential account/device overlap only; shared networks, VPNs, carrier NAT or a shared household can cause false positives.",
+      }),
+    });
+    if (riskError) console.error("Invitation risk signal could not be saved:", riskError.message);
+  }
   return jsonResponse({ ok: true, email: invite.corporate_email, message: "Both identity checks passed and your CRM account has been created." });
 }
 
