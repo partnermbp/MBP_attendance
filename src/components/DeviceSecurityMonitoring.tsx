@@ -190,7 +190,6 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift, sh
 }
 
 export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseClient}) {
-  const [rows,setRows]=useState<DeviceRow[]>([]);
   const [riskAlerts,setRiskAlerts]=useState<RiskAlert[]>([]);
   const [locationAlerts,setLocationAlerts]=useState<RiskAlert[]>([]);
   const [concurrentAlerts,setConcurrentAlerts]=useState<RiskAlert[]>([]);
@@ -200,46 +199,25 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   const [reviewStatuses,setReviewStatuses]=useState<Record<string,string>>({});
   const [reviewBusy,setReviewBusy]=useState<string|null>(null);
   const [alertsLoading,setAlertsLoading]=useState(true);
-  const [selected,setSelected]=useState<string|null>(null);
-  const [points,setPoints]=useState<LocationRow[]>([]);
-  const [networkEvents,setNetworkEvents]=useState<NetworkRow[]>([]);
-  const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
-  const [pointsLoading,setPointsLoading]=useState(false);
   const reload=useCallback(async()=>{
     setLoading(true);setError('');
-    const [{data,error},{data:alerts,error:alertsError},{data:locations,error:locationError},{data:concurrent,error:concurrentError},{data:authFailures,error:authFailureError},{data:reviewRows,error:reviewError}]=await Promise.all([
-      supabase.rpc('admin_device_security_overview'),
+    const [{data:alerts,error:alertsError},{data:locations,error:locationError},{data:concurrent,error:concurrentError},{data:authFailures,error:authFailureError},{data:reviewRows,error:reviewError}]=await Promise.all([
       supabase.rpc('admin_security_risk_alerts'),
       supabase.rpc('admin_location_risk_alerts'),
       supabase.rpc('admin_concurrent_session_alerts'),
       supabase.rpc('admin_auth_failure_alerts'),
       supabase.from('security_alert_reviews').select('alert_key,status,review_note,reviewed_by,updated_at'),
     ]);
-    if(error)setError(error.message);else setRows((data||[]) as DeviceRow[]);
     if(alertsError)setError(prev=>prev ? prev+' · '+alertsError.message : alertsError.message);else setRiskAlerts((alerts||[]) as RiskAlert[]);
     if(locationError)setError(prev=>prev ? prev+' · '+locationError.message : locationError.message);else setLocationAlerts((locations||[]) as RiskAlert[]);
     if(concurrentError)setError(prev=>prev ? prev+' · '+concurrentError.message : concurrentError.message);else setConcurrentAlerts((concurrent||[]) as RiskAlert[]);
     if(authFailureError)setError(prev=>prev ? prev+' · '+authFailureError.message : authFailureError.message);else setAuthFailureAlerts((authFailures||[]) as RiskAlert[]);
     if(reviewError)setError(prev=>prev ? prev+' · '+reviewError.message : reviewError.message);else setReviews((reviewRows||[]) as SecurityReview[]);
-    setLoading(false);setAlertsLoading(false);
+    setAlertsLoading(false);
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
   useEffect(()=>{const timer=window.setInterval(()=>{void reload();},60000);return()=>window.clearInterval(timer);},[reload]);
-  useEffect(()=>{
-    if(!selected){setPoints([]);setNetworkEvents([]);return;}
-    let alive=true;setPointsLoading(true);
-    void Promise.all([
-      supabase.rpc('admin_device_location_points',{p_session_id:selected}),
-      supabase.from('device_network_events').select('id,previous_ip,current_ip,source,recorded_at').eq('session_id',selected).order('recorded_at',{ascending:false}).limit(100),
-    ]).then(([locationResult,networkResult])=>{
-      if(!alive)return;
-      if(locationResult.error)setError(locationResult.error.message);else setPoints((locationResult.data||[]) as LocationRow[]);
-      if(networkResult.error)setError(networkResult.error.message);else setNetworkEvents((networkResult.data||[]) as NetworkRow[]);
-      setPointsLoading(false);
-    });
-    return()=>{alive=false;};
-  },[selected,supabase]);
   const allRiskAlerts=[...riskAlerts,...locationAlerts,...concurrentAlerts,...authFailureAlerts];
   const saveReview=async(alert:RiskAlert)=>{
     const status=reviewStatuses[alert.alert_key]||reviews.find(r=>r.alert_key===alert.alert_key)?.status||'in_review';
@@ -249,16 +227,15 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
     else await reload();
     setReviewBusy(null);
   };
-  const selectedRow=useMemo(()=>rows.find(r=>r.session_id===selected),[rows,selected]);
   const cell:CSSProperties={padding:9,borderBottom:'1px solid var(--crm-border,#394150)',textAlign:'left',verticalAlign:'top',fontSize:12};
   return <section style={{marginTop:18}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-      <div><h2 style={{marginBottom:4}}>Device & workforce monitoring</h2><p style={{fontSize:12,opacity:.7,marginTop:0}}>Admin-only device sessions, network metadata and consent-based shift location history.</p></div>
+      <div><h2 style={{marginBottom:4}}>Security risk alerts</h2><p style={{fontSize:12,opacity:.7,marginTop:0}}>Only suspicious account, device, network, location and authentication patterns are shown here.</p></div>
       <button type="button" onClick={()=>void reload()} style={{padding:'8px 12px',borderRadius:7}}>Refresh</button>
     </div>
     <section style={{margin:'14px 0',padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-        <div><h3 style={{margin:'0 0 4px'}}>Fraud & account-sharing alerts</h3><p style={{fontSize:12,opacity:.7,margin:0}}>Automatically correlated signals from the last 30 days. Alerts are for manual review; no account is automatically restricted.</p></div>
+        <div><h3 style={{margin:'0 0 4px'}}>Fraud & account-sharing alerts</h3><p style={{fontSize:12,opacity:.7,margin:0}}>Only threshold-level or cross-account risk signals from the last 30 days. Routine logins, heartbeats and normal device registrations are excluded. Alerts require manual review; no account is automatically restricted.</p></div>
         <span style={{fontSize:12,opacity:.75}}>{allRiskAlerts.length} active signals</span>
       </div>
       {alertsLoading&&<p>Checking risk signals…</p>}
@@ -282,34 +259,6 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
         {reviews.find(r=>r.alert_key===alert.alert_key)&&<p style={{fontSize:11,opacity:.65,marginBottom:0}}>Last reviewed: {new Date(reviews.find(r=>r.alert_key===alert.alert_key)!.updated_at).toLocaleString()}</p>}
       </article>)}
     </section>
-    {loading&&<p>Loading device sessions…</p>}
-    {error&&<p role="alert" style={{color:'#fda29b'}}>{error}</p>}
-    {!loading&&!rows.length&&!error&&<p>No device sessions have been registered yet.</p>}
-    {!loading&&rows.length>0&&<div style={{overflowX:'auto'}}><table style={{width:'100%',minWidth:1000,borderCollapse:'collapse'}}>
-      <thead><tr>{['User','App','Version','Device / OS','IP','Last activity','Status','Location tracking','Details / route'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead>
-      <tbody>{rows.map(r=><tr key={r.session_id}>
-        <td style={cell}>{r.full_name||'Unknown'}<br/><span style={{opacity:.7}}>{r.email||''}</span><br/><span style={{opacity:.65}}>{r.role}</span></td>
-        <td style={cell}>{r.app_platform}<br/><span style={{opacity:.7}}>{r.app_runtime}</span></td>
-        <td style={cell}>{r.app_version||'—'}</td>
-        <td style={cell}>{[r.device_model,r.os_name,r.os_version,r.browser_name].filter(Boolean).join(' · ')||'Limited by platform'}</td>
-        <td style={cell}>{r.ip_address||'Not yet captured'}<br/><span style={{opacity:.7}}>{r.ip_source||''}</span></td>
-        <td style={cell}>{new Date(r.last_seen_at).toLocaleString()}</td>
-        <td style={cell}>{Date.now()-new Date(r.last_seen_at).getTime()<180000?'Recently active':'Inactive / stale'}</td>
-        <td style={cell}>{r.location_tracking_enabled?'Enabled':'Off'}<br/><span style={{opacity:.7}}>{r.location_points} points</span></td>
-        <td style={cell}><button type="button" onClick={()=>setSelected(r.session_id)} style={{padding:'6px 9px'}}>{selected===r.session_id?'Selected':'Details'}</button></td>
-      </tr>)}</tbody></table></div>}
-    {selectedRow&&<section style={{marginTop:16,padding:12,border:'1px solid var(--crm-border,#394150)',borderRadius:10}}>
-      <h3 style={{marginTop:0}}>Shift route · {selectedRow.full_name||selectedRow.email||'User'}</h3>
-      <h4>Network / IP history</h4>
-      {!pointsLoading&&!networkEvents.length&&<p style={{fontSize:12,opacity:.7}}>No IP changes recorded for this session.</p>}
-      {networkEvents.length>0&&<div style={{overflowX:'auto',marginBottom:14}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Time','Previous IP','Observed IP','Source'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead><tbody>{networkEvents.map(n=><tr key={n.id}><td style={cell}>{new Date(n.recorded_at).toLocaleString()}</td><td style={cell}>{n.previous_ip||'First observation'}</td><td style={cell}>{n.current_ip}</td><td style={cell}>{n.source}</td></tr>)}</tbody></table></div>}
-      {pointsLoading&&<p>Loading location points…</p>}
-      {!pointsLoading&&!points.length&&<p>No location points were recorded for this session.</p>}
-      {points.length>0&&<>
-        <p style={{fontSize:12,opacity:.7}}>Recorded points are timestamped and include reported GPS accuracy. Select a point to open its map position.</p>
-        <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Time','Coordinates','Accuracy','Speed','Map'].map(x=><th key={x} style={cell}>{x}</th>)}</tr></thead>
-        <tbody>{points.map(p=><tr key={p.id}><td style={cell}>{new Date(p.recorded_at).toLocaleString()}</td><td style={cell}>{p.latitude.toFixed(6)}, {p.longitude.toFixed(6)}</td><td style={cell}>{p.accuracy_m==null?'—':Math.round(p.accuracy_m)+' m'}</td><td style={cell}>{p.speed_mps==null?'—':(p.speed_mps*3.6).toFixed(1)+' km/h'}</td><td style={cell}><a href={'https://www.openstreetmap.org/?mlat='+p.latitude+'&mlon='+p.longitude+'#map=17/'+p.latitude+'/'+p.longitude} target="_blank" rel="noreferrer">Open map</a></td></tr>)}</tbody></table></div>
-      </>}
-    </section>}
+
   </section>;
 }
