@@ -951,6 +951,10 @@ export default function App() {
       setProfileReady(false);
       setMessage('You were signed out after 60 minutes of inactivity. Please sign in again.');
       try { localStorage.removeItem(storageKey); } catch { /* storage may be unavailable */ }
+      try {
+        await supabase!.rpc('record_crm_security_event', { p_event_type: 'logout', p_outcome: 'success', p_details: { reason: 'inactivity_timeout' } });
+        await supabase!.functions.invoke('auth-mfa-login', { body: { action: 'logout_notice' } });
+      } catch { /* logout must proceed even if audit or Telegram delivery fails */ }
       await supabase!.auth.signOut({ scope: 'local' });
       setSession(null);
       setScreen('login');
@@ -1691,6 +1695,10 @@ export default function App() {
       if (session?.user.id) {
         try { localStorage.removeItem(INACTIVITY_STORAGE_PREFIX + session.user.id); } catch { /* storage may be unavailable */ }
       }
+      try {
+        await supabase.rpc('record_crm_security_event', { p_event_type: 'logout', p_outcome: 'success', p_details: { reason: 'user_requested' } });
+        await supabase.functions.invoke('auth-mfa-login', { body: { action: 'logout_notice' } });
+      } catch { /* logout must proceed even if audit or Telegram delivery fails */ }
       const { error } = await supabase.auth.signOut();
 
       if (error) {
