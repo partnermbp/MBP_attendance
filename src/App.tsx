@@ -275,73 +275,81 @@ function isApprovedEmail(email: string) {
 
 
 type SecurityActivity = {
-  id: number;
-  event_type: string;
-  inviter_name: string | null;
-  invitee_admin_panel_name: string | null;
-  invitee_email: string | null;
-  telegram_user_id: number | null;
-  telegram_username: string | null;
-  details: string;
-  created_at: string;
+  id: number; event_type: string; inviter_name: string | null;
+  invitee_admin_panel_name: string | null; invitee_email: string | null;
+  telegram_user_id: number | null; telegram_username: string | null;
+  details: string; created_at: string;
 };
-
+type SecurityAuditEvent = {
+  id:number; profile_id:string|null; event_type:string; outcome:string;
+  login_method:string|null; app_platform:string|null; app_version:string|null;
+  os_name:string|null; browser_name:string|null; ip_address:string|null;
+  ip_source:string|null; details:Record<string,unknown>; occurred_at:string;
+};
 function SecurityActivityPanel() {
-  const [events, setEvents] = useState<SecurityActivity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      if (!supabase) {
-        setError('Security log is unavailable because the database is not configured.');
-        setLoading(false);
-        return;
-      }
-      const { data, error: queryError } = await supabase
-        .from('suspicious_activities')
-        .select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at')
-        .order('created_at', { ascending: false })
-        .limit(500);
-      if (cancelled) return;
-      if (queryError) setError('Could not load Suspicious Activities: ' + queryError.message);
-      else setEvents((data ?? []) as SecurityActivity[]);
+  const [events,setEvents]=useState<SecurityActivity[]>([]);
+  const [audit,setAudit]=useState<SecurityAuditEvent[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [refreshKey,setRefreshKey]=useState(0);
+  useEffect(()=>{
+    let cancelled=false;
+    void (async()=>{
+      if(!supabase){setError('Security log is unavailable because the database is not configured.');setLoading(false);return;}
+      const [{data:suspicious,error:suspiciousError},{data:security,error:securityError}]=await Promise.all([
+        supabase.from('suspicious_activities').select('id,event_type,inviter_name,invitee_admin_panel_name,invitee_email,telegram_user_id,telegram_username,details,created_at').order('created_at',{ascending:false}).limit(300),
+        supabase.from('crm_security_events').select('id,profile_id,event_type,outcome,login_method,app_platform,app_version,os_name,browser_name,ip_address,ip_source,details,occurred_at').order('occurred_at',{ascending:false}).limit(1000)
+      ]);
+      if(cancelled)return;
+      if(suspiciousError)setError('Could not load suspicious activities: '+suspiciousError.message);
+      else setEvents((suspicious||[]) as SecurityActivity[]);
+      if(securityError)setError(prev=>prev?prev+' · Could not load security audit: '+securityError.message:'Could not load security audit: '+securityError.message);
+      else setAudit((security||[]) as SecurityAuditEvent[]);
       setLoading(false);
     })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const cellStyle: CSSProperties = { padding: 10, borderBottom: '1px solid #344054', textAlign: 'left', verticalAlign: 'top', overflowWrap: 'anywhere' };
-  return <section style={{ marginTop: 20 }}>
-    <h1>Security</h1>
+    return()=>{cancelled=true;};
+  },[refreshKey]);
+  const cellStyle:CSSProperties={padding:9,borderBottom:'1px solid #344054',textAlign:'left',verticalAlign:'top',overflowWrap:'anywhere',fontSize:12};
+  return <section style={{marginTop:20}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+      <h1>Security</h1><button type="button" onClick={()=>{setLoading(true);setRefreshKey(v=>v+1);}} style={{padding:'7px 11px',borderRadius:7}}>Refresh logs</button>
+    </div>
+    <h2>Security event history</h2>
+    <p style={{color:'#b7c0d1'}}>Admin-only audit of sign-ins, devices, network changes, failed verification, role changes and security decisions. IP data is server-observed gateway metadata and may represent a shared proxy or carrier network.</p>
+    {loading&&<p>Loading security events…</p>}
+    {error&&<p role="alert" style={{color:'#fda29b'}}>{error}</p>}
+    {!loading&&!audit.length&&!error&&<p style={{color:'#b7c0d1'}}>No security events recorded yet.</p>}
+    {!!audit.length&&<div style={{overflowX:'auto',marginBottom:24}}>
+      <table style={{width:'100%',borderCollapse:'collapse',minWidth:1050}}>
+        <thead><tr>{['Time','Account ID','Event','Outcome','Login method','App / device','Observed IP','Details'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
+        <tbody>{audit.map(event=><tr key={event.id}>
+          <td style={cellStyle}>{new Date(event.occurred_at).toLocaleString()}</td>
+          <td style={cellStyle}>{event.profile_id||'Unavailable'}</td>
+          <td style={cellStyle}>{event.event_type.replaceAll('_',' ')}</td>
+          <td style={cellStyle}>{event.outcome}</td>
+          <td style={cellStyle}>{event.login_method||'—'}</td>
+          <td style={cellStyle}>{[event.app_platform,event.app_version,event.os_name,event.browser_name].filter(Boolean).join(' · ')||'—'}</td>
+          <td style={cellStyle}>{event.ip_address||'Not captured'}<br/><span style={{opacity:.65}}>{event.ip_source||''}</span></td>
+          <td style={cellStyle}>{JSON.stringify(event.details||{})}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
     <h2>Suspicious Activities</h2>
-    <p style={{ color: '#b7c0d1' }}>Attempts to reuse a Telegram identity already registered to another CRM account. This audit log is visible to Admin only.</p>
-    {loading && <p>Loading security events…</p>}
-    {error && <p role="alert" style={{ color: '#fda29b' }}>{error}</p>}
-    {!loading && !error && events.length === 0 && <p style={{ color: '#b7c0d1' }}>No suspicious activities recorded.</p>}
-    {!loading && !error && events.length > 0 && <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
-        <thead><tr>
-          <th style={cellStyle}>Time</th><th style={cellStyle}>Activity</th><th style={cellStyle}>Inviter manager</th>
-          <th style={cellStyle}>Invitee Admin Panel Name</th><th style={cellStyle}>Invitee email</th>
-          <th style={cellStyle}>Telegram ID</th><th style={cellStyle}>Telegram username</th><th style={cellStyle}>Details</th>
-        </tr></thead>
-        <tbody>{events.map(event => <tr key={event.id}>
-          <td style={cellStyle}>{new Date(event.created_at).toLocaleString()}</td>
-          <td style={cellStyle}>{event.event_type.replaceAll('_', ' ')}</td>
-          <td style={cellStyle}>{event.inviter_name || 'Unavailable'}</td>
-          <td style={cellStyle}>{event.invitee_admin_panel_name || 'Unavailable'}</td>
-          <td style={cellStyle}>{event.invitee_email || 'Unavailable'}</td>
-          <td style={cellStyle}>{event.telegram_user_id ?? 'Unavailable'}</td>
-          <td style={cellStyle}>{event.telegram_username ? '@' + event.telegram_username : 'Not provided'}</td>
-          <td style={cellStyle}>{event.details}</td>
+    <p style={{color:'#b7c0d1'}}>Attempts to reuse a Telegram identity already registered to another CRM account. This audit log is visible to Admin only.</p>
+    {!loading&&!events.length&&!error&&<p style={{color:'#b7c0d1'}}>No suspicious activities recorded.</p>}
+    {!!events.length&&<div style={{overflowX:'auto'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
+        <thead><tr>{['Time','Activity','Inviter manager','Invitee Admin Panel Name','Invitee email','Telegram ID','Telegram username','Details'].map(x=><th key={x} style={cellStyle}>{x}</th>)}</tr></thead>
+        <tbody>{events.map(event=><tr key={event.id}>
+          <td style={cellStyle}>{new Date(event.created_at).toLocaleString()}</td><td style={cellStyle}>{event.event_type.replaceAll('_',' ')}</td>
+          <td style={cellStyle}>{event.inviter_name||'Unavailable'}</td><td style={cellStyle}>{event.invitee_admin_panel_name||'Unavailable'}</td>
+          <td style={cellStyle}>{event.invitee_email||'Unavailable'}</td><td style={cellStyle}>{event.telegram_user_id??'Unavailable'}</td>
+          <td style={cellStyle}>{event.telegram_username?'@'+event.telegram_username:'Not provided'}</td><td style={cellStyle}>{event.details}</td>
         </tr>)}</tbody>
       </table>
     </div>}
   </section>;
 }
-
 
 
 
