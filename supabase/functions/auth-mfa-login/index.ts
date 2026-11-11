@@ -377,6 +377,31 @@ async function finish(req: Request, body: any) {
     return reply({ ok: true, stage: "complete" });
   } catch { return reply({ error: "Unable to approve this login session." }, 500); }
 }
+async function deviceRegistered(req: Request, body: any) {
+  const auth = await caller(req);
+  const sessionId = typeof body?.session_id === "string" ? body.session_id : "";
+  if (!auth || !/^[0-9a-f-]{36}$/i.test(sessionId)) return reply({ error: "Authenticated device session required." }, 401);
+  const { data: device, error } = await db.from("device_security_sessions")
+    .select("id,app_platform,app_version,os_name,device_model,app_instance_id,ip_address")
+    .eq("id", sessionId).eq("user_id", auth.user.id).is("ended_at", null).maybeSingle();
+  if (error || !device) return reply({ error: "Device session not found." }, 404);
+  let isNewInstallation = true;
+  if (device.app_instance_id) {
+    const { data: previous } = await db.from("device_security_sessions").select("id")
+      .eq("user_id", auth.user.id).eq("app_instance_id", device.app_instance_id)
+      .neq("id", sessionId).limit(1);
+    isNewInstallation = !previous?.length;
+  }
+  if (isNewInstallation) {
+    await notifyUserTelegram(auth.user.id,
+      "Attendance CRM security notice: a new app installation signed in to your account.\nPlatform: " +
+      String(device.app_platform || "unknown") + "\nVersion: " + String(device.app_version || "unknown") +
+      "\nDevice: " + String(device.device_model || device.os_name || "not reported") +
+      "\nIf this was not you, change your password and contact an administrator.");
+  }
+  return reply({ ok: true, notified: isNewInstallation });
+}
+
 async function validate(req: Request) {
   const auth = await caller(req);
   if (!auth) return reply({ ok: false, valid: false }, 401);
@@ -400,6 +425,7 @@ Deno.serve(async (req: Request) => {
     if (body?.action === "resend_email") return await resendEmail(req, body);
     if (body?.action === "email_verified") return await emailVerified(req, body);
     if (body?.action === "finish") return await finish(req, body);
+    if (body?.action === "device_registered") return await deviceRegistered(req, body);
     if (body?.action === "validate") return await validate(req);
     return reply({ error: "Unknown action." }, 400);
   } catch (error) {
