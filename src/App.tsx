@@ -518,6 +518,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [showCorrectionShortcut, setShowCorrectionShortcut] = useState(false);
+  const [workforceInitialTab, setWorkforceInitialTab] = useState<'leave'|'corrections'>('leave');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -2916,7 +2917,7 @@ export default function App() {
           </section>}
 
           {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
-          {activePage === 'workforce-operations' && <WorkforceOperations key={showCorrectionShortcut?'correction-shortcut':'workforce-default'} profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
+          {activePage === 'workforce-operations' && <WorkforceOperations key={activePage==='workforce-operations'?workforceInitialTab:'workforce-default'} initialTab={workforceInitialTab} profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
           {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} approvedLeave={approvedLeave} holidays={workforceHolidays} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
@@ -3207,7 +3208,7 @@ export default function App() {
           }}
         >
           {message}
-          {showCorrectionShortcut && <button type="button" onClick={()=>{setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:9,padding:'8px 12px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer'}}>Open Attendance Corrections</button>}
+          {showCorrectionShortcut && <button type="button" onClick={()=>{setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:9,padding:'8px 12px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer'}}>Open Attendance Corrections</button>}
         </p>
       )}
 
