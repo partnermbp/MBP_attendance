@@ -1672,7 +1672,7 @@ export default function App() {
       const elapsed = openRecord ? Date.now() - new Date(openRecord.check_in).getTime() : 0;
       const earlyManagerCheckout = isManagerRole && elapsed < 8.5 * 60 * 60 * 1000;
       const prompt = earlyManagerCheckout
-        ? 'Your 8-hour work requirement plus the 1-hour break period has not been completed. You may end your shift up to 30 minutes early. Do you still want to check out now?'
+        ? 'Your total shift working hours are not complete. Do you still want to check out?'
         : 'Do you want to check out?';
       if (window.confirm(prompt)) void handleCheckOut(attendanceId);
     }, 1200);
