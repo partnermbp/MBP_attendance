@@ -33,6 +33,8 @@ type Attendance = {
   manual_adjustment_minutes?: number | null;
   manual_original_credited_minutes?: number | null;
   manual_adjusted_at?: string | null;
+  manual_check_in_changed?: boolean;
+  manual_check_out_changed?: boolean;
   manually_adjusted?: boolean;
   auto_closed?: boolean;
   check_in_gps_recorded?: boolean;
@@ -773,7 +775,7 @@ export default function App() {
           supabase.rpc('get_my_team_hierarchy_with_telegram'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manual_check_in_changed, manual_check_out_changed, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
         ]);
         if (hierarchyResult.error) {
           setProfiles([currentProfile]); setManagerAssignments([]);
@@ -1710,7 +1712,7 @@ export default function App() {
       // monthly progress bar reflects the newly completed session without a page reload.
       const { data: refreshedOwnAttendance, error: refreshOwnAttendanceError } = await supabase
         .from('attendance')
-        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manually_adjusted, auto_closed')
+        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manual_check_in_changed, manual_check_out_changed, manually_adjusted, auto_closed')
         .eq('employee_id', session.user.id)
         .order('check_in', { ascending: false })
         .limit(500);
@@ -3214,28 +3216,38 @@ export default function App() {
                     <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'var(--crm-card-bg)',padding:8,borderBottom:'1px solid var(--crm-border)',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:depth*16}}>{hasChildren ? <button type="button" aria-label={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} title={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} onClick={() => setExpandedManagerIds(current => { const next = new Set(current); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{display:'grid',placeItems:'center',width:16,height:24,padding:0,flexShrink:0,border:0,background:'transparent',color:'#ffb36b',fontSize:18,fontWeight:800,cursor:'pointer'}}>{expandedManagerIds.has(person.id) ? '▾' : '▸'}</button> : <span aria-hidden="true" style={{display:'inline-block',width:16,flexShrink:0}}/>}<span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span><span style={{fontSize:9,fontWeight:400,color:'#ffb36b',marginTop:2}}>{String(person.role).replace(/_/g,' ')}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
                     {dateKeys.map(date => {
                       const records = reportAttendance.filter(item => item.employee_id === person.id && (item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone,new Date(item.check_in)) : item.check_in.slice(0,10))) === date);
-                      const record = records.find(item => item.manually_adjusted === true || Number(item.manual_adjustment_minutes ?? 0) !== 0) ?? records[0];
+                      // The attendance capsule represents the latest applied correction for this employee/day.
+                      // Sort by the actual correction timestamp, not array order or a stale corrected flag.
+                      const record = [...records].sort((a, b) => {
+                        const aCorrected = a.manually_adjusted === true || Number(a.manual_adjustment_minutes ?? 0) !== 0;
+                        const bCorrected = b.manually_adjusted === true || Number(b.manual_adjustment_minutes ?? 0) !== 0;
+                        if (aCorrected !== bCorrected) return aCorrected ? -1 : 1;
+                        const aTime = a.manual_adjusted_at || a.check_in;
+                        const bTime = b.manual_adjusted_at || b.check_in;
+                        return bTime.localeCompare(aTime);
+                      })[0];
                       const completed = Boolean(record?.check_out);
                       const present = Boolean(record);
                       const manuallyAdjusted = Boolean(record && (record.manually_adjusted === true || Number(record.manual_adjustment_minutes ?? 0) !== 0));
+                      const manualInChanged = manuallyAdjusted && (record?.manual_check_in_changed ?? manuallyAdjusted);
+                      const manualOutChanged = manuallyAdjusted && (record?.manual_check_out_changed ?? manuallyAdjusted);
                       const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
                       const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
                       return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:154}}>
                         <div title={!present?'Absent':completed?'Signed in and out': 'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minWidth:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left',position:'relative'}}>
                           {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
-                            {manuallyAdjusted && <span title="Manually adjusted attendance times" aria-label="Manually adjusted" style={{position:'absolute',top:3,right:4,fontSize:9,lineHeight:'13px',fontWeight:900,padding:'0 4px',borderRadius:4,background:'#fef0c7',color:'#92400e',border:'1px solid #f59e0b',zIndex:1}}>(M)</span>}
                             {canViewAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
-                                <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manuallyAdjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
+                                <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}{manualInChanged && <small title="Check-in time was manually corrected" style={{marginLeft:4,fontWeight:900,color:'#fef0c7'}}>(M)</small>}</span>
+                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manualOutChanged && <small title="Check-out time was manually corrected" style={{marginLeft:4,fontWeight:900,color:'#fef0c7'}}>(M)</small>}</span>
                               </span>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
                                 {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
                                 {gpsButton(record.check_out_lat,record.check_out_lng,'Check-out location')}
                               </span>
                             </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
-                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manuallyAdjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
+                              <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}{manualInChanged && <small title="Check-in time was manually corrected" style={{marginLeft:4,fontWeight:900,color:'#fef0c7'}}>(M)</small>}</span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manualOutChanged && <small title="Check-out time was manually corrected" style={{marginLeft:4,fontWeight:900,color:'#fef0c7'}}>(M)</small>}</span>
                             </span>}
                           </>}
                         </div>
