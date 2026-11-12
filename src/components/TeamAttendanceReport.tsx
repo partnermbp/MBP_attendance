@@ -24,11 +24,12 @@ function MiniBarChart({ title, subtitle, labels, values, color = 'var(--crm-acce
   const max = Math.max(1, ...values);
   const width = 640, height = 190, left = 30, bottom = 28, top = 12;
   const slot = (width - left - 12) / Math.max(1, values.length);
+  const labelStep = Math.max(1, Math.ceil(labels.length / 10));
   return <section style={panel}>
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}><strong>{title}</strong><span style={muted}>{subtitle}</span></div>
     {values.length ? <div className="crm-report-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} style={{ display: 'block', width: '100%', height: 'auto', marginTop: 12, overflow: 'visible' }}>
       {[0, .5, 1].map(t => <g key={t}><line x1={left} x2={width - 8} y1={top + (height - top - bottom) * t} y2={top + (height - top - bottom) * t} stroke="var(--crm-border)" strokeDasharray="4 4"/><text x={left - 8} y={top + (height - top - bottom) * t + 4} fill="var(--crm-text-muted)" fontSize="10" textAnchor="end">{Math.round(max * (1 - t))}</text></g>)}
-      {values.map((value, i) => { const barH = (height - top - bottom) * value / max; const x = left + i * slot + slot * .18; const w = Math.max(5, slot * .62); return <g key={i}><rect x={x} y={height - bottom - barH} width={w} height={barH} rx="4" fill={color} opacity=".88"/><text x={x + w / 2} y={height - 9} fill="var(--crm-text-muted)" fontSize="10" textAnchor="middle">{labels[i]}</text><title>{labels[i]}: {value}</title></g>; })}
+      {values.map((value, i) => { const barH = (height - top - bottom) * value / max; const x = left + i * slot + slot * .18; const w = Math.max(5, slot * .62); return <g key={i}><rect x={x} y={height - bottom - barH} width={w} height={barH} rx="4" fill={color} opacity=".88"/>{(i % labelStep === 0 || i === labels.length - 1) && <text x={x + w / 2} y={height - 9} fill="var(--crm-text-muted)" fontSize="10" textAnchor="middle">{labels[i]}</text>}<title>{labels[i]}: {value}</title></g>; })}
     </svg></div> : <p style={muted}>No data in this period yet.</p>}
   </section>;
 }
