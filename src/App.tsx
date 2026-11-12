@@ -2755,7 +2755,7 @@ export default function App() {
             <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work.'}</p>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
-                onClick={() => { if (!openRecord && window.confirm('Do you want to check in?')) void handleCheckIn(); }}
+                onClick={() => { if (!openRecord && todayCompletedRecord) { setMessage('You have already checked out for today. If this was a mistake, please submit a request to correct your shift time.'); setShowCorrectionShortcut(true); } else if (!openRecord && window.confirm('Do you want to check in?')) void handleCheckIn(); }}
                 onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
                 onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
                 onContextMenu={event => event.preventDefault()}
