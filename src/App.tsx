@@ -1555,7 +1555,7 @@ export default function App() {
         coords = await getLocation();
       } catch (error) {
         setMessage(
-          `Check-in blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
+          `Check-in could not be completed because location is unavailable. ${getErrorMessage(error)} Enable location access and try again.`
         );
         return;
       }
@@ -1620,7 +1620,7 @@ export default function App() {
         coords = await getLocation();
       } catch (error) {
         setMessage(
-          `Check-out blocked: GPS location is required. ${getErrorMessage(error)} Allow location access and try again.`
+          `Check-out could not be completed because location is unavailable. ${getErrorMessage(error)} Enable location access and try again.`
         );
         return;
       }
@@ -1636,7 +1636,7 @@ export default function App() {
         return;
       }
 
-      setMessage('Check-out recorded successfully with GPS coordinates.');
+      setMessage('Check-out recorded successfully.');
       await loadDashboard(session.user.id);
     } catch (error) {
       setMessage(`Unable to check out: ${getErrorMessage(error)}`);
@@ -1658,7 +1658,7 @@ export default function App() {
     stopHoldTimer.current = window.setTimeout(() => {
       stopHoldTimer.current = null;
       setStopHoldArmed(false);
-      if (window.confirm('Stop your active shift and record your GPS check-out?')) void handleCheckOut(attendanceId);
+      if (window.confirm('Do you want to check out?')) void handleCheckOut(attendanceId);
     }, 1200);
   }
 
@@ -2729,10 +2729,10 @@ export default function App() {
           >
             <div style={{ color: openRecord ? '#86efac' : 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase' }}>{openRecord ? 'SHIFT IN PROGRESS' : 'ATTENDANCE'}</div>
             <h2 style={{ margin: '8px 0 4px', fontSize: 22 }}>{openRecord ? 'You are active on your shift' : 'Ready to start your shift?'}</h2>
-            <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work. Your current location is required to record attendance.'}</p>
+            <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work.'}</p>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
-                onClick={() => { if (!openRecord) void handleCheckIn(); }}
+                onClick={() => { if (!openRecord && window.confirm('Do you want to check in?')) void handleCheckIn(); }}
                 onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
                 onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
                 onContextMenu={event => event.preventDefault()}
@@ -2754,7 +2754,7 @@ export default function App() {
               </div>
               <p style={{ color: '#b7c0d1', fontSize: 12, margin: '7px 0 0' }}>Started {formatDate(openRecord.check_in, openRecord.work_timezone)} · {openRecord.work_timezone}</p>
               <p style={{ color: stopHoldArmed ? '#fbbf24' : '#98a2b3', fontSize: 12, margin: '14px 0 0', minHeight: 18 }}>{stopHoldArmed ? 'Keep holding… release to cancel' : 'Hold the button to end your shift.'}</p>
-            </> : <div style={{ minHeight: 24, marginTop: 16, color: '#9ca3af', fontSize: 12 }}>Your shift timer will start after successful GPS check-in.</div>}
+            </> : <div style={{ minHeight: 24, marginTop: 16, color: '#9ca3af', fontSize: 12 }}>Your shift timer will start after successful check-in.</div>}
             <KnowMore>Location permission is required when starting and stopping a shift. If your device cannot provide a location fix, the attendance action will not be recorded.</KnowMore>
           </section>}
 
