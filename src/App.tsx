@@ -2827,8 +2827,8 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
               {showCorrectionShortcut && <div role="alert" style={{ position: 'absolute', zIndex: 5, bottom: 'calc(100% + 14px)', left: '50%', transform: 'translateX(-50%)', width: 'min(340px, calc(100vw - 44px))', padding: '13px 14px', borderRadius: 12, background: preferences.theme === 'day' ? '#ffffff' : '#202b3e', color: preferences.theme === 'day' ? '#24344a' : '#edf3fc', border: '1px solid var(--crm-accent)', boxShadow: '0 12px 34px rgba(0,0,0,.35)', textAlign: 'left' }}>
                 <div style={{ fontSize: 13, lineHeight: 1.45 }}>{message}</div>
-                <button type="button" onClick={()=>{setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:10,padding:'9px 12px',border:0,borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer',width:'100%'}}>Open Attendance Corrections</button>
-                <button type="button" aria-label="Dismiss notification" onClick={()=>setShowCorrectionShortcut(false)} style={{position:'absolute',top:5,right:7,border:0,background:'transparent',color:'inherit',fontSize:18,cursor:'pointer'}}>×</button>
+                <button type="button" onClick={()=>{setMessage('');setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:10,padding:'9px 12px',border:0,borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer',width:'100%'}}>Open Attendance Corrections</button>
+                <button type="button" aria-label="Dismiss notification" onClick={()=>{setShowCorrectionShortcut(false);setMessage('');}} style={{position:'absolute',top:5,right:7,border:0,background:'transparent',color:'inherit',fontSize:18,cursor:'pointer'}}>×</button>
               </div>}
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
                 onClick={() => { if (!openRecord) void beginCheckInAttempt(); }}
@@ -3286,7 +3286,7 @@ export default function App() {
             overflowWrap: 'anywhere',
           }}
         >
-          {!showCorrectionShortcut && message}
+          {!showCorrectionShortcut && !message.toLowerCase().includes('already checked out for today') && message}
         </p>
       )}
 
