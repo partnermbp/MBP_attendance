@@ -14,8 +14,8 @@ const field: CSSProperties = { display: 'block', width: '100%', marginTop: 5, pa
 const action: CSSProperties = { padding: '9px 13px', border: 0, borderRadius: 8, background: 'var(--crm-accent-strong)', color: '#fff', fontWeight: 700, cursor: 'pointer' };
 const muted: React.CSSProperties = { color: 'var(--crm-text-muted)', fontSize: 12 };
 
-export default function WorkforceOperations({ profile, profiles, isAdmin, isSupervisor, attendance = [], shifts = [] }: { profile: Person | null; profiles: Person[]; isAdmin: boolean; isSupervisor: boolean; attendance?: Array<{id:string;employee_id?:string;check_in:string;check_out:string|null;work_date?:string|null;work_timezone?:string|null;auto_closed?:boolean|null}>; shifts?: Array<{id:string;employee_id?:string;starts_at:string;ends_at:string}> }) {
-  const [tab, setTab] = useState<'leave'|'corrections'|'followups'|'holidays'>('leave');
+export default function WorkforceOperations({ profile, profiles, isAdmin, isSupervisor, attendance = [], shifts = [], initialTab = 'leave' }: { profile: Person | null; profiles: Person[]; isAdmin: boolean; isSupervisor: boolean; attendance?: Array<{id:string;employee_id?:string;check_in:string;check_out:string|null;work_date?:string|null;work_timezone?:string|null;auto_closed?:boolean|null}>; shifts?: Array<{id:string;employee_id?:string;starts_at:string;ends_at:string}>; initialTab?: 'leave'|'corrections'|'followups'|'holidays' }) {
+  const [tab, setTab] = useState<'leave'|'corrections'|'followups'|'holidays'>(initialTab);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [followups, setFollowups] = useState<Followup[]>([]);
