@@ -31,6 +31,8 @@ type Attendance = {
   check_out_country?: string | null;
   credited_work_minutes?: number | null;
   manual_adjustment_minutes?: number | null;
+  manual_original_credited_minutes?: number | null;
+  manual_adjusted_at?: string | null;
   manually_adjusted?: boolean;
   auto_closed?: boolean;
   check_in_gps_recorded?: boolean;
@@ -771,7 +773,7 @@ export default function App() {
           supabase.rpc('get_my_team_hierarchy_with_telegram'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
         ]);
         if (hierarchyResult.error) {
           setProfiles([currentProfile]); setManagerAssignments([]);
@@ -816,7 +818,7 @@ export default function App() {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
         if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
@@ -1708,7 +1710,7 @@ export default function App() {
       // monthly progress bar reflects the newly completed session without a page reload.
       const { data: refreshedOwnAttendance, error: refreshOwnAttendanceError } = await supabase
         .from('attendance')
-        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed')
+        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manual_original_credited_minutes, manual_adjusted_at, manually_adjusted, auto_closed')
         .eq('employee_id', session.user.id)
         .order('check_in', { ascending: false })
         .limit(500);
@@ -2072,14 +2074,33 @@ export default function App() {
     [...salaryAttendance, ...attendance.filter(item => item.employee_id === session?.user.id)]
       .map(item => [item.id, item]),
   );
-  const salaryWorkedMilliseconds = [...salaryAttendanceById.values()].reduce((total, item) => {
+  const salaryAttendanceByDay = new Map<string, Attendance[]>();
+  for (const item of salaryAttendanceById.values()) {
     const workDate = item.work_date ?? (item.work_timezone
       ? getLocalDate(item.work_timezone, new Date(item.check_in))
       : item.check_in.slice(0, 10));
-    if (!workDate.startsWith(salaryMonthPrefix)) return total;
-    return total + creditedMinutesForSession(item) * 60000;
-  }, 0);
-  const salaryManualAdjustmentMinutes = [...salaryAttendanceById.values()].reduce((total, item) => { const workDate = item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone, new Date(item.check_in)) : item.check_in.slice(0, 10)); return workDate.startsWith(salaryMonthPrefix) ? total + (item.manual_adjustment_minutes ?? 0) : total; }, 0);
+    if (!workDate.startsWith(salaryMonthPrefix)) continue;
+    const dayRows = salaryAttendanceByDay.get(workDate) ?? [];
+    dayRows.push(item);
+    salaryAttendanceByDay.set(workDate, dayRows);
+  }
+  // A day with one or more manual corrections is represented by its latest
+  // approved correction only. This replaces the previous daily correction
+  // instead of adding another session's credited minutes to it.
+  const salaryEffectiveAttendanceByDay = [...salaryAttendanceByDay.values()].map(dayRows => {
+    const correctedRows = dayRows
+      .filter(item => item.manually_adjusted === true || Number(item.manual_adjustment_minutes ?? 0) !== 0)
+      .sort((a, b) => (b.manual_adjusted_at ?? b.check_in).localeCompare(a.manual_adjusted_at ?? a.check_in));
+    return correctedRows.length ? [correctedRows[0]] : dayRows;
+  });
+  const salaryWorkedMilliseconds = salaryEffectiveAttendanceByDay.reduce(
+    (total, dayRows) => total + dayRows.reduce((dayTotal, item) => dayTotal + creditedMinutesForSession(item) * 60000, 0),
+    0,
+  );
+  const salaryManualAdjustmentMinutes = salaryEffectiveAttendanceByDay.reduce(
+    (total, dayRows) => total + dayRows.reduce((dayTotal, item) => dayTotal + (item.manual_adjustment_minutes ?? 0), 0),
+    0,
+  );
   const salaryProgress = salaryRequiredMilliseconds > 0
     ? Math.min(100, salaryWorkedMilliseconds / salaryRequiredMilliseconds * 100)
     : 0;
