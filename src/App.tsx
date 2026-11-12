@@ -30,6 +30,8 @@ type Attendance = {
   check_out_region?: string | null;
   check_out_country?: string | null;
   credited_work_minutes?: number | null;
+  manual_adjustment_minutes?: number | null;
+  manually_adjusted?: boolean;
   auto_closed?: boolean;
   check_in_gps_recorded?: boolean;
   check_out_gps_recorded?: boolean;
@@ -769,7 +771,7 @@ export default function App() {
           supabase.rpc('get_my_team_hierarchy_with_telegram'),
           supabase.functions.invoke('manager-team-attendance', { body: {} }),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(500),
         ]);
         if (hierarchyResult.error) {
           setProfiles([currentProfile]); setManagerAssignments([]);
@@ -809,7 +811,7 @@ export default function App() {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         setExpandedManagerIds(new Set());
         const [attendanceResult, shiftsResult] = await Promise.all([
-          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
+          supabase.from('attendance').select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed').eq('employee_id', userId).order('check_in', { ascending: false }).limit(100),
           supabase.from('shifts').select('id, starts_at, ends_at').eq('employee_id', userId).order('starts_at', { ascending: true }).limit(100),
         ]);
         if (attendanceResult.error) setMessage('Could not load attendance: ' + attendanceResult.error.message);
@@ -1701,7 +1703,7 @@ export default function App() {
       // monthly progress bar reflects the newly completed session without a page reload.
       const { data: refreshedOwnAttendance, error: refreshOwnAttendanceError } = await supabase
         .from('attendance')
-        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed')
+        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, manual_adjustment_minutes, manually_adjusted, auto_closed')
         .eq('employee_id', session.user.id)
         .order('check_in', { ascending: false })
         .limit(500);
@@ -2072,6 +2074,7 @@ export default function App() {
     if (!workDate.startsWith(salaryMonthPrefix)) return total;
     return total + creditedMinutesForSession(item) * 60000;
   }, 0);
+  const salaryManualAdjustmentMinutes = [...salaryAttendanceById.values()].reduce((total, item) => { const workDate = item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone, new Date(item.check_in)) : item.check_in.slice(0, 10)); return workDate.startsWith(salaryMonthPrefix) ? total + (item.manual_adjustment_minutes ?? 0) : total; }, 0);
   const salaryProgress = salaryRequiredMilliseconds > 0
     ? Math.min(100, salaryWorkedMilliseconds / salaryRequiredMilliseconds * 100)
     : 0;
@@ -2892,7 +2895,7 @@ export default function App() {
                 <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(salaryProgress)} aria-label="Monthly required work time completed" style={{ width: `${salaryProgress}%`, height: '100%', borderRadius: 99, background: salaryProgressColor, transition: 'width .3s ease, background .3s ease' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 12, fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
-                <span>Completed: <strong>{formatDuration(salaryWorkedMilliseconds)}</strong></span>
+                <span>Completed: <strong>{formatDuration(salaryWorkedMilliseconds)}</strong>{salaryManualAdjustmentMinutes !== 0 && <small style={{marginLeft:7,color:preferences.theme === 'day' ? '#667085' : '#b7c0d1'}}>({salaryManualAdjustmentMinutes > 0 ? '+' : '−'}{formatDuration(Math.abs(salaryManualAdjustmentMinutes)*60000)} manually adjusted)</small>}</span>
                 <span>Required: <strong>{formatDuration(salaryRequiredMilliseconds)}</strong></span>
               </div>
               <p style={{ margin: '8px 0 0', fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
@@ -3193,7 +3196,7 @@ export default function App() {
                             {canViewAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
                                 <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}</span>
+                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}{record.manually_adjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
                               </span>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
                                 {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
@@ -3233,7 +3236,7 @@ export default function App() {
                   }}
                 >
                   <p style={{ margin: '0 0 6px' }}>
-                    Work date: {item.work_date ?? 'Not assigned'}
+                    Work date: {item.work_date ?? 'Not assigned'} {item.manually_adjusted && <strong title="Manually adjusted">(M)</strong>}
                   </p>
 
                   <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'8px 0 12px'}}>
@@ -3250,7 +3253,7 @@ export default function App() {
                   </p>
 
                   <p style={{ margin: '0 0 6px' }}>
-                    Worked time: {duration.worked}
+                    Worked time: {duration.worked}{(item.manual_adjustment_minutes ?? 0) !== 0 && <small style={{marginLeft:7,color:'#b7c0d1'}}>({item.manual_adjustment_minutes! > 0 ? '+' : '−'}{formatDuration(Math.abs(item.manual_adjustment_minutes!)*60000)} manually adjusted)</small>}
                   </p>
 
                   <p style={{ margin: '0 0 6px' }}>
