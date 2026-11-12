@@ -765,7 +765,7 @@ export default function App() {
         const verifiedKeys = new Set(verifiedProfileLinks.map(member => member.profile_id + ':' + member.telegram_user_id));
         setTelegramMembers([...groupTelegramMembers.filter(member => !verifiedKeys.has(member.profile_id + ':' + member.telegram_user_id)), ...verifiedProfileLinks]);
         setTelegramResponseMetrics((responseMetricsResult.data ?? []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null;response_samples?:Array<{response_seconds:number;calculated_at:string|null}>;question_samples?:Array<{calculated_at:string|null;answered:boolean}>}>);
-      } else if (currentProfile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
+      } else if (currentProfile?.active === true && ['manager', 'junior', 'middle', 'senior', 'team leader'].includes(String(currentProfile.role).toLowerCase().replaceAll('_', ' '))) {
         setTelegramMembers([]); setTelegramResponseMetrics([]);
         const [hierarchyResult, teamAttendanceResult, shiftsResult, ownAttendanceResult] = await Promise.all([
           supabase.rpc('get_my_team_hierarchy_with_telegram'),
@@ -793,7 +793,12 @@ export default function App() {
         }
         if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
         else {
-          setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
+          // The team feed intentionally contains descendants, not necessarily the
+          // manager's own attendance. Merge personal DB rows into the same source
+          // used by Attendance Records so corrected IN/OUT values and (M) render.
+          const teamRows = (Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[];
+          const mergedRowsById = new Map([...teamRows, ...ownRowsById.values()].map(record => [record.id, record]));
+          setAttendance([...mergedRowsById.values()]);
           setShifts((Array.isArray(teamAttendanceResult.data?.shifts) ? teamAttendanceResult.data.shifts : []) as Shift[]);
           setTelegramMembers((Array.isArray(teamAttendanceResult.data?.telegram_members) ? teamAttendanceResult.data.telegram_members : []) as Array<{telegram_user_id:number;profile_id:string|null;username?:string|null;display_name?:string|null}>);
           setTelegramResponseMetrics((Array.isArray(teamAttendanceResult.data?.telegram_metrics) ? teamAttendanceResult.data.telegram_metrics : []) as Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null}>);
