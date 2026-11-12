@@ -3191,11 +3191,13 @@ export default function App() {
                       const record = records[0];
                       const completed = Boolean(record?.check_out);
                       const present = Boolean(record);
+                      const manuallyAdjusted = Boolean(record && (record.manually_adjusted === true || Number(record.manual_adjustment_minutes ?? 0) !== 0));
                       const bg = !present ? '#541b20' : completed ? '#153c2a' : '#4b2d10';
                       const fg = !present ? '#ffb4b4' : completed ? '#8ce2ae' : '#ffd18a';
                       return <td key={date} style={{padding:6,borderBottom:'1px solid var(--crm-border)',textAlign:'center',minWidth:154}}>
-                        <div title={!present?'Absent':completed?'Signed in and out':'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minWidth:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left'}}>
+                        <div title={!present?'Absent':completed?'Signed in and out': 'Signed in; not signed out'} style={{display:'inline-flex',alignItems:'stretch',justifyContent:'space-between',gap:8,padding:'7px 9px',width:142,minWidth:142,minHeight:54,boxSizing:'border-box',background:bg,color:fg,border:'1px solid '+(!present?'#8b2d35':completed?'#286947':'#8a5318'),borderRadius:4,fontSize:12,fontWeight:700,textAlign:'left',position:'relative'}}>
                           {!present ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%'}}>Absent</span> : <>
+                            {manuallyAdjusted && <span title="Manually adjusted attendance times" aria-label="Manually adjusted" style={{position:'absolute',top:3,right:4,fontSize:9,lineHeight:'13px',fontWeight:900,padding:'0 4px',borderRadius:4,background:'#fef0c7',color:'#92400e',border:'1px solid #f59e0b',zIndex:1}}>M</span>}
                             {canViewAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
                                 <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
