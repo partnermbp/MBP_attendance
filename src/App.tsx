@@ -517,6 +517,7 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [showCorrectionShortcut, setShowCorrectionShortcut] = useState(false);
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -1544,6 +1545,12 @@ export default function App() {
 
   async function handleCheckIn() {
     if (!supabase || !session) return;
+    if (todayCompletedRecord) {
+      setMessage('You have already ended your shift today. To correct your recorded work hours, submit an Attendance Correction request.');
+      setShowCorrectionShortcut(true);
+      return;
+    }
+    setShowCorrectionShortcut(false);
 
     setBusy(true);
     setMessage('');
@@ -1658,7 +1665,12 @@ export default function App() {
     stopHoldTimer.current = window.setTimeout(() => {
       stopHoldTimer.current = null;
       setStopHoldArmed(false);
-      if (window.confirm('Do you want to check out?')) void handleCheckOut(attendanceId);
+      const elapsed = openRecord ? Date.now() - new Date(openRecord.check_in).getTime() : 0;
+      const earlyManagerCheckout = isManagerRole && elapsed < 8.5 * 60 * 60 * 1000;
+      const prompt = earlyManagerCheckout
+        ? 'Your 8-hour work requirement plus the 1-hour break period has not been completed. You may end your shift up to 30 minutes early. Do you still want to check out now?'
+        : 'Do you want to check out?';
+      if (window.confirm(prompt)) void handleCheckOut(attendanceId);
     }, 1200);
   }
 
@@ -1982,6 +1994,13 @@ export default function App() {
       }
     })
     .sort((a, b) => b.check_in.localeCompare(a.check_in))[0];
+  const todayCompletedRecord = attendance
+    .filter(item => {
+      if (item.employee_id !== session?.user.id || !item.check_out || !item.work_date || !item.work_timezone) return false;
+      try { return getLocalDate(item.work_timezone, new Date(clockNow)) === item.work_date; } catch { return false; }
+    })
+    .sort((a,b) => b.check_out!.localeCompare(a.check_out!))[0];
+  const isManagerRole = ['manager','junior','middle','senior','team leader'].includes(normalizedRole);
 
   if (!supabase) {
     return (
@@ -2897,7 +2916,7 @@ export default function App() {
           </section>}
 
           {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
-          {activePage === 'workforce-operations' && <WorkforceOperations profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
+          {activePage === 'workforce-operations' && <WorkforceOperations key={showCorrectionShortcut?'correction-shortcut':'workforce-default'} profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
           {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} approvedLeave={approvedLeave} holidays={workforceHolidays} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
           <section style={{ marginTop: 28 }}>
@@ -3188,6 +3207,7 @@ export default function App() {
           }}
         >
           {message}
+          {showCorrectionShortcut && <button type="button" onClick={()=>{setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:9,padding:'8px 12px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer'}}>Open Attendance Corrections</button>}
         </p>
       )}
 
