@@ -514,6 +514,7 @@ export default function App() {
   const [emailOtpRequested, setEmailOtpRequested] = useState(false);
   const [mfaChallengeTicket, setMfaChallengeTicket] = useState('');
   const mfaLoginInProgressRef = useRef(false);
+  const attendanceActionInFlightRef = useRef(false);
   const [otpRequested, setOtpRequested] = useState(false);
   const [showTelegramIdRequest, setShowTelegramIdRequest] = useState(false);
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
@@ -1564,7 +1565,7 @@ export default function App() {
 
 
   async function beginCheckInAttempt() {
-    if (!supabase || !session || busy || loadingDashboard) return;
+    if (!supabase || !session || busy || loadingDashboard || attendanceActionInFlightRef.current) return;
     setMessage('');
     setShowCorrectionShortcut(false);
 
@@ -1601,11 +1602,18 @@ export default function App() {
       return;
     }
 
+    // Managers start immediately. The browser/native geolocation API itself
+    // requests permission only when it is needed; never add a CRM confirmation.
+    if (normalizedRole === 'manager') {
+      void handleCheckIn();
+      return;
+    }
     if (window.confirm('Do you want to check in?')) void handleCheckIn();
   }
 
   async function handleCheckIn() {
-    if (!supabase || !session) return;
+    if (!supabase || !session || attendanceActionInFlightRef.current) return;
+    attendanceActionInFlightRef.current = true;
     if (todayCompletedRecord) {
       setMessage('You have already ended your shift today. To correct your recorded work hours, submit an Attendance Correction request.');
       setShowCorrectionShortcut(true);
@@ -1674,12 +1682,14 @@ export default function App() {
     } catch (error) {
       setMessage(`Unable to check in: ${getErrorMessage(error)}`);
     } finally {
+      attendanceActionInFlightRef.current = false;
       setBusy(false);
     }
   }
 
   async function handleCheckOut(attendanceId: string) {
-    if (!supabase || !session) return;
+    if (!supabase || !session || attendanceActionInFlightRef.current) return;
+    attendanceActionInFlightRef.current = true;
 
     setBusy(true);
     setMessage('');
@@ -1707,6 +1717,21 @@ export default function App() {
         return;
       }
 
+      // The RPC returns void, so confirm the database row is actually closed
+      // before reporting success or refreshing the dashboard.
+      const { data: closedRecord, error: verifyCheckoutError } = await supabase
+        .from('attendance')
+        .select('id, check_out')
+        .eq('id', attendanceId)
+        .eq('employee_id', session.user.id)
+        .maybeSingle();
+      if (verifyCheckoutError || !closedRecord?.check_out) {
+        setMessage(verifyCheckoutError
+          ? `Check-out was submitted, but its status could not be verified: ${verifyCheckoutError.message}. Refresh before trying again.`
+          : 'Check-out was submitted, but the shift is still showing as active. Refresh the CRM before trying again.');
+        return;
+      }
+
       setMessage('Check-out recorded successfully.');
       // Refresh the employee's own salary ledger immediately after checkout so the
       // monthly progress bar reflects the newly completed session without a page reload.
@@ -1729,6 +1754,7 @@ export default function App() {
     } catch (error) {
       setMessage(`Unable to check out: ${getErrorMessage(error)}`);
     } finally {
+      attendanceActionInFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -1748,6 +1774,14 @@ export default function App() {
       setStopHoldArmed(false);
       const elapsed = openRecord ? Date.now() - new Date(openRecord.check_in).getTime() : 0;
       const earlyManagerCheckout = isManagerRole && elapsed < 8.5 * 60 * 60 * 1000;
+      if (normalizedRole === 'manager') {
+        if (earlyManagerCheckout && window.confirm('Your total shift working hours are not complete. Do you still want to check out?')) {
+          void handleCheckOut(attendanceId);
+        } else if (!earlyManagerCheckout) {
+          void handleCheckOut(attendanceId);
+        }
+        return;
+      }
       const prompt = earlyManagerCheckout
         ? 'Your total shift working hours are not complete. Do you still want to check out?'
         : 'Do you want to check out?';
