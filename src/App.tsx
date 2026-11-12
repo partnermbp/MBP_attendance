@@ -3193,7 +3193,7 @@ export default function App() {
                     <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'var(--crm-card-bg)',padding:8,borderBottom:'1px solid var(--crm-border)',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:depth*16}}>{hasChildren ? <button type="button" aria-label={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} title={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} onClick={() => setExpandedManagerIds(current => { const next = new Set(current); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{display:'grid',placeItems:'center',width:16,height:24,padding:0,flexShrink:0,border:0,background:'transparent',color:'#ffb36b',fontSize:18,fontWeight:800,cursor:'pointer'}}>{expandedManagerIds.has(person.id) ? '▾' : '▸'}</button> : <span aria-hidden="true" style={{display:'inline-block',width:16,flexShrink:0}}/>}<span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span><span style={{fontSize:9,fontWeight:400,color:'#ffb36b',marginTop:2}}>{String(person.role).replace(/_/g,' ')}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
                     {dateKeys.map(date => {
                       const records = reportAttendance.filter(item => item.employee_id === person.id && (item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone,new Date(item.check_in)) : item.check_in.slice(0,10))) === date);
-                      const record = records[0];
+                      const record = records.find(item => item.manually_adjusted === true || Number(item.manual_adjustment_minutes ?? 0) !== 0) ?? records[0];
                       const completed = Boolean(record?.check_out);
                       const present = Boolean(record);
                       const manuallyAdjusted = Boolean(record && (record.manually_adjusted === true || Number(record.manual_adjustment_minutes ?? 0) !== 0));
@@ -3206,7 +3206,7 @@ export default function App() {
                             {canViewAdmin ? <>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
                                 <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}{record.manually_adjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
+                                <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manuallyAdjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
                               </span>
                               <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:5,flexShrink:0}}>
                                 {gpsButton(record.check_in_lat,record.check_in_lng,'Check-in location')}
