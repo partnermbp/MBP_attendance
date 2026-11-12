@@ -1901,7 +1901,7 @@ export default function App() {
   const isAdmin = profile?.active === true && normalizedRole === 'admin';
   const isSupervisor = profile?.active === true && normalizedRole === 'supervisor';
   const canViewAdmin = isAdmin || isSupervisor;
-  const canManageTeam = profile?.active === true && ['junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
+  const canManageTeam = profile?.active === true && ['manager', 'junior', 'middle', 'senior', 'team leader'].includes(normalizedRole);
   const canUseHumanTelegram = isAdmin || (profile?.active === true && normalizedRole === 'telemarketing' && humanTelegramAccess);
 
   // Keep admin navigation badges in sync with items that still need attention.
