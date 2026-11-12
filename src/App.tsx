@@ -2895,8 +2895,11 @@ export default function App() {
                 <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(salaryProgress)} aria-label="Monthly required work time completed" style={{ width: `${salaryProgress}%`, height: '100%', borderRadius: 99, background: salaryProgressColor, transition: 'width .3s ease, background .3s ease' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 12, fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
-                <span>Completed: <strong>{formatDuration(salaryWorkedMilliseconds)}</strong>{salaryManualAdjustmentMinutes !== 0 && <small style={{marginLeft:7,color:preferences.theme === 'day' ? '#667085' : '#b7c0d1'}}>({salaryManualAdjustmentMinutes > 0 ? '+' : '−'}{formatDuration(Math.abs(salaryManualAdjustmentMinutes)*60000)} manually adjusted)</small>}</span>
+                <span>Completed: <strong>{formatDuration(salaryWorkedMilliseconds)}</strong></span>
                 <span>Required: <strong>{formatDuration(salaryRequiredMilliseconds)}</strong></span>
+              </div>
+              <div style={{ marginTop: 5, fontSize: 12, color: preferences.theme === 'day' ? '#667085' : '#b7c0d1' }}>
+                Manually adjusted: <strong>{salaryManualAdjustmentMinutes < 0 ? '−' : '+'}{formatDuration(Math.abs(salaryManualAdjustmentMinutes) * 60000)}</strong>
               </div>
               <p style={{ margin: '8px 0 0', fontSize: 13, color: preferences.theme === 'day' ? '#475467' : '#b7c0d1' }}>
                 {salaryProgress >= 100
