@@ -1602,7 +1602,10 @@ export default function App() {
       );
 
       if (checkInError) {
-        setMessage(`Check-in failed: ${checkInError.message}`);
+        if (/already ended your shift today/i.test(checkInError.message)) {
+          setMessage('You have already ended your shift today. To correct your recorded work hours, submit an Attendance Correction request.');
+          setShowCorrectionShortcut(true);
+        } else setMessage(`Check-in failed: ${checkInError.message}`);
         return;
       }
 
