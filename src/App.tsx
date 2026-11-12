@@ -193,54 +193,82 @@ function toCoordinates(latitude: number, longitude: number): Coordinates {
 async function getLocation(): Promise<Coordinates> {
   if (Capacitor.isNativePlatform()) {
     try {
-      const position = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      });
-      return toCoordinates(position.coords.latitude, position.coords.longitude);
+      // Re-check native permission at action time. If the user revoked it,
+      // request it again through the operating system permission sheet.
+      const permission = await Geolocation.checkPermissions();
+      if (permission.location !== 'granted') {
+        const requested = await Geolocation.requestPermissions();
+        if (requested.location !== 'granted') {
+          throw new Error('Location permission is blocked for Attendance CRM. Enable Location in your device app settings.');
+        }
+      }
+      try {
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 45000,
+          maximumAge: 15000,
+        });
+        return toCoordinates(position.coords.latitude, position.coords.longitude);
+      } catch (firstError) {
+        const detail = firstError instanceof Error ? firstError.message : String(firstError ?? '');
+        if (/permission|denied/i.test(detail)) {
+          throw new Error('Location permission is blocked for Attendance CRM. Enable Location in your device app settings.');
+        }
+        // A GPS-only fix can time out indoors. Retry using the device's
+        // available location providers before failing the attendance action.
+        const fallback = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 30000,
+        });
+        return toCoordinates(fallback.coords.latitude, fallback.coords.longitude);
+      }
     } catch (error) {
+      if (error instanceof Error && /permission|blocked/i.test(error.message)) throw error;
       const detail = error instanceof Error ? error.message : String(error ?? '');
       if (/permission|denied/i.test(detail)) {
-        throw new Error('Location access is blocked for Attendance CRM. Allow location permission for the app in Android Settings, then try again.');
+        throw new Error('Location permission is blocked for Attendance CRM. Enable Location in your device app settings.');
       }
-      if (/timeout/i.test(detail)) {
-        throw new Error('Location request timed out. Please try again.');
-      }
-      throw new Error('Your current location is unavailable. Check that Location is enabled and try again.');
+      throw new Error('Your device could not provide a location fix. Turn on Location Services and try again.');
     }
   }
 
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Location is not supported by this browser.'));
-      return;
-    }
+  if (!navigator.geolocation) {
+    throw new Error('Location is not supported by this browser. Use a browser with location access enabled.');
+  }
 
+  const requestPosition = (options: PositionOptions) => new Promise<Coordinates>((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        try {
-          resolve(toCoordinates(coords.latitude, coords.longitude));
-        } catch (error) {
-          reject(error);
-        }
+        try { resolve(toCoordinates(coords.latitude, coords.longitude)); }
+        catch (error) { reject(error); }
       },
-      (error) => {
+      error => {
         if (error.code === error.PERMISSION_DENIED) {
-          reject(new Error('Location access is blocked for this site. Allow location for Attendance CRM in your browser or device settings, then try again.'));
+          reject(new Error('Location permission is blocked for this site. Allow location for Attendance CRM in your browser or device settings, then retry check-out.'));
         } else if (error.code === error.TIMEOUT) {
-          reject(new Error('Your device did not return a GPS location in time. Turn on Location Services and try again.'));
+          reject(new Error('GPS location timed out.'));
         } else {
-          reject(new Error('GPS location is unavailable. Turn on Location Services and make sure the device has a location fix.'));
+          reject(new Error('GPS location is temporarily unavailable.'));
         }
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      }
+      options,
     );
   });
+
+  try {
+    return await requestPosition({ enableHighAccuracy: true, timeout: 45000, maximumAge: 15000 });
+  } catch (error) {
+    const detail = getErrorMessage(error);
+    if (/permission|blocked/i.test(detail)) throw error;
+    try {
+      // Retry with network-assisted/coarse location if a precise GPS fix is slow.
+      return await requestPosition({ enableHighAccuracy: false, timeout: 30000, maximumAge: 30000 });
+    } catch (fallbackError) {
+      if (/permission|blocked/i.test(getErrorMessage(fallbackError))) throw fallbackError;
+      throw new Error('GPS location is still unavailable after retry. Turn on device Location Services, keep the browser/app open, and try again.');
+    }
+  }
 }
 
 function getErrorMessage(error: unknown) {
@@ -525,6 +553,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [showCorrectionShortcut, setShowCorrectionShortcut] = useState(false);
+  const [showAttendanceLocationNotice, setShowAttendanceLocationNotice] = useState(false);
   const [workforceInitialTab, setWorkforceInitialTab] = useState<'leave'|'corrections'>('leave');
   const [mapPreview, setMapPreview] = useState<{ title: string; latitude: number; longitude: number } | null>(null);
   const [navOpen, setNavOpen] = useState(true);
@@ -1568,6 +1597,7 @@ export default function App() {
     if (!supabase || !session || busy || loadingDashboard || attendanceActionInFlightRef.current) return;
     setMessage('');
     setShowCorrectionShortcut(false);
+    setShowAttendanceLocationNotice(false);
 
     // Always verify against the database at click time. Manager dashboards load team
     // attendance separately, and their own completed shift may not be in that list.
@@ -1693,6 +1723,7 @@ export default function App() {
 
     setBusy(true);
     setMessage('');
+    setShowAttendanceLocationNotice(false);
 
     try {
       let coords: Coordinates;
@@ -1701,8 +1732,9 @@ export default function App() {
         coords = await getLocation();
       } catch (error) {
         setMessage(
-          `Check-out could not be completed because location is unavailable. ${getErrorMessage(error)} Enable location access and try again.`
+          `Check-out could not be completed because location is unavailable. ${getErrorMessage(error)}`
         );
+        setShowAttendanceLocationNotice(true);
         return;
       }
 
@@ -2923,6 +2955,11 @@ export default function App() {
             <h2 style={{ margin: '8px 0 4px', fontSize: 22 }}>{openRecord ? 'You are active on your shift' : 'Ready to start your shift?'}</h2>
             <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work.'}</p>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
+              {showAttendanceLocationNotice && <div role="alert" style={{ position: 'absolute', zIndex: 7, bottom: 'calc(100% + 14px)', left: '50%', transform: 'translateX(-50%)', width: 'min(360px, calc(100vw - 40px))', padding: '13px 15px', borderRadius: 12, background: preferences.theme === 'day' ? '#ffffff' : '#202b3e', color: preferences.theme === 'day' ? '#24344a' : '#edf3fc', border: '1px solid #d97706', boxShadow: '0 12px 34px rgba(0,0,0,.38)', textAlign: 'left' }}>
+                <div style={{ fontSize: 13, lineHeight: 1.5 }}>{message}</div>
+                <button type="button" onClick={() => { setShowAttendanceLocationNotice(false); setMessage(''); if (openRecord && normalizedRole === 'manager') void beginManagerCheckout(openRecord.id); }} style={{ display: 'block', marginTop: 10, padding: '9px 12px', border: 0, borderRadius: 8, background: 'var(--crm-accent-strong)', color: '#fff', fontWeight: 700, cursor: 'pointer', width: '100%' }}>Retry check-out</button>
+                <button type="button" aria-label="Dismiss location notice" onClick={() => { setShowAttendanceLocationNotice(false); setMessage(''); }} style={{ position: 'absolute', top: 5, right: 7, border: 0, background: 'transparent', color: 'inherit', fontSize: 18, cursor: 'pointer' }}>×</button>
+              </div>}
               {showCorrectionShortcut && <div role="alert" style={{ position: 'absolute', zIndex: 5, bottom: 'calc(100% + 14px)', left: '50%', transform: 'translateX(-50%)', width: 'min(340px, calc(100vw - 44px))', padding: '13px 14px', borderRadius: 12, background: preferences.theme === 'day' ? '#ffffff' : '#202b3e', color: preferences.theme === 'day' ? '#24344a' : '#edf3fc', border: '1px solid var(--crm-accent)', boxShadow: '0 12px 34px rgba(0,0,0,.35)', textAlign: 'left' }}>
                 <div style={{ fontSize: 13, lineHeight: 1.45 }}>{message}</div>
                 <button type="button" onClick={()=>{setMessage('');setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:10,padding:'9px 12px',border:0,borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer',width:'100%'}}>Open Attendance Corrections</button>
@@ -3399,7 +3436,7 @@ export default function App() {
             overflowWrap: 'anywhere',
           }}
         >
-          {!showCorrectionShortcut && !message.toLowerCase().includes('already checked out for today') && message}
+          {!showCorrectionShortcut && !showAttendanceLocationNotice && !message.toLowerCase().includes('already checked out for today') && message}
         </p>
       )}
 
