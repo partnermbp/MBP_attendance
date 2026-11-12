@@ -1689,6 +1689,23 @@ export default function App() {
       }
 
       setMessage('Check-out recorded successfully.');
+      // Refresh the employee's own salary ledger immediately after checkout so the
+      // monthly progress bar reflects the newly completed session without a page reload.
+      const { data: refreshedOwnAttendance, error: refreshOwnAttendanceError } = await supabase
+        .from('attendance')
+        .select('id, employee_id, check_in, check_out, work_date, work_timezone, credited_work_minutes, auto_closed')
+        .eq('employee_id', session.user.id)
+        .order('check_in', { ascending: false })
+        .limit(500);
+      if (!refreshOwnAttendanceError && refreshedOwnAttendance) {
+        const refreshed = refreshedOwnAttendance as Attendance[];
+        setSalaryAttendance(refreshed);
+        setAttendance(current => {
+          const byId = new Map([...current, ...refreshed].map(item => [item.id, item]));
+          return [...byId.values()];
+        });
+      }
+      setClockNow(Date.now());
       await loadDashboard(session.user.id);
     } catch (error) {
       setMessage(`Unable to check out: ${getErrorMessage(error)}`);
@@ -2796,7 +2813,12 @@ export default function App() {
             <div style={{ color: openRecord ? '#86efac' : 'var(--crm-accent)', fontSize: 11, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase' }}>{openRecord ? 'SHIFT IN PROGRESS' : 'ATTENDANCE'}</div>
             <h2 style={{ margin: '8px 0 4px', fontSize: 22 }}>{openRecord ? 'You are active on your shift' : 'Ready to start your shift?'}</h2>
             <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work.'}</p>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
+              {showCorrectionShortcut && <div role="alert" style={{ position: 'absolute', zIndex: 5, bottom: 'calc(100% + 14px)', left: '50%', transform: 'translateX(-50%)', width: 'min(340px, calc(100vw - 44px))', padding: '13px 14px', borderRadius: 12, background: preferences.theme === 'day' ? '#ffffff' : '#202b3e', color: preferences.theme === 'day' ? '#24344a' : '#edf3fc', border: '1px solid var(--crm-accent)', boxShadow: '0 12px 34px rgba(0,0,0,.35)', textAlign: 'left' }}>
+                <div style={{ fontSize: 13, lineHeight: 1.45 }}>{message}</div>
+                <button type="button" onClick={()=>{setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:10,padding:'9px 12px',border:0,borderRadius:8,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer',width:'100%'}}>Open Attendance Corrections</button>
+                <button type="button" aria-label="Dismiss notification" onClick={()=>setShowCorrectionShortcut(false)} style={{position:'absolute',top:5,right:7,border:0,background:'transparent',color:'inherit',fontSize:18,cursor:'pointer'}}>×</button>
+              </div>}
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
                 onClick={() => { if (!openRecord) void beginCheckInAttempt(); }}
                 onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
@@ -3253,8 +3275,7 @@ export default function App() {
             overflowWrap: 'anywhere',
           }}
         >
-          {message}
-          {showCorrectionShortcut && <button type="button" onClick={()=>{setWorkforceInitialTab('corrections');setActivePage('workforce-operations');setShowCorrectionShortcut(false);window.scrollTo(0,0);}} style={{display:'block',marginTop:9,padding:'8px 12px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:'pointer'}}>Open Attendance Corrections</button>}
+          {!showCorrectionShortcut && message}
         </p>
       )}
 
