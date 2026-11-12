@@ -1825,12 +1825,12 @@ export default function App() {
     let cancelled = false;
     const refreshAdminBadges = async () => {
       const [requestResult, securityResult, locationResult, concurrentResult, authFailureResult, reviewResult] = await Promise.all([
-        supabase.rpc('get_telegram_id_change_requests'),
-        supabase.rpc('admin_security_risk_alerts'),
-        supabase.rpc('admin_location_risk_alerts'),
-        supabase.rpc('admin_concurrent_session_alerts'),
-        supabase.rpc('admin_auth_failure_alerts'),
-        supabase.from('security_alert_reviews').select('alert_key'),
+        supabase!.rpc('get_telegram_id_change_requests'),
+        supabase!.rpc('admin_security_risk_alerts'),
+        supabase!.rpc('admin_location_risk_alerts'),
+        supabase!.rpc('admin_concurrent_session_alerts'),
+        supabase!.rpc('admin_auth_failure_alerts'),
+        supabase!.from('security_alert_reviews').select('alert_key'),
       ]);
       if (cancelled) return;
       if (!requestResult.error) {
