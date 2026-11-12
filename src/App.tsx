@@ -3214,7 +3214,7 @@ export default function App() {
                               </span>
                             </> : <span style={{display:'flex',flexDirection:'column',justifyContent:'center',gap:4,lineHeight:1.2}}>
                               <span>IN&nbsp; {timeOnly(record.check_in,record.work_timezone)}</span>
-                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}{record.manually_adjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
+                              <span>OUT {timeOnly(record.check_out,record.work_timezone)}{manuallyAdjusted && <small style={{marginLeft:4,fontWeight:900}}>(M)</small>}</span>
                             </span>}
                           </>}
                         </div>
