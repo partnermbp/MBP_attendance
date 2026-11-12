@@ -98,7 +98,12 @@ export default function WorkforceOperations({ profile, profiles, isAdmin, isSupe
     if (!supabase) return;
     setBusy(true); setMessage('');
     try { const result = await task(); if (result.error) throw result.error; setMessage(success); await load(); }
-    catch (e) { setMessage(e instanceof Error ? e.message : 'The action could not be completed.'); }
+    catch (e) {
+      const failure = e as { message?: string; details?: string; hint?: string; code?: string };
+      const detail = [failure?.message, failure?.details, failure?.hint, failure?.code ? `Code: ${failure.code}` : '']
+        .filter(Boolean).join(' · ');
+      setMessage(detail || (e instanceof Error ? e.message : 'The action could not be completed.'));
+    }
     finally { setBusy(false); }
   }
   const createRequest = async (kind: 'leave'|'correction'|'followup', payload: Record<string, unknown>, success: string) =>
