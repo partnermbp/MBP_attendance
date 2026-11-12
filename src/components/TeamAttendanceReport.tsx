@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import KnowMore from './KnowMore';
 import type { CSSProperties } from 'react';
 
-type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null; credited_work_minutes?: number | null; auto_closed?: boolean | null };
+type Attendance = { id: string; employee_id?: string; check_in: string; check_out: string | null; work_date: string | null; work_timezone: string | null; credited_work_minutes?: number | null; manual_adjustment_minutes?: number | null; manually_adjusted?: boolean | null; auto_closed?: boolean | null };
 type Shift = { id: string; employee_id?: string; starts_at: string; ends_at: string };
 type Person = { id: string; full_name: string | null; email: string | null; role: string; active: boolean };
 type Assignment = { manager_id: string; employee_id: string };
