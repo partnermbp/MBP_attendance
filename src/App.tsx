@@ -779,8 +779,15 @@ export default function App() {
           setManagerAssignments(descendants.map(person => ({ manager_id: person.manager_id, employee_id: person.id })));
           setExpandedManagerIds(new Set([userId]));
         }
-        if (ownAttendanceResult.error) setSalaryAttendance([]);
-        else setSalaryAttendance((ownAttendanceResult.data ?? []) as Attendance[]);
+        const ownRowsFromQuery = (ownAttendanceResult.data ?? []) as Attendance[];
+        const ownRowsFromTeamFeed = (Array.isArray(teamAttendanceResult.data?.records)
+          ? teamAttendanceResult.data.records as Attendance[]
+          : []).filter(record => record.employee_id === userId);
+        const ownRowsById = new Map([...ownRowsFromTeamFeed, ...ownRowsFromQuery].map(record => [record.id, record]));
+        setSalaryAttendance([...ownRowsById.values()]);
+        if (ownAttendanceResult.error && ownRowsById.size === 0) {
+          setMessage(current => current || 'Your monthly attendance total could not be loaded. Please refresh the CRM. ' + ownAttendanceResult.error.message);
+        }
         if (teamAttendanceResult.error) { setAttendance([]); setMessage(current => current || 'Could not load team attendance: ' + teamAttendanceResult.error.message); }
         else {
           setAttendance((Array.isArray(teamAttendanceResult.data?.records) ? teamAttendanceResult.data.records : []) as Attendance[]);
@@ -2029,7 +2036,11 @@ export default function App() {
   }
   const salaryRequiredMilliseconds = salaryWeekdays * DAILY_REQUIRED_WORK_MINUTES * 60000;
   const salaryMonthPrefix = `${salaryMonthStart.getFullYear()}-${String(salaryMonthStart.getMonth() + 1).padStart(2, '0')}`;
-  const salaryWorkedMilliseconds = salaryAttendance.reduce((total, item) => {
+  const salaryAttendanceById = new Map(
+    [...salaryAttendance, ...attendance.filter(item => item.employee_id === session?.user.id)]
+      .map(item => [item.id, item]),
+  );
+  const salaryWorkedMilliseconds = [...salaryAttendanceById.values()].reduce((total, item) => {
     const workDate = item.work_date ?? (item.work_timezone
       ? getLocalDate(item.work_timezone, new Date(item.check_in))
       : item.check_in.slice(0, 10));
