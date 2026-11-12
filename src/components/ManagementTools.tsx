@@ -267,7 +267,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     let cancelled = false;
     void supabase.from('telegram_human_access').select('profile_id').then(({ data, error }) => {
       if (!cancelled && !error) setHumanAccessIds(new Set((data ?? []).map((row: { profile_id: string }) => row.profile_id)));
-      if (error) setNotice(current => current || 'Could not load Human Telegram permissions: ' + error.message);
+      if (error) setNotice(current => current || 'Could not load Corporate Telegram Inbox permissions: ' + error.message);
     });
     return () => { cancelled = true; };
   }, [supabase, isAdmin, page]);
@@ -550,7 +550,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     <KnowMore>Manager access follows saved reporting assignments and database permissions.</KnowMore>
     </>}
     {isAdmin && (page === 'team' || page === 'team-roles') && <>
-      <h3>Human Telegram Chat access</h3>
+      <h3>Corporate Telegram Inbox access</h3>
       <KnowMore>Only active Telemarketing accounts can receive this permission. Eligibility is removed if the account role changes.</KnowMore>
       <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}>
         <thead><tr><th style={cell}>Telemarketing manager</th><th style={cell}>Access</th><th style={cell}>Permission</th></tr></thead>
