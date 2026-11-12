@@ -187,7 +187,7 @@ export function DeviceTelemetryController({ supabase, userId, hasActiveShift, sh
       <p style={{fontSize:12,opacity:.75,margin:'6px 0 10px'}}>When enabled, your location is recorded during this active shift and is visible only to Admin. You can pause it at any time. Location sharing stops automatically at checkout.</p>
       <button type="button" disabled={busy} onClick={()=>void (tracking?disable():enable())} style={{padding:'8px 12px',borderRadius:7,border:'1px solid var(--crm-border,#596273)',background:tracking?'transparent':'var(--crm-accent,#2563eb)',color:tracking?'inherit':'white',cursor:'pointer'}}>{busy?'Requesting permission…':tracking?'Pause location sharing':'Allow location sharing'}</button>
     </>}
-    {notice&&<p role="status" style={{fontSize:12,marginBottom:0}}>{notice}</p>}
+    {notice&&<div role="status" style={{fontSize:12,marginBottom:0,display:'flex',alignItems:'center',gap:9,flexWrap:'wrap'}}><span>{notice}</span>{requireShiftLocationSharing&&hasActiveShift&&sessionId&&/Mandatory shift location tracking/.test(notice)&&<button type="button" disabled={busy} onClick={()=>void enable()} style={{padding:'6px 10px',borderRadius:7,border:'1px solid var(--crm-border,#596273)',background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:busy?'wait':'pointer'}}>{busy?'Retrying…':'Retry location access'}</button>}</div>}
   </section>;
 }
 
