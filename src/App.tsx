@@ -202,7 +202,7 @@ async function getLocation(): Promise<Coordinates> {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error ?? '');
       if (/permission|denied/i.test(detail)) {
-        throw new Error('Location permission was denied. Allow MBP Attendance to access location in Android Settings.');
+        throw new Error('Location access is blocked for Attendance CRM. Allow location permission for the app in Android Settings, then try again.');
       }
       if (/timeout/i.test(detail)) {
         throw new Error('Location request timed out. Please try again.');
@@ -227,11 +227,11 @@ async function getLocation(): Promise<Coordinates> {
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          reject(new Error('Location permission was denied.'));
+          reject(new Error('Location access is blocked for this site. Allow location for Attendance CRM in your browser or device settings, then try again.'));
         } else if (error.code === error.TIMEOUT) {
-          reject(new Error('Location request timed out. Please try again.'));
+          reject(new Error('Your device did not return a GPS location in time. Turn on Location Services and try again.'));
         } else {
-          reject(new Error('Your current location is unavailable.'));
+          reject(new Error('GPS location is unavailable. Turn on Location Services and make sure the device has a location fix.'));
         }
       },
       {
@@ -1759,6 +1759,14 @@ export default function App() {
     }
   }
 
+  async function beginManagerCheckout(attendanceId: string) {
+    if (!openRecord || openRecord.id !== attendanceId || busy || loadingDashboard || attendanceActionInFlightRef.current) return;
+    const elapsed = Date.now() - new Date(openRecord.check_in).getTime();
+    const earlyManagerCheckout = elapsed < 8.5 * 60 * 60 * 1000;
+    if (earlyManagerCheckout && !window.confirm('Your total shift working hours are not complete. Do you still want to check out?')) return;
+    await handleCheckOut(attendanceId);
+  }
+
   function cancelStopHold() {
     if (stopHoldTimer.current !== null) window.clearTimeout(stopHoldTimer.current);
     stopHoldTimer.current = null;
@@ -2921,8 +2929,8 @@ export default function App() {
                 <button type="button" aria-label="Dismiss notification" onClick={()=>{setShowCorrectionShortcut(false);setMessage('');}} style={{position:'absolute',top:5,right:7,border:0,background:'transparent',color:'inherit',fontSize:18,cursor:'pointer'}}>×</button>
               </div>}
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
-                onClick={() => { if (!openRecord) void beginCheckInAttempt(); }}
-                onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
+                onClick={() => { if (!openRecord) void beginCheckInAttempt(); else if (normalizedRole === 'manager') void beginManagerCheckout(openRecord.id); }}
+                onPointerDown={() => { if (openRecord && normalizedRole !== 'manager') beginStopHold(openRecord.id); }}
                 onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
                 onContextMenu={event => event.preventDefault()}
                 style={{ width: 184, height: 184, borderRadius: '50%', border: '8px solid ' + (openRecord ? '#14532d' : '#7c3d0b'),
