@@ -101,7 +101,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
       supabase.from('telegram_inbox_chat_assignments').select('chat_id,profile_id,assigned_by,assigned_at'),
     ]);
     if (chatResult.error) {
-      setNotice('Could not load the human-account inbox. Apply the Telegram inbox migration in Supabase first. Details: ' + chatResult.error.message);
+      setNotice('Could not load the Corporate Telegram Inbox. Apply the Telegram inbox migration in Supabase first. Details: ' + chatResult.error.message);
       setChats([]);
     } else {
       const rows = (chatResult.data ?? []) as InboxChat[];
@@ -590,7 +590,7 @@ export default function TelegramHumanInbox({ supabase, profile, profiles }: {
 
   return <section className={"telegram-human-inbox" + (mobileExpanded ? " is-mobile-expanded" : "")} style={{ ...panel, overflow: 'hidden', color: '#e7e8ed' }}>
     <header className="telegram-inbox-header" style={{ padding: '8px 0 14px', borderBottom: '1px solid #26272d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div><h2 style={{ margin: 0 }}>Human-account Telegram Inbox</h2><KnowMore>Private conversations from the connected Telegram account. Messages refresh automatically while this inbox is open.</KnowMore></div>
+      <div><h2 style={{ margin: 0 }}>Corporate Telegram Inbox</h2><KnowMore>Private conversations from the connected Telegram account. Messages refresh automatically while this inbox is open.</KnowMore></div>
       <button className="telegram-desktop-sync" type="button" disabled={loading || syncing} style={{ ...action, background: '#1d2939', border: '1px solid #475467', opacity: syncing ? 0.6 : 1 }} onClick={() => { void requestSync(); }}>{syncing ? 'Sync running…' : 'Sync Now'}</button>
     </header>
     {notice && <p role="status" style={{ color: notice.toLowerCase().includes('could not') ? '#fda29b' : '#98a2b3', padding: '0 16px', overflowWrap: 'anywhere' }}>{notice}</p>}
