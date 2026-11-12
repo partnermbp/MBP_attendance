@@ -1998,7 +1998,9 @@ export default function App() {
       }
     })
     .sort((a, b) => b.check_in.localeCompare(a.check_in))[0];
-  const todayCompletedRecord = attendance
+  // Manager dashboard attendance is populated from the team RPC and may omit the manager's own row.
+  // salaryAttendance is loaded from the manager's own attendance query, so check both sources.
+  const todayCompletedRecord = [...attendance, ...salaryAttendance]
     .filter(item => {
       if (item.employee_id !== session?.user.id || !item.check_out || !item.work_date || !item.work_timezone) return false;
       try { return getLocalDate(item.work_timezone, new Date(clockNow)) === item.work_date; } catch { return false; }
