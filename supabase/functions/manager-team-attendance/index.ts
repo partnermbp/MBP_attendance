@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
     const ids = [...teamIds].map(encodeURIComponent).join(",");
     const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
     const rows = await restPaged(
-      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,auto_closed&order=check_in.desc,id.asc`
+      `attendance?employee_id=in.(${ids})&check_in=gte.${encodeURIComponent(since)}&select=id,employee_id,check_in,check_out,work_date,work_timezone,credited_work_minutes,manual_adjustment_minutes,manually_adjusted,auto_closed&order=check_in.desc,id.asc`
     );
     const shiftEnd = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
     const shifts = await restPaged(
@@ -168,6 +168,8 @@ Deno.serve(async (req: Request) => {
       work_date: row.work_date,
       work_timezone: row.work_timezone,
       credited_work_minutes: row.credited_work_minutes,
+      manual_adjustment_minutes: row.manual_adjustment_minutes,
+      manually_adjusted: row.manually_adjusted,
       auto_closed: row.auto_closed,
     }));
     return json({ records, shifts: shifts || [], telegram_members: telegramMembers || [], telegram_metrics: telegramMetrics || [] });
