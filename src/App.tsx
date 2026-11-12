@@ -1544,6 +1544,47 @@ export default function App() {
   }
 
 
+  async function beginCheckInAttempt() {
+    if (!supabase || !session || busy || loadingDashboard) return;
+    setMessage('');
+    setShowCorrectionShortcut(false);
+
+    // Always verify against the database at click time. Manager dashboards load team
+    // attendance separately, and their own completed shift may not be in that list.
+    const { data: recentCompleted, error: recentCompletedError } = await supabase
+      .from('attendance')
+      .select('id, employee_id, check_in, check_out, work_date, work_timezone')
+      .eq('employee_id', session.user.id)
+      .not('check_out', 'is', null)
+      .order('check_in', { ascending: false })
+      .limit(30);
+
+    if (recentCompletedError) {
+      setMessage('Could not verify whether you have already checked out today. Please refresh the CRM and try again.');
+      return;
+    }
+
+    const now = new Date();
+    const completedToday = (recentCompleted ?? []).some(record => {
+      if (!record.check_out) return false;
+      try {
+        const timezone = record.work_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const recordedWorkDate = record.work_date || getLocalDate(timezone, new Date(record.check_in));
+        return recordedWorkDate === getLocalDate(timezone, now);
+      } catch {
+        return record.work_date === new Intl.DateTimeFormat('en-CA').format(now);
+      }
+    });
+
+    if (completedToday) {
+      setMessage('You have already checked out for today. If this was a mistake, please submit a request to correct your shift time.');
+      setShowCorrectionShortcut(true);
+      return;
+    }
+
+    if (window.confirm('Do you want to check in?')) void handleCheckIn();
+  }
+
   async function handleCheckIn() {
     if (!supabase || !session) return;
     if (todayCompletedRecord) {
@@ -2757,7 +2798,7 @@ export default function App() {
             <p style={{ color: '#b7c0d1', margin: '0 auto 22px', maxWidth: 420, fontSize: 13 }}>{openRecord ? 'Your attendance is being recorded. Your live session timer is shown below.' : 'Check in when you begin work.'}</p>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
               <button type="button" aria-label={openRecord ? 'Hold to stop shift' : 'Check in and start shift'} disabled={busy || loadingDashboard}
-                onClick={() => { if (!openRecord && todayCompletedRecord) { setMessage('You have already checked out for today. If this was a mistake, please submit a request to correct your shift time.'); setShowCorrectionShortcut(true); } else if (!openRecord && window.confirm('Do you want to check in?')) void handleCheckIn(); }}
+                onClick={() => { if (!openRecord) void beginCheckInAttempt(); }}
                 onPointerDown={() => { if (openRecord) beginStopHold(openRecord.id); }}
                 onPointerUp={cancelStopHold} onPointerLeave={cancelStopHold} onPointerCancel={cancelStopHold}
                 onContextMenu={event => event.preventDefault()}
