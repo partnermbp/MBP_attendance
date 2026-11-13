@@ -675,6 +675,10 @@ export default function App() {
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
+    // Every successful authentication or restored session starts at Dashboard.
+    // This prevents a previously selected page (including My Profile) from
+    // becoming the landing page for the next signed-in session.
+    setActivePage('dashboard');
     // Do not render any signed-in navigation or page content until the role
     // and all role-scoped dashboard data have finished loading.
     setProfileReady(false);
@@ -2890,10 +2894,12 @@ export default function App() {
                 <button type="button" disabled={personalProfileSaving} onClick={()=>void savePersonalProfile()} style={{marginTop:16,padding:'11px 16px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:personalProfileSaving?'wait':'pointer',opacity:personalProfileSaving?0.7:1}}>{personalProfileSaving?'Saving…':'Save profile'}</button>
                 {personalProfileNotice&&<p role="status" style={{fontSize:13,color:personalProfileNotice.includes('could not')?'#ef8a8a':'var(--crm-muted)'}}>{personalProfileNotice}</p>}
               </section>
-              <section className="crm-settings-section">
+              {!['admin','supervisor'].includes(String(profile?.role || '').toLowerCase().replaceAll('_',' ')) && <section className="crm-settings-section">
                 <h2 style={{marginTop:0}}>Your reporting manager</h2>
                 {directManager ? <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap',padding:14,border:'1px solid var(--crm-border)',borderRadius:10,background:'var(--crm-card-bg)'}}><div><strong style={{display:'block',fontSize:16}}>{directManager.manager_name}</strong><span style={{fontSize:12,color:'var(--crm-muted)',textTransform:'capitalize'}}>{directManager.manager_role}</span><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Your direct reporting manager</small></div>{directManagerUrl?<a href={directManagerUrl} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:7,background:'#229ed9',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact manager</a>:<button type="button" disabled style={{padding:'10px 14px',border:0,borderRadius:7,background:'var(--crm-border)',color:'var(--crm-muted)'}}>Telegram contact unavailable</button>}</div> : <p style={{color:'var(--crm-muted)',fontSize:13}}>No direct reporting manager is currently assigned to your account. Please contact company support.</p>}
-                <a href="https://t.me/MbP_Asia_support_bot" target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:16,padding:'11px 15px',borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact company support</a>
+              </section>}
+              <section className="crm-settings-section">
+                <a href="https://t.me/MbP_Asia_support_bot" target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:0,padding:'11px 15px',borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact company support</a>
               </section>
             </>;
           })()}
