@@ -1,4 +1,4 @@
-name: Build MBP Attendance Android APK
+name: Build attendence_crm Android APK
 
 on:
   push:
@@ -73,11 +73,14 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: Rename APK to the CRM app filename
+        run: cp android/app/build/outputs/apk/debug/attendence_crm.apk android/app/build/outputs/apk/debug/attendence_crm.apk
+
       - name: Keep APK as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MBP-Attendance-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: attendence_crm-Android-APK
+          path: android/app/build/outputs/apk/debug/attendence_crm.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -85,9 +88,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: Latest MBP Attendance Android APK
+          name: Latest attendence_crm Android APK
           prerelease: true
           make_latest: false
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: android/app/build/outputs/apk/debug/attendence_crm.apk
           overwrite_files: true
           fail_on_unmatched_files: true
