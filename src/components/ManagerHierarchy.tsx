@@ -19,10 +19,23 @@ const duration = (seconds: number | null) => {
   if (seconds < 3600) return Math.round(seconds / 60) + ' min';
   return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
 };
+function renderProfileAvatar(avatarKey:string,size:number) {
+  const match=avatarKey.match(/^(male|female|animal|alien|superhero)-(\d+)$/);
+  if(!match) return null;
+  const kind=match[1],index=Math.max(0,Math.min(9,Number(match[2])-1));
+  const human=['#e8b58f','#c98e6b','#f0c9a7','#9b6248','#d99c78','#e4b18e','#b77c62','#efc5a3','#9d6d56','#dca17c'];
+  const hero=['#1769aa','#b72d3c','#a83232','#202733','#b92f3b','#173b69','#553a91','#20252d','#315c83','#4e657f'];
+  const animal=['#e6e2d7','#e8a05b','#d8a16d','#77b99a','#d69b8d'];
+  const alien=['#86d5bd','#a6b6f2','#b8df79','#9bd4e7','#d3a6e8'];
+  const bg=kind==='superhero'?hero[index]:kind==='animal'?animal[index%5]:kind==='alien'?alien[index%5]:human[index];
+  return <svg width={size} height={size} viewBox="0 0 96 96" aria-hidden="true" style={{display:'block'}}><circle cx="48" cy="48" r="48" fill={bg}/><circle cx="48" cy="38" r="19" fill="#f1c7a4"/><path d="M13 96c2-24 16-35 35-35s33 11 35 35" fill={kind==='superhero'?'#263b58':'#527b91'}/>{kind==='superhero'&&<path d="M28 33q20-25 40 0v10H28Z" fill="#202733"/>}</svg>;
+}
+
 const panel = { padding: 16, border: '1px solid var(--crm-border)', borderRadius: 12, background: 'var(--crm-card-bg)' } as const;
 const muted = { color: 'var(--crm-text-muted)', fontSize: 12 } as const;
 
-export default function ManagerHierarchy({ profile, profiles, assignments, attendance, shifts, telegramMembers, telegramMetrics, isAdmin }: {
+export default function ManagerHierarchy({ avatarByUserId = {}, profile, profiles, assignments, attendance, shifts, telegramMembers, telegramMetrics, isAdmin }: {
+  avatarByUserId?: Record<string,string>;
   profile: Person | null;
   profiles: Person[];
   assignments: Assignment[];
@@ -85,7 +98,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
       {depth > 0 && <div aria-hidden="true" style={{ position: 'absolute', left: -12, top: -12, height: 36, borderLeft: '1px solid var(--crm-border)' }}/>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '7px 0' }}>
         <button type="button" onClick={() => setSelectedId(person.id)} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, padding: '12px 13px', textAlign: 'left', border: '1px solid '+(isSelected?'var(--crm-accent-strong)':'var(--crm-border)'), borderRadius: 10, background: isSelected?'var(--crm-accent-soft)':'var(--crm-card-bg)', color: 'var(--crm-text)', cursor: 'pointer' }}>
-          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0, background: 'var(--crm-card-raised)', color: 'var(--crm-accent)' }}><UserRound size={18}/></span>
+          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0, overflow:'hidden', background: 'var(--crm-card-raised)', color: 'var(--crm-accent)' }}>{avatarByUserId[person.id] ? renderProfileAvatar(avatarByUserId[person.id],36) : <UserRound size={18}/>}</span>
           <span style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.full_name || 'Unnamed manager'}</strong><small style={muted}>{roleName(person.role)} · {direct.length} direct reports</small></span>
           <ChevronRight size={17}/>
         </button>
@@ -130,7 +143,7 @@ export default function ManagerHierarchy({ profile, profiles, assignments, atten
     return <div style={{display:'grid',gap:16,marginTop:18}}>
       <button type="button" onClick={()=>setSelectedId(null)} style={{display:'inline-flex',alignItems:'center',gap:8,width:'fit-content',padding:'9px 12px',border:'1px solid var(--crm-border)',borderRadius:8,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}><ArrowLeft size={16}/> Back to manager hierarchy</button>
       <header style={{...panel,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-        <div style={{width:54,height:54,borderRadius:14,display:'grid',placeItems:'center',background:'var(--crm-accent-soft)',color:'var(--crm-accent)'}}><UserRound size={26}/></div>
+        <div style={{width:54,height:54,borderRadius:14,display:'grid',placeItems:'center',overflow:'hidden',background:'var(--crm-accent-soft)',color:'var(--crm-accent)'}}>{avatarByUserId[selected.id] ? renderProfileAvatar(avatarByUserId[selected.id],54) : <UserRound size={26}/>}</div>
         <div style={{flex:1,minWidth:220}}><h1 style={{margin:0,fontSize:25}}>{selected.full_name || 'Unnamed manager'}</h1><div style={{...muted,marginTop:5}}>{roleName(selected.role)} · {selected.active?'Active account':'Inactive account'}</div></div>
         <div style={{display:'grid',gap:8,fontSize:13}}>
           <span style={{display:'flex',alignItems:'center',gap:7}}><Mail size={14}/>{selected.email || 'Corporate email unavailable'}</span>
