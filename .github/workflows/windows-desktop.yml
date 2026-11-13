@@ -1,4 +1,4 @@
-name: Build MBP Attendance Windows Desktop EXE
+name: Build attendence_crm Windows Desktop EXE
 
 on:
   push:
@@ -63,7 +63,7 @@ jobs:
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MBP-Attendance-Windows-Installer
+          name: attendence_crm-Windows-Installer
           path: dist-electron/*.exe
           if-no-files-found: error
           retention-days: 30
@@ -72,7 +72,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest
-          name: Latest MBP Attendance Windows Installer
+          name: Latest attendence_crm Windows Installer
           prerelease: true
           make_latest: false
           files: dist-electron/*.exe
