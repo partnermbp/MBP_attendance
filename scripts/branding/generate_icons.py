@@ -2,14 +2,20 @@
 """Generate every platform icon from the shared vector master logo."""
 from pathlib import Path
 import base64
-from PIL import Image\nimport cairosvg
+from PIL import Image
+import cairosvg
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "public/icons/attendance-logo.png"\nVECTOR = ROOT / "public/icons/attendance-logo.svg"
+SOURCE = ROOT / "public/icons/attendance-logo.png"
+VECTOR = ROOT / "public/icons/attendance-logo.svg"
 OUT = ROOT / "public/icons"
 OUT.mkdir(parents=True, exist_ok=True)
-if VECTOR.exists():\n    cairosvg.svg2png(url=str(VECTOR), write_to=str(SOURCE), output_width=1024, output_height=1024)\nif not SOURCE.exists():\n    raise SystemExit("Missing shared CRM logo: public/icons/attendance-logo.svg")\nlogo = Image.open(SOURCE).convert("RGBA")
+if VECTOR.exists():
+    cairosvg.svg2png(url=str(VECTOR), write_to=str(SOURCE), output_width=1024, output_height=1024)
+if not SOURCE.exists():
+    raise SystemExit("Missing shared CRM logo: public/icons/attendance-logo.svg")
+logo = Image.open(SOURCE).convert("RGBA")
 if logo.size != (1024, 1024):
     logo = logo.resize((1024, 1024), Image.Resampling.LANCZOS)
 
