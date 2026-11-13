@@ -1406,7 +1406,7 @@ export default function App() {
         setEmailOtpRequested(false);
         setMfaChallengeTicket('');
         setScreen('signed-in');
-        await loadDashboard(authData.user.id);
+        await loadDashboard(authData.user.id, true);
       } else {
         await supabase.auth.signOut({ scope: 'local' });
         mfaLoginInProgressRef.current = false;
