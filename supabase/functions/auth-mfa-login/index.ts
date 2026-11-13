@@ -184,29 +184,6 @@ async function begin(req: Request, body: any) {
   if (!auth || !hasRecentAuthMethod(auth.token, "password")) return reply({ error: "Verify your password again to start login." }, 401);
   const email = auth.user.email!.trim().toLowerCase();
 
-  // Invitation registration already verified both factors before the auth user
-  // was created. Consume its short-lived, DB-issued grant once to approve this
-  // first password session without sending duplicate OTPs.
-  const { data: registrationGrant, error: grantError } = await db
-    .from("invitation_registration_access_grants")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("user_id", auth.user.id)
-    .is("consumed_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .select("user_id")
-    .maybeSingle();
-  if (grantError) return reply({ error: "Unable to validate the completed registration." }, 500);
-  if (registrationGrant) {
-    try {
-      const weekIndex = await currentWeek(auth.user.id);
-      await completeSession(auth.user.id, auth.sessionId, weekIndex);
-      await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful sign-in to your account was completed using your verified invitation. If this was not you, contact an administrator.");
-      return reply({ ok: true, stage: "complete", verification: "invitation_verified" });
-    } catch {
-      return reply({ error: "Your registration is complete, but the first session could not be approved. Sign in again." }, 500);
-    }
-  }
-
   const recentCutoff = new Date(Date.now() - 30 * 1000).toISOString();
   const { data: recentChallenges, error: rateError } = await db.from("crm_login_challenges")
     .select("id").eq("user_id", auth.user.id).gte("created_at", recentCutoff).limit(1);
@@ -224,7 +201,7 @@ async function begin(req: Request, body: any) {
     return reply({ error: "This account has no verified Telegram identity. Contact your administrator." }, 403);
   }
   const { data: status, error: statusError } = await db.from("crm_email_mfa_status")
-    .select("verified_week").eq("user_id", auth.user.id).maybeSingle();
+    .select("verified_week, verified_at").eq("user_id", auth.user.id).maybeSingle();
   if (statusError) return reply({ error: "Unable to check email verification status." }, 500);
   const emailVerifiedAt = status?.verified_at ? new Date(status.verified_at).getTime() : 0;
   const emailRequired = !emailVerifiedAt || (Date.now() - emailVerifiedAt) >= 3 * 24 * 60 * 60 * 1000;
