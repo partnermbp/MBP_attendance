@@ -26,7 +26,7 @@ async function replyToDirectInteraction(message: any) {
   const normalized = textValue.toLowerCase();
   let response: string;
 
-  if (/\\b(are you (a )?bot|are you human|real person|মানুষ নাকি|বট নাকি|তুমি কি বট)\\b/i.test(normalized)) {
+  if (/\b(are you (a )?bot|are you human|real person|মানুষ নাকি|বট নাকি|তুমি কি বট)\b/i.test(normalized)) {
     response = "হাহা, আমি @md_shobbot — bot-ই ভাই 😄 কাজের ফাঁকে একটু মজা করি, বাকি সময় group-এর হিসাব রাখি।";
   } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized) && /(speak|talk|know|understand|পারো|বলো|বোঝো|language|english|hindi)/i.test(normalized)) {
     response = "Haan bhai, English aur Hindi dono samajhta hoon. Bangla toh apun ka local setting hai 😎";
