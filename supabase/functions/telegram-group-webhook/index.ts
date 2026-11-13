@@ -16,7 +16,9 @@ async function replyToDirectInteraction(message: any) {
   const textValue = typeof message.text === "string"
     ? message.text.trim()
     : typeof message.caption === "string" ? message.caption.trim() : "";
-  if (!textValue || textValue.startsWith("/")) return;
+  const hasPhoto = Array.isArray(message.photo) && message.photo.length > 0;
+  const hasFile = Boolean(message.document);
+  if ((!textValue && !hasPhoto && !hasFile) || textValue.startsWith("/")) return;
 
   // Confirm this dedicated token really belongs to @md_shobbot.
   // Fail closed so the authentication bot can never send this persona.
@@ -30,8 +32,11 @@ async function replyToDirectInteraction(message: any) {
   const normalized = textValue.toLowerCase();
   let response: string;
 
-  // Keep every turn short. The first greeting must never dump the whole persona.
-  if (/^(hi|hello|hey|হ্যালো|হাই|সালাম|আসসালামু আলাইকুম)[!.?\\s]*$/i.test(normalized)) {
+  if (hasPhoto) {
+    response = "এটা কি তোর বাপের ছবি যে আমাকে পাঠাচ্ছিস? টিম লিডারকে পাঠা, আমারে না।";
+  } else if (hasFile) {
+    response = "এই ফাইল দিয়া কি বিরিয়ানি রান্না করব নাকি? কাজের হলে টিম লিডারকে পাঠা।";
+  } else if (/^(hi|hello|hey|হ্যালো|হাই|সালাম|আসসালামু আলাইকুম)[!.?\\s]*$/i.test(normalized)) {
     response = "Yeah hello? কও ভাই, কী দরকার? কাজের মধ্যে আছি।";
   } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized)) {
     response = "Haan bhai, English aur Hindi dono aata hai. Tujhe aur kya chahiye, VIP service?";
@@ -40,7 +45,19 @@ async function replyToDirectInteraction(message: any) {
   } else if (/(sorry|দুঃখিত|রাগ|angry|বিরক্ত|কেন এমন|why are you|কষ্ট)/i.test(normalized)) {
     response = "আচ্ছা sorry ভাই, বেশি বলে ফেললাম। পরিবারের জন্যই খাটি, এই কাজটা আমার দরকার। তাই ফালতু কথা কম, কাজ বেশি করি। তুইও একটু মন দে।";
   } else {
-    response = "ওই ভাই, এত ঢিমেতালে চললে হবে? আমি তো কাজ ফাঁকি দিই না। একটু গতি বাড়া, নাকি সব কাজ আমাকেই করতে হবে?";
+    const replies = [
+      "ওই ভাই, এত ঢিমেতালে চললে হবে? আমি তো কাজ ফাঁকি দিই না। একটু গতি বাড়া।",
+      "কাজের সময়ে এত গল্প? আমার তো মনে হয় তোর keyboard-ই বেশি কাজ করে।",
+      "আমি হিসাবও রাখি, কাজও করি। তুই আগে নিজের pending কাজের হিসাব দে।",
+      "ভাই, excuse জমাইলে salary বাড়ে না। কাজটা শেষ কর, তারপর আড্ডা দিস।",
+      "এতক্ষণে কাজটা শেষ হওয়ার কথা। নাকি task-টা তোকে দেখে নিজেই resign করেছে?",
+      "আমি কিন্তু ফাঁকি দিই না। তোর কাছ থেকেও একটু সেই level-এর effort আশা করেছিলাম।",
+      "চা-বিরতি শেষ? এবার কাজেও একটু হাত দে, শুধু online থাকলে performance হয় না।",
+      "আমার time কম ভাই। তোরও কম থাকলে কাজটা আগে শেষ কর, পরে lecture দিস।",
+      "সবাই busy বলে, কিন্তু output কই? আমাকেই কি আবার report বানাতে হবে?",
+      "ভাই, plan তো অনেক হলো। এবার এমন কিছু কর যাতে কাজও দেখা যায়।"
+    ];
+    response = replies[Math.floor(Math.random() * replies.length)];
   }
 
   const apiResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
