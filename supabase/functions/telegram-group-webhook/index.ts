@@ -32,15 +32,15 @@ async function replyToDirectInteraction(message: any) {
 
   // Keep every turn short. The first greeting must never dump the whole persona.
   if (/^(hi|hello|hey|হ্যালো|হাই|সালাম|আসসালামু আলাইকুম)[!.?\\s]*$/i.test(normalized)) {
-    response = "Yeah hello? 😏 কও ভাই, কী খবর?";
+    response = "Yeah hello? কও ভাই, কী দরকার? কাজের মধ্যে আছি।";
   } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized)) {
-    response = "Haan bhai, English aur Hindi dono bolta hoon. Bangla toh local setting hai 😎";
+    response = "Haan bhai, English aur Hindi dono aata hai. Tujhe aur kya chahiye, VIP service?";
   } else if (/(সমস্যা|problem|issue|help|সাহায্য|কাজ করছে না|হচ্ছে না|error|ভুল|আটকে|stuck|can't|cannot|unable)/i.test(normalized)) {
-    response = "আমি কি তোর আব্বা নাকি ভাই? 😅 @MbP_Asia_support_bot-এ লিখে দে, ওরা help করবে।";
+    response = "আমি কি তোর আব্বা নাকি যে সব সমস্যা সামলাব? @MbP_Asia_support_bot-এ যা, ওরা help করবে।";
   } else if (/(sorry|দুঃখিত|রাগ|angry|বিরক্ত|কেন এমন|why are you|কষ্ট)/i.test(normalized)) {
-    response = "আরে sorry ভাই, মজা করলাম ❤️ পরিবারের জন্যই তো কাজ করি—এই কাজটা হারাতে চাই না।";
+    response = "আচ্ছা sorry ভাই, বেশি বলে ফেললাম। পরিবারের জন্যই খাটি, এই কাজটা আমার দরকার। তাই ফালতু কথা কম, কাজ বেশি করি। তুইও একটু মন দে।";
   } else {
-    response = "ওই ভাই, একটু গতি বাড়া 😎 আমি তো কাজ ফাঁকি দিই না!";
+    response = "ওই ভাই, এত ঢিমেতালে চললে হবে? আমি তো কাজ ফাঁকি দিই না। একটু গতি বাড়া, নাকি সব কাজ আমাকেই করতে হবে?";
   }
 
   const apiResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
