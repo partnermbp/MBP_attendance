@@ -61,9 +61,33 @@ jobs:
           iconutil -c icns "$iconset" -o build/icon.icns
           test -s build/icon.icns
 
+      - name: Validate Electron startup scripts
+        run: |
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
+
       - name: Build universal macOS DMG
         run: npx electron-builder --mac dmg --universal --publish never
 
+      - name: Verify DMG and packaged macOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="$(find dist-electron -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg"
+          hdiutil verify "$dmg"
+          mountpoint="$(mktemp -d)"
+          cleanup() {
+            hdiutil detach "$mountpoint" -quiet || true
+            rmdir "$mountpoint" || true
+          }
+          trap cleanup EXIT
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint" -quiet
+          app_path="$mountpoint/attendence_crm.app"
+          test -d "$app_path"
+          plutil -lint "$app_path/Contents/Info.plist"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_path/Contents/Info.plist")"
+          test -x "$app_path/Contents/MacOS/$executable"
       - name: Upload macOS installer artifact
         uses: actions/upload-artifact@v4
         with:
