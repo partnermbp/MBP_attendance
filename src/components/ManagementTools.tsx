@@ -454,9 +454,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setNotice('');
     const manager = profiles.find(p => p.id === managerId);
     const employee = profiles.find(p => p.id === employeeId);
-    const rank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
-    if (!manager || !employee || rank(manager.role) <= rank(employee.role) || rank(manager.role) === 0 || rank(employee.role) === 0) {
-      setAssignmentNotice('Invalid hierarchy: a manager can only be assigned employees below their own role. Team Leaders cannot be assigned under Senior, Middle, or Junior managers; Telemarketing is a separate track.');
+    const rank = (role: string) => ({ telemarketing: 1, junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4, supervisor: 5 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+    if (!manager || !employee || rank(manager.role) <= rank(employee.role) || rank(manager.role) === 0 || rank(employee.role) === 0 || (employee.role.toLowerCase() === 'telemarketing' && manager.role.toLowerCase().replaceAll('_', ' ') !== 'team leader')) {
+      setAssignmentNotice('Telemarketing contacts can be assigned directly under a Team Leader only. Other reporting lines must follow the existing hierarchy.');
       return;
     }
     setLoading(true); setAssignmentNotice('');
@@ -500,7 +500,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   }
 
   if (!isAdmin && !isManager) return null;
-  const roleRank = (role: string) => ({ junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4, supervisor: 5 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
+  const roleRank = (role: string) => ({ telemarketing: 1, junior: 1, middle: 2, senior: 3, team_leader: 4, 'team leader': 4, supervisor: 5 } as Record<string, number>)[role.toLowerCase().replaceAll('_', ' ')] ?? 0;
   const managers = profiles.filter(p => p.active && ['supervisor','middle','senior','team_leader'].includes(p.role.toLowerCase().replaceAll(' ', '_')));
   const validAssignments = assignments.filter(a => {
     const parent = profiles.find(p => p.id === a.manager_id && p.active);
@@ -609,7 +609,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <summary style={{cursor:'pointer',fontSize:13,fontWeight:650}}>Change an assignment manually</summary>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:12,marginTop:12}}>
           <label>Manager<select style={input} value={managerId} onChange={e=>{setManagerId(e.target.value);setEmployeeId('');}}><option value="">Choose manager</option>{managers.map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select></label>
-          <label>Employee<select style={input} value={employeeId} onChange={e=>setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.filter(p=>!managerId || Boolean(profiles.find(x=>x.id===managerId) && roleRank(profiles.find(x=>x.id===managerId)!.role)>roleRank(p.role) && roleRank(p.role)>0)).map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select></label>
+          <label>Employee<select style={input} value={employeeId} onChange={e=>setEmployeeId(e.target.value)}><option value="">Choose employee</option>{employees.filter(p=>!managerId || Boolean(profiles.find(x=>x.id===managerId) && roleRank(profiles.find(x=>x.id===managerId)!.role)>roleRank(p.role) && roleRank(p.role)>0 && (p.role.toLowerCase()!=='telemarketing' || profiles.find(x=>x.id===managerId)!.role.toLowerCase().replaceAll('_',' ')==='team leader'))).map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select></label>
         </div>
         {assignmentNotice&&<p role="status" aria-live="polite" style={{margin:'8px 0 0',fontSize:12,lineHeight:1.4,color:assignmentNotice==='Assignment saved.'?'#75e0a7':'#fda29b',overflowWrap:'anywhere'}}>{assignmentNotice}</p>}
         <button type="button" style={{...button,marginTop:8}} disabled={loading||!managerId||!employeeId} onClick={()=>void addAssignment()}>Save assignment</button>
@@ -633,7 +633,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
                 {childManagers.map(child=>renderAssignmentNode(child,depth+1))}
                 {childEmployees.map(child=><div key={child.id} style={{display:'flex',alignItems:'center',gap:8,marginLeft:Math.min(depth+1,5)*16,padding:'7px 8px',borderRadius:6,background:'var(--crm-card-raised)'}}>
                   <span style={{width:24,flexShrink:0}}/>
-                  <span style={{flex:1,minWidth:0,fontSize:12}}>{child.full_name||child.email||'Employee'} <small style={muted}>· {child.role.replaceAll('_',' ')}</small></span>
+                  <span style={{flex:1,minWidth:0,fontSize:12}}>{child.full_name||child.email||'Employee'} <small style={muted}>· {child.role.replaceAll('_',' ')} · Reports to: {manager.full_name||manager.email||'Team Leader'}</small></span>
                   <button type="button" style={{...button,padding:'5px 9px',fontSize:11,background:'#b42318'}} disabled={loading} onClick={()=>void removeAssignment({manager_id:manager.id,employee_id:child.id,created_at:validAssignments.find(a=>a.manager_id===manager.id&&a.employee_id===child.id)?.created_at||''})}>Remove</button>
                 </div>)}
                 {childManagers.map(child=><div key={'remove-'+child.id} style={{display:'none'}} />)}
