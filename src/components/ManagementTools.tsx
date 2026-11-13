@@ -16,6 +16,7 @@ type MessageReaction = { telegram_chat_id: number; telegram_message_id: number; 
 type MessageReactionCount = { telegram_chat_id: number; telegram_message_id: number; reactions: any[] };
 type Group = { telegram_chat_id: number; title: string; enabled: boolean };
 type TelegramMember = { id: number; telegram_chat_id: number; telegram_user_id: number; username: string | null; display_name: string | null; profile_id: string | null };
+type GroupAnalyticsOption = { team_leader_id: string | null; team_leader_name: string | null; owner_profile_id: string; owner_name: string; telegram_chat_id: number; group_title: string };
 
 const panel: CSSProperties = { padding: 18, margin: '20px 0', border: '1px solid #344054', borderRadius: 12 };
 const input: CSSProperties = { display: 'block', width: '100%', marginTop: 6, padding: 10, color: '#f8fafc', background: '#101828', border: '1px solid #475467', borderRadius: 8, boxSizing: 'border-box' };
@@ -83,6 +84,9 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [inviteUrl, setInviteUrl] = useState('');
   const [expandedManagers, setExpandedManagers] = useState<Record<string, boolean>>({});
   const [groups, setGroups] = useState<Group[]>([]);
+  const [analyticsOptions, setAnalyticsOptions] = useState<GroupAnalyticsOption[]>([]);
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState('');
+  const [selectedGroupOwner, setSelectedGroupOwner] = useState('');
   const [telegramMembers, setTelegramMembers] = useState<TelegramMember[]>([]);
   const [memberProfileSelections, setMemberProfileSelections] = useState<Record<number, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
@@ -124,11 +128,12 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
     setLoading(true);
     setNotice('');
     try {
-      const [assignmentResult, groupResult, metricResult, treeResult] = await Promise.all([
+      const [assignmentResult, groupResult, metricResult, treeResult, analyticsOptionsResult] = await Promise.all([
         supabase.from('manager_employee_assignments').select('manager_id,employee_id,created_at'),
-        isSupervisor ? Promise.resolve({ data: [], error: null }) : supabase.from('telegram_groups').select('telegram_chat_id,title,enabled').order('title'),
-        isSupervisor ? Promise.resolve({ data: [], error: null }) : supabase.from('telegram_response_metrics').select('telegram_chat_id,question_message_id,question_user_id,first_reply_user_id,response_seconds,calculated_at').order('calculated_at', { ascending: false }).limit(500),
+        supabase.from('telegram_groups').select('telegram_chat_id,title,enabled').order('title'),
+        supabase.from('telegram_response_metrics').select('telegram_chat_id,question_message_id,question_user_id,first_reply_user_id,response_seconds,calculated_at').order('calculated_at', { ascending: false }).limit(500),
         supabase.rpc('get_my_team_hierarchy'),
+        supabase.rpc('get_telegram_group_analytics_options'),
       ]);
       if (isAdmin) {
         const memberResult = await supabase.from('telegram_group_members')
@@ -153,6 +158,8 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       else setGroups((groupResult.data ?? []) as Group[]);
       if (metricResult.error) setNotice((current) => current || 'Telegram metrics: ' + metricResult.error.message);
       else setMetrics((metricResult.data ?? []) as Metric[]);
+      if (analyticsOptionsResult.error) setNotice((current) => current || 'Telegram group ownership: ' + analyticsOptionsResult.error.message);
+      else setAnalyticsOptions((analyticsOptionsResult.data ?? []) as GroupAnalyticsOption[]);
       const chosen = selectedGroup ? [Number(selectedGroup)] : [];
       if (chosen.length) {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -516,6 +523,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const myAssignments = assignments.filter(a => a.manager_id === profile?.id);
   const personName = (id: string) => profiles.find(p => p.id === id)?.full_name || profiles.find(p => p.id === id)?.email || teamTree.find(p => p.id === id)?.full_name || teamTree.find(p => p.id === id)?.email || 'Unknown employee';
   const selectedMetrics = metrics.filter(m => selectedGroup !== '' && String(m.telegram_chat_id) === selectedGroup);
+  const analyticsTeamLeaders = [...new Map(analyticsOptions.filter(o => o.team_leader_id).map(o => [o.team_leader_id!, { id: o.team_leader_id!, name: o.team_leader_name || o.team_leader_id! }])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+  const analyticsOwners = [...new Map(analyticsOptions.filter(o => o.team_leader_id === selectedTeamLeader).map(o => [o.owner_profile_id, { id: o.owner_profile_id, name: o.owner_name }])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+  const analyticsGroups = isAdmin || isSupervisor
+    ? analyticsOptions.filter(o => o.team_leader_id === selectedTeamLeader && o.owner_profile_id === selectedGroupOwner)
+    : analyticsOptions.filter(o => o.owner_profile_id === profile?.id);
   const renderTeamNode = (person: TeamNode, depth = 0): ReactElement => {
     const children = teamTree.filter(child => child.manager_id === person.id);
     const expanded = Boolean(expandedManagers[person.id]);
@@ -764,7 +776,11 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
         <p style={{ ...muted, margin: '8px 0 0', fontSize: 11 }}>Only newly received messages are collected; earlier group history and read receipts are not available to Telegram bots. Ensure participants know that messages are processed for CRM analytics.</p>
       </details>}
     </div>
-    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); groupInitialScrollPendingRef.current = true; setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{groups.filter(g=>g.enabled).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.title}</option>)}</select></label>
+    {(isAdmin || isSupervisor) && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12,maxWidth:900,margin:'18px 0'}}>
+      <label>Team Leader<select style={input} value={selectedTeamLeader} onChange={e=>{setSelectedTeamLeader(e.target.value);setSelectedGroupOwner('');setSelectedGroup('');setMessages([]);}}><option value="">Choose Team Leader…</option>{analyticsTeamLeaders.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+      <label>Manager / Group Owner<select style={input} value={selectedGroupOwner} disabled={!selectedTeamLeader} onChange={e=>{setSelectedGroupOwner(e.target.value);setSelectedGroup('');setMessages([]);}}><option value="">Choose manager…</option>{analyticsOwners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+    </div>}
+    <label style={{ display:'block', maxWidth:460, margin:'18px 0' }}>Select a group chat<select style={{ ...input, maxWidth: 460 }} value={selectedGroup} onChange={e => { if (groupOlderCacheTimerRef.current !== null) window.clearTimeout(groupOlderCacheTimerRef.current); groupOlderCacheTimerRef.current = null; setMessages([]); groupInitialScrollPendingRef.current = true; setGroupMessagesHasMore(false); setGroupMessagesAtTop(false); setSelectedGroup(e.target.value); }}><option value="">Choose a Telegram group to open…</option>{(isAdmin || isSupervisor ? analyticsGroups : analyticsGroups).map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.group_title}</option>)}</select></label>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
