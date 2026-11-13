@@ -1112,6 +1112,14 @@ export default function App() {
         return;
       }
 
+      // Token refreshes and profile updates are background auth maintenance,
+      // not a new login. Update the token-bearing session without reloading
+      // dashboard data or resetting the user's current CRM page.
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
+        setSession(nextSession);
+        return;
+      }
+
       applySession(nextSession, event === 'SIGNED_IN');
     });
 
