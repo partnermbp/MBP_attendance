@@ -3,7 +3,7 @@
 from pathlib import Path
 import base64
 from PIL import Image
-import cairosvg
+import subprocess
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -12,7 +12,7 @@ VECTOR = ROOT / "public/icons/attendance-logo.svg"
 OUT = ROOT / "public/icons"
 OUT.mkdir(parents=True, exist_ok=True)
 if VECTOR.exists():
-    cairosvg.svg2png(url=str(VECTOR), write_to=str(SOURCE), output_width=1024, output_height=1024)
+    subprocess.run(["node", str(ROOT / "scripts/branding/render-logo.mjs")], cwd=ROOT, check=True)
 if not SOURCE.exists():
     raise SystemExit("Missing shared CRM logo: public/icons/attendance-logo.svg")
 logo = Image.open(SOURCE).convert("RGBA")
@@ -75,4 +75,4 @@ if res.exists():
     app.set(ns+"icon", "@mipmap/ic_launcher")
     app.set(ns+"roundIcon", "@mipmap/ic_launcher_round")
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
-print("Generated all platform icons and the embedded-icon iOS Web Clip profile from attendance-logo.png.")
+print("Generated all platform icons and the embedded-icon iOS Web Clip profile from attendance-logo.svg.")
