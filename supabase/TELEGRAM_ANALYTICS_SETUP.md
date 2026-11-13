@@ -29,7 +29,7 @@ Use Telegram's Bot API `setWebhook` endpoint from a secure terminal (not the bro
 curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
   -d "url=${SUPABASE_FUNCTION_URL}" \
   -d "secret_token=${MBP_ANALYTICS_TELEGRAM_WEBHOOK_SECRET}" \
-  --data-urlencode 'allowed_updates=["message","edited_message","channel_post","edited_channel_post","message_reaction","message_reaction_count"]'
+  --data-urlencode 'allowed_updates=["message","edited_message","channel_post","edited_channel_post","message_reaction","message_reaction_count","my_chat_member"]'
 ```
 
 Keep these values in local shell environment variables; do not paste the token into chat. Check Telegram's response says `"ok": true`. Then call `getWebhookInfo` securely to verify the URL and inspect any pending webhook errors.
@@ -40,7 +40,7 @@ Keep these values in local shell environment variables; do not paste the token i
 2. For message/reply collection, disable group privacy in BotFather if required so the bot can receive ordinary group messages.
 3. To collect individual reactions and anonymous reaction totals, make the bot an administrator in the group. Telegram requires administrator status for both reaction update types; do not grant unrelated administrator rights beyond what your group policy permits.
 4. Re-register the webhook with both `message_reaction` and `message_reaction_count` in `allowed_updates` (the command above includes both). Existing webhook configurations do not automatically start receiving these update types.
-5. Send new messages, replies, and reactions after setup. Bots cannot backfill group history or old reaction events.
+5. Keep `my_chat_member` in `allowed_updates`: this lets the CRM sync group ownership immediately when the analytics bot is added, promoted, demoted, or removed. Send new messages, replies, and reactions after setup. Bots cannot backfill group history or old reaction events.
 6. Check `telegram_groups`, `telegram_group_members`, `telegram_messages`, `telegram_response_metrics`, `telegram_message_reactions`, and `telegram_message_reaction_counts` in Supabase.
 
 ## 6. Link Telegram users to CRM profiles
