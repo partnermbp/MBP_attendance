@@ -41,6 +41,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m pip install Pillow
+          python3 scripts/branding/generate_icons.py
           source="public/icons/attendance-logo.png"
           iconset="build/icon.iconset"
           if [[ ! -f "$source" ]]; then
