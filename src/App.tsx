@@ -675,6 +675,10 @@ export default function App() {
 
   const loadDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
+    // Every successful authentication or restored session starts at Dashboard.
+    // This prevents a previously selected page (including My Profile) from
+    // becoming the landing page for the next signed-in session.
+    setActivePage('dashboard');
     // Do not render any signed-in navigation or page content until the role
     // and all role-scoped dashboard data have finished loading.
     setProfileReady(false);
@@ -2854,12 +2858,119 @@ export default function App() {
 
           {activePage === 'my-profile' && (() => {
             const avatarOptions = [
-              {group:'Male',items:[['male-01','👨🏻‍💼'],['male-02','👨🏼‍💻'],['male-03','👨🏽‍🔧'],['male-04','👨🏾‍🚀'],['male-05','👨🏿‍🎨'],['male-06','🧔🏻'],['male-07','🧔🏼‍💼'],['male-08','👨🏽‍🏫'],['male-09','👨🏾‍🍳'],['male-10','👨🏻‍🔬']]},
-              {group:'Female',items:[['female-01','👩🏻‍💼'],['female-02','👩🏼‍💻'],['female-03','👩🏽‍🔧'],['female-04','👩🏾‍🚀'],['female-05','👩🏿‍🎨'],['female-06','👩🏻‍🔬'],['female-07','👩🏼‍🏫'],['female-08','👩🏽‍🍳'],['female-09','👩🏾‍⚕️'],['female-10','👩🏻‍🎤']]},
-              {group:'Animals',items:[['animal-01','🐼'],['animal-02','🦊'],['animal-03','🐯'],['animal-04','🐸'],['animal-05','🐱']]},
-              {group:'Aliens',items:[['alien-01','👽'],['alien-02','👾'],['alien-03','🛸'],['alien-04','👽‍🚀'],['alien-05','👾‍🛸']]}
-            ] as Array<{group:string;items:Array<[string,string]>}>;
-            const avatar = avatarOptions.flatMap(group=>group.items).find(item=>item[0]===personalProfileDraft.avatar_key)?.[1] || '👤';
+              {group:'Male',items:Array.from({length:10},(_,i)=>'male-'+String(i+1).padStart(2,'0'))},
+              {group:'Female',items:Array.from({length:10},(_,i)=>'female-'+String(i+1).padStart(2,'0'))},
+              {group:'Animals',items:Array.from({length:5},(_,i)=>'animal-'+String(i+1).padStart(2,'0'))},
+              {group:'Aliens',items:Array.from({length:5},(_,i)=>'alien-'+String(i+1).padStart(2,'0'))}
+            ];
+            const selectedAvatar = personalProfileDraft.avatar_key || 'male-01';
+            const renderAvatar = (avatarKey:string,size:number) => {
+              const [,kind='male',rawIndex='1'] = avatarKey.match(/^(male|female|animal|alien)-(\d+)$/) || [];
+              const index = Math.max(0,Math.min(9,Number(rawIndex)-1));
+              const palettes = [
+                {skin:'#e8b58f',shadow:'#c98768',hair:'#27354a',shirt:'#e9a05b',bg:'#e7efff'},
+                {skin:'#c98e6b',shadow:'#a96c55',hair:'#392d2b',shirt:'#7aa9bd',bg:'#fff0e4'},
+                {skin:'#f0c9a7',shadow:'#d9a17f',hair:'#4b3540',shirt:'#8bb8a6',bg:'#eae7ff'},
+                {skin:'#9b6248',shadow:'#754431',hair:'#202b38',shirt:'#d58c70',bg:'#e5f5ee'},
+                {skin:'#d99c78',shadow:'#b9775d',hair:'#594337',shirt:'#8d91c2',bg:'#fff3d9'},
+                {skin:'#edc09a',shadow:'#cf9878',hair:'#273e50',shirt:'#d4a75e',bg:'#e6f2f6'},
+                {skin:'#b87555',shadow:'#8f543f',hair:'#302b35',shirt:'#80a7c9',bg:'#f3e9e4'},
+                {skin:'#f0c9a8',shadow:'#d8a17e',hair:'#76513c',shirt:'#8bb7ad',bg:'#e8eff7'},
+                {skin:'#a96d50',shadow:'#7e4c3c',hair:'#252b36',shirt:'#d99a78',bg:'#f1eafa'},
+                {skin:'#dca27e',shadow:'#b9785e',hair:'#4b3030',shirt:'#9babc8',bg:'#e7f3ee'}
+              ];
+              const p = palettes[index];
+              const animalColors=['#e6e2d7','#e8a05b','#d8a16d','#77b99a','#d69b8d'];
+              const alienColors=['#86d5bd','#a6b6f2','#b8df79','#9bd4e7','#d3a6e8'];
+              const id='profile-avatar-'+avatarKey;
+              const human = kind==='male'||kind==='female';
+              const hairBack = kind==='female' ? [
+                <path d="M20 48 Q10 7 48 7 Q87 8 77 52 L73 78 Q65 88 62 65 L63 34 Q48 20 30 35 L32 66 Q28 87 19 76Z"/>,
+                <path d="M18 49 Q12 12 43 8 Q76 3 80 39 L76 70 Q68 81 66 53 L65 31 Q43 17 27 35 L29 61 Q25 79 18 69Z"/>,
+                <path d="M17 51 Q9 13 35 8 Q67 0 80 26 Q88 45 78 72 L69 79 L66 34 Q48 17 28 34 L27 76 L19 70Z"/>,
+                <path d="M20 44 Q14 8 48 8 Q81 8 76 46 L72 65 L66 31 Q48 17 29 33 L28 66Z"/>,
+                <path d="M18 45 Q12 13 43 7 Q73 3 79 34 L75 68 Q66 79 65 48 L64 30 Q46 19 29 34 L29 63Z"/>
+              ] : [
+                <path d="M23 43 Q18 12 47 9 Q76 9 74 42 L66 34 Q47 27 28 35Z"/>,
+                <path d="M21 42 Q18 10 49 9 Q77 12 75 39 Q62 24 43 27 Q30 29 21 42Z"/>,
+                <path d="M21 39 Q17 9 43 8 Q73 5 77 31 L72 41 Q66 23 52 24 Q35 20 24 39Z"/>,
+                <path d="M20 42 Q16 11 45 8 Q73 7 77 32 L68 28 Q49 22 29 37 L26 45Z"/>,
+                <path d="M20 40 Q17 9 48 8 Q77 8 75 43 L66 34 Q49 31 29 35Z"/>
+              ];
+              const hairstyle = index % 5;
+              const hairTop = kind==='female' ? [
+                <path d="M20 43 Q13 7 48 7 Q83 8 76 47 Q69 27 52 22 Q35 20 24 39Z"/>,
+                <path d="M19 43 Q12 11 39 7 Q69 0 79 27 Q82 36 75 48 Q67 28 51 22 Q35 20 25 40Z"/>,
+                <path d="M19 42 Q12 8 42 7 Q72 2 79 32 L73 44 Q63 20 47 22 Q30 20 23 43Z"/>,
+                <path d="M19 41 Q19 9 49 8 Q79 8 77 43 L68 34 Q51 24 28 37Z"/>,
+                <path d="M19 44 Q11 8 44 7 Q78 6 77 42 Q64 22 47 21 Q30 21 19 44Z"/>
+              ] : [
+                <path d="M20 42 Q16 9 47 8 Q77 8 76 40 Q64 28 49 26 Q32 25 20 42Z"/>,
+                <path d="M19 41 Q16 8 48 8 Q76 9 77 37 Q62 23 42 26 Q28 28 19 41Z"/>,
+                <path d="M18 40 Q14 8 39 7 Q70 3 79 30 Q67 22 57 25 Q39 18 18 40Z"/>,
+                <path d="M18 39 Q17 8 48 7 Q78 8 77 36 L66 29 Q47 24 28 37Z"/>,
+                <path d="M18 41 Q14 8 46 7 Q77 7 77 41 Q64 28 49 27 Q31 26 18 41Z"/>
+              ];
+              const glasses = index===2 || index===6 || index===9;
+              const freckles = index===1 || index===4 || index===7;
+              const mole = index===3 || index===8;
+              const beard = kind==='male' && (index===1 || index===4 || index===7);
+              const animalShape = index===0 ? 'cat' : index===1 ? 'fox' : index===2 ? 'bear' : index===3 ? 'rabbit' : 'dog';
+              return <svg width={size} height={size} viewBox="0 0 96 96" role="img" aria-label={kind+' illustrated avatar'} style={{display:'block',flexShrink:0}}>
+                <defs>
+                  <linearGradient id={id+'bg'} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={human?p.bg:'#eaf0f7'}/><stop offset="100%" stopColor="#ffffff"/></linearGradient>
+                  <linearGradient id={id+'skin'} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={p.skin}/><stop offset="100%" stopColor={p.shadow}/></linearGradient>
+                  <linearGradient id={id+'shirt'} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={human?p.shirt:'#4e83a5'}/><stop offset="100%" stopColor="#253b54"/></linearGradient>
+                </defs>
+                <rect x="2" y="2" width="92" height="92" rx="25" fill={'url(#'+id+'bg)'}/>
+                <circle cx="76" cy="19" r="5" fill="var(--crm-accent)" opacity=".14"/><circle cx="17" cy="72" r="3" fill="var(--crm-accent)" opacity=".18"/>
+                {human ? <>
+                  <path d="M11 96 Q15 68 48 66 Q81 68 85 96Z" fill={'url(#'+id+'shirt)'}/>
+                  <path d="M35 67 L48 80 L61 67 L58 61 L38 61Z" fill="#ffffff" opacity=".78"/>
+                  <path d="M37 57 L37 72 Q48 83 59 72 L59 57Z" fill={'url(#'+id+'skin)'}/>
+                  <path d="M20 43 Q18 25 28 18 Q38 10 49 11 Q65 10 73 23 Q78 34 76 48 Q75 67 61 75 Q48 82 34 74 Q21 66 20 43Z" fill={'url(#'+id+'skin)'}/>
+                  <path d="M20 42 Q15 35 18 44 Q18 55 24 56 L25 44Z M76 42 Q81 35 78 44 Q78 55 72 56 L71 44Z" fill={p.skin} stroke={p.shadow} strokeWidth="1"/>
+                  <path d="M29 39 Q36 35 43 39 M53 39 Q60 35 67 39" fill="none" stroke={p.hair} strokeWidth="2.5" strokeLinecap="round"/>
+                  <ellipse cx="37" cy="46" rx="3.1" ry="3.8" fill="#273447"/><ellipse cx="59" cy="46" rx="3.1" ry="3.8" fill="#273447"/>
+                  <circle cx="38" cy="45" r="1" fill="#fff"/><circle cx="60" cy="45" r="1" fill="#fff"/>
+                  <path d="M48 47 Q44 54 48 56" fill="none" stroke={p.shadow} strokeWidth="1.6" strokeLinecap="round"/>
+                  <path d={index%3===0 ? "M42 62 Q48 65 54 61" : index%3===1 ? "M42 61 Q48 68 55 60" : "M42 62 Q48 59 54 62"} fill="none" stroke="#874d4c" strokeWidth="2" strokeLinecap="round"/>
+                  {beard&&<path d="M29 56 Q31 72 48 75 Q65 72 67 56 Q61 65 55 64 Q48 69 41 64 Q34 65 29 56Z" fill={p.hair} opacity=".88"/>}
+                  {freckles&&<g fill={p.shadow} opacity=".8"><circle cx="31" cy="55" r="1.1"/><circle cx="35" cy="58" r="1"/><circle cx="39" cy="55" r=".9"/><circle cx="57" cy="55" r=".9"/><circle cx="61" cy="58" r="1"/><circle cx="65" cy="54" r="1.1"/><circle cx="46" cy="53" r=".8"/></g>}
+                  {mole&&<circle cx={index===3?64:32} cy={index===3?57:58} r="1.45" fill="#593c36"/>}
+                  {glasses&&<g fill="none" stroke="#29384c" strokeWidth="2.1"><rect x="27" y="40" width="19" height="14" rx="5"/><rect x="50" y="40" width="19" height="14" rx="5"/><path d="M46 46 Q48 44 50 46 M27 45 L23 43 M69 45 L73 43"/></g>}
+                  {kind==='female' && index===8 && <><circle cx="48" cy="10" r="8" fill={p.hair}/><path d="M43 11 Q48 3 53 11" fill="none" stroke="#8b6653" strokeWidth="2"/></>}
+                  {kind==='female' && index===9 && <path d="M20 28 Q8 38 15 57 M76 28 Q88 38 81 57" fill="none" stroke={p.hair} strokeWidth="6" strokeLinecap="round"/>}
+                  <g fill={p.hair} stroke={p.hair} strokeLinejoin="round">
+                    {hairBack[hairstyle]}
+                    {hairTop[hairstyle]}
+                  </g>
+                  {kind==='female' && index===5 && <path d="M23 37 Q11 54 23 74 M73 37 Q85 54 73 74" fill="none" stroke={p.hair} strokeWidth="6" strokeLinecap="round"/>}
+                  {kind==='male' && index===5 && <path d="M25 20 Q48 2 70 20" fill="none" stroke="#d8e2ee" strokeWidth="4" strokeLinecap="round"/>}
+                </> : kind==='animal' ? <>
+                  <path d={animalShape==='cat'?"M17 43 L16 17 Q18 11 26 19 L37 31 M79 43 L80 17 Q78 11 70 19 L59 31":animalShape==='fox'?"M14 43 L20 12 L40 30 M82 43 L76 12 L56 30":animalShape==='rabbit'?"M28 32 Q17 3 28 5 Q40 6 41 31 M55 31 Q58 5 70 5 Q82 7 68 34":"M17 43 Q13 18 28 22 L39 33 M79 43 Q83 18 68 22 L57 33"} fill={animalColors[index]} stroke="#705b55" strokeWidth="2" strokeLinejoin="round"/>
+                  <ellipse cx="48" cy="53" rx="31" ry="29" fill={animalColors[index]} stroke="#705b55" strokeWidth="1.5"/>
+                  <ellipse cx="37" cy="48" rx="3" ry="4" fill="#293447"/><ellipse cx="59" cy="48" rx="3" ry="4" fill="#293447"/>
+                  <ellipse cx="48" cy="61" rx="11" ry="8" fill="#f4d8cb"/><path d="M44 58 L48 62 L52 58Z" fill="#79535a"/><path d="M48 64 Q43 70 38 66 M48 64 Q53 70 58 66" fill="none" stroke="#79535a" strokeWidth="1.8" strokeLinecap="round"/>
+                  {index===0&&<path d="M21 39 Q48 18 75 39" fill="none" stroke="#f7f2e9" strokeWidth="5"/>}
+                  {index===1&&<path d="M23 58 Q48 72 73 58" fill="none" stroke="#fff0d5" strokeWidth="8" opacity=".85"/>}
+                  {index===2&&<><circle cx="25" cy="35" r="7" fill="#bd8a65"/><circle cx="71" cy="35" r="7" fill="#bd8a65"/></>}
+                  {index===3&&<path d="M31 30 Q48 22 65 30" fill="none" stroke="#fff4e6" strokeWidth="5"/>}
+                  {index===4&&<path d="M28 28 Q48 18 68 28" fill="none" stroke="#6c5148" strokeWidth="4"/>}
+                </> : <>
+                  <path d="M15 96 Q17 69 48 67 Q79 69 81 96Z" fill={['#4e83a5','#7652a5','#67934d','#438d9a','#9b64a9'][index]}/>
+                  <path d="M27 40 Q22 13 48 12 Q74 13 69 40 L64 62 Q48 77 32 62Z" fill={alienColors[index]} stroke="#527f87" strokeWidth="1.4"/>
+                  <ellipse cx="38" cy="43" rx={index===2?8:6} ry={index===2?12:10} fill="#26344b"/><ellipse cx="58" cy="43" rx={index===2?8:6} ry={index===2?12:10} fill="#26344b"/>
+                  <circle cx="40" cy="40" r="2" fill="#fff"/><circle cx="60" cy="40" r="2" fill="#fff"/>
+                  <path d="M40 59 Q48 64 56 59" fill="none" stroke="#477c79" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M48 14 L48 7 M44 8 L52 8" stroke={alienColors[index]} strokeWidth="3" strokeLinecap="round"/>
+                  {index%2===1&&<><path d="M25 33 L13 25 M71 33 L83 25" stroke={alienColors[index]} strokeWidth="3" strokeLinecap="round"/><circle cx="13" cy="24" r="4" fill="#f3c86a"/><circle cx="83" cy="24" r="4" fill="#f3c86a"/></>}
+                  {index===4&&<path d="M31 23 Q48 12 65 23" fill="none" stroke="#f4c96b" strokeWidth="3" strokeLinecap="round"/>}
+                </>}
+                <rect x="2" y="2" width="92" height="92" rx="25" fill="none" stroke="var(--crm-accent)" strokeOpacity=".25" strokeWidth="1.5"/>
+                <path d="M8 77 Q20 88 31 88" fill="none" stroke="#ffffff" strokeWidth="2" opacity=".5"/>
+              </svg>;
+            };
             const savePersonalProfile = async () => {
               if (!supabase || !profile?.id) return;
               setPersonalProfileSaving(true); setPersonalProfileNotice('');
@@ -2875,10 +2986,10 @@ export default function App() {
               <p style={{color:'var(--crm-muted)',maxWidth:760,lineHeight:1.6}}>Your personal account card. Your assigned Dashboard Name and Corporate Email are managed by your inviter and cannot be edited here.</p>
               <section className="crm-settings-section">
                 <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-                  <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{avatar}</div>
+                  <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{renderAvatar(selectedAvatar,76)}</div>
                   <div><h2 style={{margin:'0 0 5px'}}>Choose your avatar</h2><p style={{margin:0,color:'var(--crm-muted)',fontSize:13}}>30 built-in illustrations. Choose one for your personal profile.</p></div>
                 </div>
-                {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(([key,emoji])=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:62,border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',fontSize:31,cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{emoji}</button>)}</div></div>)}
+                {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(key=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:66,display:'grid',placeItems:'center',border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{renderAvatar(key,52)}</button>)}</div></div>)}
               </section>
               <section className="crm-settings-section">
                 <h2 style={{marginTop:0}}>Account information</h2>
@@ -2890,10 +3001,12 @@ export default function App() {
                 <button type="button" disabled={personalProfileSaving} onClick={()=>void savePersonalProfile()} style={{marginTop:16,padding:'11px 16px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:personalProfileSaving?'wait':'pointer',opacity:personalProfileSaving?0.7:1}}>{personalProfileSaving?'Saving…':'Save profile'}</button>
                 {personalProfileNotice&&<p role="status" style={{fontSize:13,color:personalProfileNotice.includes('could not')?'#ef8a8a':'var(--crm-muted)'}}>{personalProfileNotice}</p>}
               </section>
-              <section className="crm-settings-section">
+              {!['admin','supervisor'].includes(String(profile?.role || '').toLowerCase().replaceAll('_',' ')) && <section className="crm-settings-section">
                 <h2 style={{marginTop:0}}>Your reporting manager</h2>
                 {directManager ? <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap',padding:14,border:'1px solid var(--crm-border)',borderRadius:10,background:'var(--crm-card-bg)'}}><div><strong style={{display:'block',fontSize:16}}>{directManager.manager_name}</strong><span style={{fontSize:12,color:'var(--crm-muted)',textTransform:'capitalize'}}>{directManager.manager_role}</span><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Your direct reporting manager</small></div>{directManagerUrl?<a href={directManagerUrl} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:7,background:'#229ed9',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact manager</a>:<button type="button" disabled style={{padding:'10px 14px',border:0,borderRadius:7,background:'var(--crm-border)',color:'var(--crm-muted)'}}>Telegram contact unavailable</button>}</div> : <p style={{color:'var(--crm-muted)',fontSize:13}}>No direct reporting manager is currently assigned to your account. Please contact company support.</p>}
-                <a href="https://t.me/MbP_Asia_support_bot" target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:16,padding:'11px 15px',borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact company support</a>
+              </section>}
+              <section className="crm-settings-section">
+                <a href="https://t.me/MbP_Asia_support_bot" target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:0,padding:'11px 15px',borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact company support</a>
               </section>
             </>;
           })()}
