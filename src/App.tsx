@@ -2858,12 +2858,60 @@ export default function App() {
 
           {activePage === 'my-profile' && (() => {
             const avatarOptions = [
-              {group:'Male',items:[['male-01','👨🏻‍💼'],['male-02','👨🏼‍💻'],['male-03','👨🏽‍🔧'],['male-04','👨🏾‍🚀'],['male-05','👨🏿‍🎨'],['male-06','🧔🏻'],['male-07','🧔🏼‍💼'],['male-08','👨🏽‍🏫'],['male-09','👨🏾‍🍳'],['male-10','👨🏻‍🔬']]},
-              {group:'Female',items:[['female-01','👩🏻‍💼'],['female-02','👩🏼‍💻'],['female-03','👩🏽‍🔧'],['female-04','👩🏾‍🚀'],['female-05','👩🏿‍🎨'],['female-06','👩🏻‍🔬'],['female-07','👩🏼‍🏫'],['female-08','👩🏽‍🍳'],['female-09','👩🏾‍⚕️'],['female-10','👩🏻‍🎤']]},
-              {group:'Animals',items:[['animal-01','🐼'],['animal-02','🦊'],['animal-03','🐯'],['animal-04','🐸'],['animal-05','🐱']]},
-              {group:'Aliens',items:[['alien-01','👽'],['alien-02','👾'],['alien-03','🛸'],['alien-04','👽‍🚀'],['alien-05','👾‍🛸']]}
-            ] as Array<{group:string;items:Array<[string,string]>}>;
-            const avatar = avatarOptions.flatMap(group=>group.items).find(item=>item[0]===personalProfileDraft.avatar_key)?.[1] || '👤';
+              {group:'Male',items:Array.from({length:10},(_,i)=>'male-'+String(i+1).padStart(2,'0'))},
+              {group:'Female',items:Array.from({length:10},(_,i)=>'female-'+String(i+1).padStart(2,'0'))},
+              {group:'Animals',items:Array.from({length:5},(_,i)=>'animal-'+String(i+1).padStart(2,'0'))},
+              {group:'Aliens',items:Array.from({length:5},(_,i)=>'alien-'+String(i+1).padStart(2,'0'))}
+            ];
+            const selectedAvatar = personalProfileDraft.avatar_key || 'male-01';
+            const renderAvatar = (avatarKey:string,size:number) => {
+              const [,kind='male',rawIndex='1'] = avatarKey.match(/^(male|female|animal|alien)-(\\d+)$/) || [];
+              const index = Math.max(0,Number(rawIndex)-1);
+              const palettes = [
+                ['#f6c7a5','#25334b','#f0a36b'],['#d99b72','#253d5b','#e8bd78'],['#f1d0b0','#3b3448','#d98778'],
+                ['#9b6248','#27384c','#d9a35d'],['#c78662','#3c3549','#a9b8d4'],['#edc09a','#33465a','#8fc4b8'],
+                ['#b87555','#2e3448','#e7a2a2'],['#f0c9a8','#45536b','#e6c36d'],['#a96d50','#283d46','#a5c9e8'],['#dca27e','#3a3347','#c4a1d8']
+              ];
+              const [skin,hair,shirt]=palettes[index];
+              const animalColors=['#e6e2d7','#e8a05b','#e8a65e','#77b99a','#d69b8d'];
+              const alienColors=['#86d5bd','#a6b6f2','#b8df79','#9bd4e7','#d3a6e8'];
+              const bg=['#dceafe','#fce7df','#e8e3ff','#dff3ea','#f9e8c9'][index%5];
+              const id='avatar-'+avatarKey;
+              return <svg width={size} height={size} viewBox="0 0 96 96" role="img" aria-label={kind+' illustrated avatar'} style={{display:'block',flexShrink:0}}>
+                <defs><linearGradient id={id+'bg'} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={bg}/><stop offset="100%" stopColor="#ffffff"/></linearGradient></defs>
+                <rect x="2" y="2" width="92" height="92" rx="25" fill={'url(#'+id+'bg)'}/>
+                {kind==='male'||kind==='female' ? <>
+                  <path d="M13 94 Q17 67 48 66 Q79 67 83 94Z" fill={shirt}/>
+                  <path d="M37 61 L37 73 Q48 83 59 73 L59 61Z" fill={skin}/>
+                  <ellipse cx="48" cy="43" rx="24" ry="28" fill={skin}/>
+                  <path d={kind==='male' ? (index%3===0?'M24 42 Q18 10 49 12 Q77 12 73 44 L67 31 Q51 38 29 29Z':index%3===1?'M24 43 Q18 13 46 12 Q72 10 73 38 L66 29 Q49 24 30 34Z':'M25 39 Q22 12 49 13 Q75 13 72 43 L65 33 Q45 28 29 35Z') : (index%3===0?'M22 48 Q12 9 48 10 Q84 9 75 51 L70 30 Q62 17 49 18 Q32 17 26 34Z':index%3===1?'M21 51 Q12 17 35 10 Q64 2 77 28 Q83 42 73 61 L68 34 Q49 18 28 34Z':'M22 49 Q14 12 48 10 Q80 11 76 48 L69 28 Q48 20 27 33Z')} fill={hair}/>
+                  {kind==='male'&&index%4===1&&<path d="M32 55 Q48 72 64 55 Q62 78 48 78 Q34 76 32 55Z" fill={hair} opacity=".9"/>}
+                  <ellipse cx="39" cy="45" rx="2.5" ry="3" fill="#344052"/><ellipse cx="57" cy="45" rx="2.5" ry="3" fill="#344052"/>
+                  <path d="M42 57 Q48 61 54 57" fill="none" stroke="#9b5f58" strokeWidth="2" strokeLinecap="round"/>
+                  {index%4===2&&<><path d="M28 43 Q39 38 46 43 M51 43 Q59 38 68 43" fill="none" stroke="#344052" strokeWidth="2"/><circle cx="39" cy="45" r="7" fill="none" stroke="#344052" strokeWidth="1.8"/><circle cx="57" cy="45" r="7" fill="none" stroke="#344052" strokeWidth="1.8"/></>}
+                  {index%5===3&&<path d="M23 32 Q48 3 74 32" fill="none" stroke="#d7e6f7" strokeWidth="5" strokeLinecap="round"/>}
+                </> : kind==='animal' ? <>
+                  <path d="M14 42 L17 17 Q20 9 29 20 L37 29 M82 42 L79 17 Q76 9 67 20 L59 29" fill={animalColors[index]} stroke="#8c6a5a" strokeWidth="2" strokeLinejoin="round"/>
+                  <ellipse cx="48" cy="53" rx="32" ry="30" fill={animalColors[index]}/>
+                  <ellipse cx="37" cy="48" rx="3" ry="4" fill="#303846"/><ellipse cx="59" cy="48" rx="3" ry="4" fill="#303846"/>
+                  <ellipse cx="48" cy="60" rx="9" ry="7" fill="#f6d6c9"/><path d="M45 58 L48 61 L51 58" fill="#66505a"/>
+                  <path d="M48 65 Q43 71 38 66 M48 65 Q53 71 58 66" fill="none" stroke="#66505a" strokeWidth="2" strokeLinecap="round"/>
+                  {index===0&&<><ellipse cx="48" cy="53" rx="33" ry="31" fill="none" stroke="#303846" strokeWidth="5"/><path d="M18 30 L30 21 M66 21 L78 30" stroke="#303846" strokeWidth="5"/></>}
+                  {index===1&&<path d="M19 37 Q48 20 77 37" fill="none" stroke="#fff0d5" strokeWidth="5"/>}
+                  {index===2&&<path d="M22 33 Q48 19 74 33" fill="none" stroke="#bd704c" strokeWidth="5"/>}
+                  {index===3&&<circle cx="48" cy="20" r="5" fill="#f2d66f"/>}
+                </> : <>
+                  <path d="M18 94 Q19 65 48 65 Q77 65 78 94Z" fill={['#4e83a5','#7652a5','#67934d','#438d9a','#9b64a9'][index]}/>
+                  <path d="M27 40 Q22 14 48 13 Q74 14 69 40 L64 62 Q48 77 32 62Z" fill={alienColors[index]}/>
+                  <ellipse cx="38" cy="43" rx="6" ry="10" fill="#26344b"/><ellipse cx="58" cy="43" rx="6" ry="10" fill="#26344b"/>
+                  <circle cx="40" cy="40" r="2" fill="#fff"/><circle cx="60" cy="40" r="2" fill="#fff"/>
+                  <path d="M40 59 Q48 64 56 59" fill="none" stroke="#477c79" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M48 14 L48 7 M44 8 L52 8" stroke={alienColors[index]} strokeWidth="3" strokeLinecap="round"/>
+                  {index%2===1&&<><path d="M25 33 L13 25 M71 33 L83 25" stroke={alienColors[index]} strokeWidth="3" strokeLinecap="round"/><circle cx="13" cy="24" r="4" fill="#f3c86a"/><circle cx="83" cy="24" r="4" fill="#f3c86a"/></>}
+                </>}
+                <path d="M8 77 Q20 88 31 88" fill="none" stroke="#ffffff" strokeWidth="2" opacity=".55"/>
+              </svg>;
+            };
             const savePersonalProfile = async () => {
               if (!supabase || !profile?.id) return;
               setPersonalProfileSaving(true); setPersonalProfileNotice('');
@@ -2882,7 +2930,7 @@ export default function App() {
                   <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{avatar}</div>
                   <div><h2 style={{margin:'0 0 5px'}}>Choose your avatar</h2><p style={{margin:0,color:'var(--crm-muted)',fontSize:13}}>30 built-in illustrations. Choose one for your personal profile.</p></div>
                 </div>
-                {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(([key,emoji])=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:62,border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',fontSize:31,cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{emoji}</button>)}</div></div>)}
+                {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(key=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:66,display:'grid',placeItems:'center',border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{renderAvatar(key,52)}</button>)}</div></div>)}
               </section>
               <section className="crm-settings-section">
                 <h2 style={{marginTop:0}}>Account information</h2>
