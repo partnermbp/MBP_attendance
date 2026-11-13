@@ -1788,13 +1788,9 @@ export default function App() {
       return;
     }
 
-    // Managers start immediately. The browser/native geolocation API itself
-    // requests permission only when it is needed; never add a CRM confirmation.
-    if (normalizedRole === 'manager') {
-      void handleCheckIn();
-      return;
-    }
-    if (window.confirm('Do you want to check in?')) void handleCheckIn();
+    // A single attendance-button click requests the required location permission
+    // and records check-in. Do not add a separate confirmation dialog for any role.
+    void handleCheckIn();
   }
 
   async function handleCheckIn() {
@@ -2959,7 +2955,7 @@ export default function App() {
             </section>
           </div>}
           <main style={{minWidth:0}}>
-          {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => record.employee_id === profile.id && !record.check_out) || salaryAttendance.some(record => record.employee_id === profile.id && !record.check_out)} showDeviceSecurityInfo={isAdmin} requireShiftLocationSharing={canManageTeam} />}
+          {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => record.employee_id === profile.id && !record.check_out) || salaryAttendance.some(record => record.employee_id === profile.id && !record.check_out)} showDeviceSecurityInfo={isAdmin} requireShiftLocationSharing={profile?.active === true && ['manager', 'junior', 'middle', 'senior', 'team leader', 'telemarketing'].includes(normalizedRole)} />}
           <section style={panelStyle}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:18,color:'#98a2b3',fontSize:13}}>
             <div style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Partner CRM / <strong style={{color:'#fff'}}>{{'my-profile':'My Profile',dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Corporate Telegram Inbox','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
