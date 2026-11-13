@@ -1,4 +1,4 @@
-name: Build MBP Attendance macOS DMG
+name: Build attendence_crm macOS DMG
 
 on:
   push:
@@ -67,7 +67,7 @@ jobs:
       - name: Upload macOS installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MBP-Attendance-macOS-DMG
+          name: attendence_crm-macOS-DMG
           path: dist-electron/*.dmg
           if-no-files-found: error
           retention-days: 30
@@ -76,7 +76,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: macos-latest
-          name: Latest MBP Attendance macOS Installer
+          name: Latest attendence_crm macOS Installer
           prerelease: true
           make_latest: false
           files: dist-electron/*.dmg
