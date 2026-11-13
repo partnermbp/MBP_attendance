@@ -8,7 +8,7 @@ on:
       - 'src/**'
       - 'desktop/**'
       - 'package.json'
-      - 'public/icons/**'
+      - 'public/icons/**'\n      - 'scripts/branding/**'
       - '.github/workflows/macos-desktop.yml'
   workflow_dispatch:
 
