@@ -1,4 +1,4 @@
-name: Build attendence_crm Windows Desktop EXE
+name: Build Attendance CRM Windows Desktop EXE
 
 on:
   push:
@@ -61,7 +61,7 @@ jobs:
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: attendence_crm-Windows-Installer
+          name: Attendance-CRM-Windows-Installer
           path: dist-electron/*.exe
           if-no-files-found: error
           retention-days: 30
@@ -70,7 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest
-          name: Latest attendence_crm Windows Installer
+          name: Latest Attendance CRM Windows Installer
           prerelease: true
           make_latest: false
           files: dist-electron/*.exe
