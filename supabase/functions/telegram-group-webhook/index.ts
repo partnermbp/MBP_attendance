@@ -8,7 +8,7 @@ const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const ANALYTICS_BOT_USERNAME = "md_shobbot";
 
 async function replyToDirectInteraction(message: any) {
-  if (!TELEGRAM_BOT_TOKEN || !message?.chat?.id || message.chat.type === "private") return;
+  if (!TELEGRAM_BOT_TOKEN || !message?.chat?.id) return;
   const sender = message.from;
   if (!sender || sender.is_bot) return;
 
@@ -19,9 +19,10 @@ async function replyToDirectInteraction(message: any) {
 
   // Only reply when a participant explicitly mentions @md_shobbot or replies
   // to a message authored by this bot. Ordinary group traffic stays silent.
+  const isPrivateChat = message.chat.type === "private";
   const explicitlyMentioned = new RegExp("(^|\\s|[^\\w])@" + ANALYTICS_BOT_USERNAME + "(?=$|\\s|[^\\w])", "i").test(textValue);
   const replyingToBot = String(message.reply_to_message?.from?.username ?? "").toLowerCase() === ANALYTICS_BOT_USERNAME;
-  if (!explicitlyMentioned && !replyingToBot) return;
+  if (!isPrivateChat && !explicitlyMentioned && !replyingToBot) return;
 
   const normalized = textValue.toLowerCase();
   let response: string;
@@ -292,7 +293,8 @@ Deno.serve(async (req: Request) => {
       ?? update.edited_channel_post;
     if (message) {
       await handleMessage(message, update);
-      // Only newly posted group messages can trigger a conversational reply.
+      // Private chat messages are direct interactions; in groups require a
+      // mention or a reply to the bot so normal analytics traffic stays silent.
       if (update.message === message) await replyToDirectInteraction(message);
     }
     if (update.message_reaction) await handleReaction(update.message_reaction, Number(update.update_id ?? 0));
