@@ -4,17 +4,17 @@
 <key>PayloadContent</key><array><dict>
 <key>FullScreen</key><true/>
 <key>IsRemovable</key><true/>
-<key>Label</key><string>MBP Attendance</string>
+<key>Label</key><string>attendence_crm</string>
 <key>PrecomposedIcon</key><true/>
-<key>PayloadDescription</key><string>Adds MBP Attendance to the iPhone Home Screen.</string>
-<key>PayloadDisplayName</key><string>MBP Attendance Web Clip</string>
+<key>PayloadDescription</key><string>Adds attendence_crm to the iPhone Home Screen.</string>
+<key>PayloadDisplayName</key><string>attendence_crm Web Clip</string>
 <key>PayloadIdentifier</key><string>com.mostbetpartners.attendancecrm.webclip</string>
 <key>PayloadType</key><string>com.apple.webClip.managed</string>
 <key>PayloadUUID</key><string>7D89A2F1-7A21-4C61-9B1E-21D7A1A7B260</string>
 <key>PayloadVersion</key><integer>1</integer>
 <key>URL</key><string>https://attendence.dpdns.org/</string>
 </dict></array>
-<key>PayloadDisplayName</key><string>MBP Attendance</string>
+<key>PayloadDisplayName</key><string>attendence_crm</string>
 <key>PayloadIdentifier</key><string>com.mostbetpartners.attendancecrm.profile</string>
 <key>PayloadOrganization</key><string>Mostbet Partners</string>
 <key>PayloadRemovalDisallowed</key><false/>
