@@ -163,6 +163,15 @@ async function ensureGroup(chat: any) {
   await syncGroupAdmins(Number(chat.id));
 }
 
+async function handleBotMembership(update: any) {
+  const chat = update?.chat;
+  if (!chat?.id || chat.type === "private") return;
+  // Telegram emits my_chat_member when @md_shobbot is added, promoted,
+  // demoted, or removed. Sync ownership immediately on group installation
+  // instead of waiting for somebody to post a new message.
+  await ensureGroup(chat);
+}
+
 async function upsertMember(chatId: number, user: any) {
   if (!user?.id || user.is_bot) return;
   await db("telegram_group_members?on_conflict=telegram_chat_id,telegram_user_id", "POST", [{
@@ -348,6 +357,7 @@ Deno.serve(async (req: Request) => {
     }
     if (update.message_reaction) await handleReaction(update.message_reaction, Number(update.update_id ?? 0));
     if (update.message_reaction_count) await handleReactionCount(update.message_reaction_count);
+    if (update.my_chat_member) await handleBotMembership(update.my_chat_member);
     return json({ ok: true });
   } catch (error) {
     console.error("Telegram webhook processing failed:", error);
