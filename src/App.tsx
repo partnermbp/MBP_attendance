@@ -1042,7 +1042,7 @@ export default function App() {
 
     let alive = true;
 
-    const applySession = async (nextSession: Session | null) => {
+    const applySession = async (nextSession: Session | null, openDashboard = false) => {
       if (!alive || mfaLoginInProgressRef.current) return;
       setSession(nextSession);
       if (nextSession?.user.email) setEmail(nextSession.user.email);
@@ -1061,7 +1061,7 @@ export default function App() {
             return;
           }
           setScreen('signed-in');
-          await loadDashboard(nextSession.user.id, true);
+          await loadDashboard(nextSession.user.id, openDashboard);
         } catch {
           if (!alive) return;
           setProfileReady(false);
@@ -1078,7 +1078,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
       if (error) setMessage(error.message);
-      applySession(data.session);
+      applySession(data.session, true);
     });
 
     const {
@@ -1112,7 +1112,7 @@ export default function App() {
         return;
       }
 
-      applySession(nextSession);
+      applySession(nextSession, event === 'SIGNED_IN');
     });
 
     return () => {
