@@ -2875,7 +2875,7 @@ export default function App() {
               const [skin,hair,shirt]=palettes[index];
               const animalColors=['#e6e2d7','#e8a05b','#e8a65e','#77b99a','#d69b8d'];
               const alienColors=['#86d5bd','#a6b6f2','#b8df79','#9bd4e7','#d3a6e8'];
-              const crmAccent = 'var(--crm-accent-strong)'; const crmAccentSoft = 'var(--crm-accent-soft)'; const bg=['#e7efff','#fff0e4','#eae7ff','#e5f5ee','#fff3d9'][index%5];
+              const bg=['#e7efff','#fff0e4','#eae7ff','#e5f5ee','#fff3d9'][index%5];
               const id='avatar-'+avatarKey;
               return <svg width={size} height={size} viewBox="0 0 96 96" role="img" aria-label={kind+' illustrated avatar'} style={{display:'block',flexShrink:0}}>
                 <defs><linearGradient id={id+'bg'} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={bg}/><stop offset="100%" stopColor="#ffffff"/></linearGradient></defs>
@@ -2927,7 +2927,7 @@ export default function App() {
               <p style={{color:'var(--crm-muted)',maxWidth:760,lineHeight:1.6}}>Your personal account card. Your assigned Dashboard Name and Corporate Email are managed by your inviter and cannot be edited here.</p>
               <section className="crm-settings-section">
                 <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-                  <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{avatar}</div>
+                  <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{renderAvatar(selectedAvatar,76)}</div>
                   <div><h2 style={{margin:'0 0 5px'}}>Choose your avatar</h2><p style={{margin:0,color:'var(--crm-muted)',fontSize:13}}>30 built-in illustrations. Choose one for your personal profile.</p></div>
                 </div>
                 {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(key=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:66,display:'grid',placeItems:'center',border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{renderAvatar(key,52)}</button>)}</div></div>)}
