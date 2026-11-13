@@ -716,6 +716,7 @@ export default function App() {
   const [workforceHolidays, setWorkforceHolidays] = useState<Array<{holiday_date:string;name:string}>>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [avatarByUserId, setAvatarByUserId] = useState<Record<string,string>>({});
   const [managerAssignments, setManagerAssignments] = useState<ManagerAssignment[]>([]);
   const [expandedManagerIds, setExpandedManagerIds] = useState<Set<string>>(() => new Set());
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
@@ -732,6 +733,19 @@ export default function App() {
   const [newRequestCount, setNewRequestCount] = useState(0);
   const [newSecurityLogCount, setNewSecurityLogCount] = useState(0);
   const [pendingWorkforceCount, setPendingWorkforceCount] = useState(0);
+
+  useEffect(() => {
+    if (!supabase || !profile?.id) { setAvatarByUserId({}); return; }
+    let cancelled = false;
+    void supabase.from('employee_personal_profiles').select('user_id,avatar_key').then(({data,error}) => {
+      if (cancelled) return;
+      if (error) { setAvatarByUserId({}); return; }
+      const next: Record<string,string> = {};
+      (data || []).forEach((row: {user_id:string;avatar_key:string|null}) => { if (row.user_id && row.avatar_key) next[row.user_id] = row.avatar_key; });
+      setAvatarByUserId(next);
+    });
+    return () => { cancelled = true; };
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!supabase || !profile?.id) { setApprovedLeave([]); setWorkforceHolidays([]); return; }
@@ -3328,7 +3342,7 @@ export default function App() {
             ))}
           </section>}
 
-          {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
+          {activePage === 'manager-hierarchy' && (isAdmin || isSupervisor || canManageTeam) && <ManagerHierarchy avatarByUserId={avatarByUserId} profile={profile} profiles={profiles} assignments={managerAssignments} attendance={attendance} shifts={shifts} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} isAdmin={isAdmin} />}
           {activePage === 'workforce-operations' && <WorkforceOperations key={activePage==='workforce-operations'?workforceInitialTab:'workforce-default'} initialTab={workforceInitialTab} profile={profile} profiles={profiles} isAdmin={isAdmin} isSupervisor={isSupervisor} attendance={attendance} shifts={shifts} />}
           {activePage === 'team-attendance' && (canViewAdmin || canManageTeam) && <TeamAttendanceReport attendance={attendance} shifts={shifts} profiles={profiles} assignments={managerAssignments} telegramMembers={telegramMembers} telegramMetrics={telegramResponseMetrics} approvedLeave={approvedLeave} holidays={workforceHolidays} loading={loadingDashboard} />}
           {activePage === 'attendance-records' && <>
@@ -3487,7 +3501,7 @@ export default function App() {
                     {dateKeys.map(date => <th key={date} style={{padding:10,borderBottom:'1px solid var(--crm-border)',whiteSpace:'nowrap',textAlign:'center'}}>{new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</th>)}
                   </tr></thead>
                   <tbody>{people.map(({ person, depth, hasChildren }) => <tr key={person.id}>
-                    <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'var(--crm-card-bg)',padding:8,borderBottom:'1px solid var(--crm-border)',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:depth*16}}>{hasChildren ? <button type="button" aria-label={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} title={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} onClick={() => setExpandedManagerIds(current => { const next = new Set(current); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{display:'grid',placeItems:'center',width:16,height:24,padding:0,flexShrink:0,border:0,background:'transparent',color:'#ffb36b',fontSize:18,fontWeight:800,cursor:'pointer'}}>{expandedManagerIds.has(person.id) ? '▾' : '▸'}</button> : <span aria-hidden="true" style={{display:'inline-block',width:16,flexShrink:0}}/>}<span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{(person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span><span style={{fontSize:9,fontWeight:400,color:'#ffb36b',marginTop:2}}>{String(person.role).replace(/_/g,' ')}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
+                    <th scope="row" style={{position:'sticky',left:0,zIndex:1,background:'var(--crm-card-bg)',padding:8,borderBottom:'1px solid var(--crm-border)',fontWeight:600,minWidth:110,maxWidth:150}}><div style={{display:'flex',alignItems:'center',gap:8,paddingLeft:depth*16}}>{hasChildren ? <button type="button" aria-label={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} title={expandedManagerIds.has(person.id) ? 'Collapse team' : 'Expand team'} onClick={() => setExpandedManagerIds(current => { const next = new Set(current); if (next.has(person.id)) next.delete(person.id); else next.add(person.id); return next; })} style={{display:'grid',placeItems:'center',width:16,height:24,padding:0,flexShrink:0,border:0,background:'transparent',color:'#ffb36b',fontSize:18,fontWeight:800,cursor:'pointer'}}>{expandedManagerIds.has(person.id) ? '▾' : '▸'}</button> : <span aria-hidden="true" style={{display:'inline-block',width:16,flexShrink:0}}/>}<span aria-hidden="true" style={{display:'grid',placeItems:'center',width:30,height:30,flexShrink:0,overflow:'hidden',borderRadius:8,background:'#352116',border:'1px solid #8a5318',color:'#ffd18a',fontWeight:800}}>{avatarByUserId[person.id] ? renderProfileAvatar(avatarByUserId[person.id],30) : (person.full_name || person.email || '?').trim().charAt(0).toUpperCase()}</span><span style={{display:'flex',flexDirection:'column',minWidth:0}}><span style={{fontSize:12,overflowWrap:'anywhere'}}>{person.full_name || 'Employee'}</span><span style={{fontSize:9,fontWeight:400,color:'#ffb36b',marginTop:2}}>{String(person.role).replace(/_/g,' ')}</span>{person.email && <span title={person.email} style={{fontSize:9,fontWeight:400,color:'#aaa29b',overflowWrap:'anywhere',lineHeight:1.2,marginTop:3}}>{person.email}</span>}</span></div></th>
                     {dateKeys.map(date => {
                       const records = reportAttendance.filter(item => item.employee_id === person.id && (item.work_date ?? (item.work_timezone ? getLocalDate(item.work_timezone,new Date(item.check_in)) : item.check_in.slice(0,10))) === date);
                       // The attendance capsule represents the latest applied correction for this employee/day.
