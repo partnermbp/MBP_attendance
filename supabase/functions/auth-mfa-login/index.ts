@@ -207,32 +207,18 @@ async function begin(req: Request, body: any) {
     }
   }
 
-  const recentCutoff = new Date(Date.now() - 60 * 1000).toISOString();
+  const recentCutoff = new Date(Date.now() - 30 * 1000).toISOString();
   const { data: recentChallenges, error: rateError } = await db.from("crm_login_challenges")
     .select("id").eq("user_id", auth.user.id).gte("created_at", recentCutoff).limit(1);
   if (rateError) return reply({ error: "Unable to start secure login verification." }, 500);
-  if (recentChallenges?.length) return reply({ error: "A login verification was started recently. Wait one minute before requesting another code." }, 429);
+  if (recentChallenges?.length) return reply({ error: "A login verification was started recently. Wait 30 seconds before requesting another code." }, 429);
   const { data: profile, error } = await db.from("profiles")
     .select("active, role, telegram_user_id, telegram_verified_at")
     .eq("id", auth.user.id).maybeSingle();
   if (error || !profile || profile.active !== true) return reply({ error: "This CRM account is inactive or unavailable." }, 403);
-  const admin = String(profile.role || "").toLowerCase() === "admin";
   let weekIndex: number;
   try { weekIndex = await currentWeek(auth.user.id); }
   catch { return reply({ error: "Unable to verify the account registration date." }, 500); }
-
-  // Admin accounts intentionally use password-only authentication.
-  // Do not create an email/Telegram challenge or update the user's weekly
-  // corporate-email verification status for an admin login.
-  if (admin) {
-    try {
-      await completeSession(auth.user.id, auth.sessionId, weekIndex);
-      await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful administrator sign-in was completed. If this was not you, contact an administrator immediately.");
-      return reply({ ok: true, stage: "complete", verification: "password_only" });
-    } catch {
-      return reply({ error: "Unable to approve this admin login." }, 500);
-    }
-  }
 
   if (!profile.telegram_user_id || !profile.telegram_verified_at) {
     return reply({ error: "This account has no verified Telegram identity. Contact your administrator." }, 403);
@@ -240,7 +226,8 @@ async function begin(req: Request, body: any) {
   const { data: status, error: statusError } = await db.from("crm_email_mfa_status")
     .select("verified_week").eq("user_id", auth.user.id).maybeSingle();
   if (statusError) return reply({ error: "Unable to check email verification status." }, 500);
-  const emailRequired = Number(status?.verified_week) !== weekIndex;
+  const emailVerifiedAt = status?.verified_at ? new Date(status.verified_at).getTime() : 0;
+  const emailRequired = !emailVerifiedAt || (Date.now() - emailVerifiedAt) >= 3 * 24 * 60 * 60 * 1000;
   const ticket = randomToken();
   const { data: challenge, error: insertError } = await db.from("crm_login_challenges").insert({
     user_id: auth.user.id,
@@ -261,13 +248,6 @@ async function begin(req: Request, body: any) {
       await db.from("crm_login_challenges").delete().eq("id", challenge.id);
       return reply({ error: "Could not send the corporate email verification code. Check the email delivery configuration or try again later." }, 502);
     }
-  }
-  if (admin) {
-    try {
-      await completeSession(auth.user.id, auth.sessionId, weekIndex);
-      await db.from("crm_login_challenges").update({ stage: "complete", completed_at: new Date().toISOString() }).eq("id", challenge.id);
-      return reply({ ok: true, stage: "complete" });
-    } catch { return reply({ error: "Unable to approve this login." }, 500); }
   }
   try {
     await issueTelegramCode(challenge.id, Number(profile.telegram_user_id));
@@ -387,12 +367,14 @@ async function finish(req: Request, body: any) {
   const weekIndex = await currentWeek(auth.user.id);
   if (weekIndex !== Number(challenge.week_index)) return reply({ error: "The weekly verification period changed. Start login again." }, 400);
   try {
-    // Record the weekly email factor only after the full required login
-    // sequence succeeds. An email-only attempt must not satisfy next week's gate.
-    const { error: statusError } = await db.from("crm_email_mfa_status").upsert({
-      user_id: auth.user.id, verified_week: weekIndex, verified_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
-    if (statusError) throw new Error("Unable to save weekly email verification");
+    // Refresh the three-day corporate-email verification timestamp only
+    // when this login actually completed the email OTP stage.
+    if (challenge.email_otp_sent_at) {
+      const { error: statusError } = await db.from("crm_email_mfa_status").upsert({
+        user_id: auth.user.id, verified_week: weekIndex, verified_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      if (statusError) throw new Error("Unable to save corporate email verification");
+    }
     await completeSession(auth.user.id, auth.sessionId, weekIndex);
     await db.from("crm_login_challenges").update({ stage: "complete", completed_at: new Date().toISOString() }).eq("id", challenge.id);
     await notifyUserTelegram(auth.user.id, "Attendance CRM: a successful sign-in to your account was completed after Telegram verification. If this was not you, contact an administrator.");
