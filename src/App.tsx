@@ -802,7 +802,8 @@ export default function App() {
     }
   }, []);
 
-  const loadDashboard = useCallback(async (userId: string) => {
+  const loadDashboard = useCallback(async (userId: string, openDashboard = false) => {
+    if (openDashboard) { setActivePage('dashboard'); setMobileMoreOpen(false); }
     if (!supabase) return;
     // Do not render any signed-in navigation or page content until the role
     // and all role-scoped dashboard data have finished loading.
@@ -1040,7 +1041,7 @@ export default function App() {
             return;
           }
           setScreen('signed-in');
-          await loadDashboard(nextSession.user.id);
+          await loadDashboard(nextSession.user.id, true);
         } catch {
           if (!alive) return;
           setProfileReady(false);
@@ -1345,7 +1346,7 @@ export default function App() {
       mfaLoginInProgressRef.current = false;
       setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
       setMessage('Registration complete. Both identities are verified and your CRM account is active.');
-      await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id);
+      await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id, true);
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch {
       setMessage('Registration could not be completed. Please try again.');
@@ -1451,7 +1452,7 @@ export default function App() {
         await recordCrmLogin('password_2fa');
         setMfaChallengeTicket('');
         setScreen('signed-in');
-        if (session?.user.id) await loadDashboard(session.user.id);
+        if (session?.user.id) await loadDashboard(session.user.id, true);
       }
     } catch (error) {
       setMessage('Unable to verify the corporate email OTP: ' + getErrorMessage(error));
@@ -1616,7 +1617,7 @@ export default function App() {
       await recordCrmLogin('password_2fa');
       setMessage('');
       setScreen('signed-in');
-      await loadDashboard(authData.session.user.id);
+      await loadDashboard(authData.session.user.id, true);
     } catch (error) {
       setMessage('Unable to verify the Telegram code: ' + getErrorMessage(error));
     } finally {
@@ -2931,6 +2932,7 @@ export default function App() {
               <div className="crm-mobile-sheet-handle"/>
               <div className="crm-mobile-sheet-heading"><div><strong>More</strong><small>Tools and account settings</small></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}><X size={19}/></button></div>
               <div className="crm-mobile-more-grid">
+                <button type="button" onClick={()=>{setActivePage('my-profile');setMobileMoreOpen(false);window.scrollTo(0,0);}}><span style={{display:'grid',placeItems:'center',width:24,height:24,borderRadius:99,overflow:'hidden',background:'var(--crm-accent-soft)'}}>{renderProfileAvatar(personalProfile.avatar_key || 'male-01',24)}</span><span><strong>My Profile</strong><small>Avatar and personal details</small></span><ChevronRight size={16}/></button>
                 <button type="button" onClick={()=>{setActivePage('downloads');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Download size={18}/><span><strong>Downloads</strong><small>Android, iPhone, Windows and Mac apps</small></span><ChevronRight size={16}/></button>
                 {(canViewAdmin||canManageTeam)&&<button type="button" onClick={()=>{setActivePage('team-attendance');setMobileMoreOpen(false);window.scrollTo(0,0);}}><Users size={18}/><span><strong>Team attendance report</strong><small>Team trends, graphs and shift statistics</small></span><ChevronRight size={16}/></button>}
                 <button type="button" onClick={()=>{setActivePage('workforce-operations');setMobileMoreOpen(false);window.scrollTo(0,0);}}><CalendarDays size={18}/><span><strong>Workforce operations</strong><small>Leave, corrections, holidays and follow-ups</small></span><ChevronRight size={16}/></button>
