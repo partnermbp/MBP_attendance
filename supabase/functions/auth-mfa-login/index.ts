@@ -161,6 +161,7 @@ async function issueTelegramCode(challengeId: string, telegramUserId: number) {
     stage: "telegram",
     telegram_otp_hash: await sha(code),
     telegram_otp_expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    telegram_otp_sent_at: new Date().toISOString(),
     email_otp_hash: null,
     email_otp_expires_at: null,
     attempts: 0,
@@ -342,6 +343,30 @@ async function emailVerified(req: Request, body: any) {
     return reply({ error: "Corporate email verified, but Telegram code delivery failed. Start login again." }, 502);
   }
 }
+async function resendTelegram(req: Request, body: any) {
+  const auth = await caller(req);
+  const ticket = typeof body?.challenge_ticket === "string" ? body.challenge_ticket : "";
+  if (!auth || !ticket) return reply({ error: "The Telegram verification session is invalid. Start login again." }, 401);
+  const { data: challenge, error } = await db.from("crm_login_challenges").select("*")
+    .eq("ticket_hash", await sha(ticket)).eq("user_id", auth.user.id).eq("stage", "telegram").maybeSingle();
+  if (error || !challenge || challenge.expires_at <= new Date().toISOString()) return reply({ error: "This login challenge expired. Start again." }, 400);
+  if (challenge.session_id !== auth.sessionId) return reply({ error: "This verification belongs to a different login session." }, 403);
+  if (Number(challenge.attempts) >= 5) return reply({ error: "Too many incorrect attempts. Start login again." }, 429);
+  const sentAt = challenge.telegram_otp_sent_at ? new Date(challenge.telegram_otp_sent_at).getTime() : 0;
+  const remaining = Math.ceil((30_000 - (Date.now() - sentAt)) / 1000);
+  if (remaining > 0) return reply({ error: `Please wait ${remaining} seconds before requesting another Telegram code.`, retry_after_seconds: remaining }, 429);
+  const { data: profile, error: profileError } = await db.from("profiles")
+    .select("active, telegram_user_id, telegram_verified_at").eq("id", auth.user.id).maybeSingle();
+  if (profileError || !profile || profile.active !== true || !profile.telegram_user_id || !profile.telegram_verified_at) {
+    return reply({ error: "This account has no active verified Telegram identity." }, 403);
+  }
+  try {
+    await issueTelegramCode(challenge.id, Number(profile.telegram_user_id));
+    return reply({ ok: true, stage: "telegram" });
+  } catch {
+    return reply({ error: "Could not resend the Telegram code. Please try again later." }, 502);
+  }
+}
 async function finish(req: Request, body: any) {
   const auth = await caller(req);
   const ticket = typeof body?.challenge_ticket === "string" ? body.challenge_ticket : "";
@@ -451,6 +476,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     if (body?.action === "begin") return await begin(req, body);
     if (body?.action === "resend_email") return await resendEmail(req, body);
+    if (body?.action === "resend_telegram") return await resendTelegram(req, body);
     if (body?.action === "email_verified") return await emailVerified(req, body);
     if (body?.action === "finish") return await finish(req, body);
     if (body?.action === "device_registered") return await deviceRegistered(req, body);
