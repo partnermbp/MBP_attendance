@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "attendence_crm",
-  "short_name": "attendence_crm",
+  "name": "Attendance CRM",
+  "short_name": "Attendance CRM",
   "description": "Employee attendance and team management CRM",
   "start_url": "/",
   "scope": "/",
