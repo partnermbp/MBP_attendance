@@ -1,4 +1,4 @@
-name: Build attendence_crm Android APK
+name: Build Attendance CRM Android APK
 
 on:
   push:
@@ -74,12 +74,12 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
 
       - name: Rename APK to the CRM app filename
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/attendence_crm.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/Attendance CRM.apk
 
       - name: Keep APK as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: attendence_crm-Android-APK
+          name: Attendance-CRM-Android-APK
           path: android/app/build/outputs/apk/debug/attendence_crm.apk
           if-no-files-found: error
           retention-days: 30
@@ -88,7 +88,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: Latest attendence_crm Android APK
+          name: Latest Attendance CRM Android APK
           prerelease: true
           make_latest: false
           files: android/app/build/outputs/apk/debug/attendence_crm.apk
