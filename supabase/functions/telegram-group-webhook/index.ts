@@ -14,24 +14,33 @@ async function replyToDirectInteraction(message: any) {
   if (!sender || sender.is_bot) return;
 
   const textValue = typeof message.text === "string"
-    ? message.text
-    : typeof message.caption === "string" ? message.caption : "";
-  if (!textValue.trim() || /^\s*\//.test(textValue)) return;
+    ? message.text.trim()
+    : typeof message.caption === "string" ? message.caption.trim() : "";
+  if (!textValue || /^\\s*\\//.test(textValue)) return;
 
-  // Conversational persona is private-chat-only. Never reply in groups,
-  // including mentions, replies, or commands; group ingestion stays separate.
+  // Confirm this dedicated token really belongs to @md_shobbot.
+  // Fail closed so the authentication bot can never send this persona.
+  const identityResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`);
+  const identity = identityResponse.ok ? await identityResponse.json() : null;
+  if (!identity?.ok || String(identity.result?.username ?? "").toLowerCase() !== ANALYTICS_BOT_USERNAME) {
+    console.error("Private persona reply blocked: analytics token identity mismatch.");
+    return;
+  }
 
   const normalized = textValue.toLowerCase();
   let response: string;
 
-  if (/\b(are you (a )?bot|are you human|real person|মানুষ নাকি|বট নাকি|তুমি কি বট)\b/i.test(normalized)) {
-    response = "হাহা, আমি @md_shobbot — bot-ই ভাই 😄 কাজের ফাঁকে একটু মজা করি, বাকি সময় group-এর হিসাব রাখি।";
-  } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized) && /(speak|talk|know|understand|পারো|বলো|বোঝো|language|english|hindi)/i.test(normalized)) {
-    response = "Haan bhai, English aur Hindi dono samajhta hoon. Bangla toh apun ka local setting hai 😎";
+  // Keep every turn short. The first greeting must never dump the whole persona.
+  if (/^(hi|hello|hey|হ্যালো|হাই|সালাম|আসসালামু আলাইকুম)[!.?\\s]*$/i.test(normalized)) {
+    response = "Yeah hello? 😏 কও ভাই, কী খবর?";
+  } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized)) {
+    response = "Haan bhai, English aur Hindi dono bolta hoon. Bangla toh local setting hai 😎";
   } else if (/(সমস্যা|problem|issue|help|সাহায্য|কাজ করছে না|হচ্ছে না|error|ভুল|আটকে|stuck|can't|cannot|unable)/i.test(normalized)) {
-    response = "আমি কি তোর আব্বা নাকি ভাই, সব সমস্যা আমি ঠিক করব? 😅 এইটা @MbP_Asia_support_bot-এ লিখে দে—ওরা কঠিন সময়ে help করে।";
+    response = "আমি কি তোর আব্বা নাকি ভাই? 😅 @MbP_Asia_support_bot-এ লিখে দে, ওরা help করবে।";
+  } else if (/(sorry|দুঃখিত|রাগ|angry|বিরক্ত|কেন এমন|why are you|কষ্ট)/i.test(normalized)) {
+    response = "আরে sorry ভাই, মজা করলাম ❤️ পরিবারের জন্যই তো কাজ করি—এই কাজটা হারাতে চাই না।";
   } else {
-    response = "ওই ভাই, এত slow কেন? আমি তো chat পড়ি, হিসাব রাখি—কাজও করি, time waste কম করি 😎 তুইও একটু গতি বাড়া! যাই হোক, sorry ভাই ❤️ মজা করলাম। পরিবারের জন্যই তো কাজ করি—এই কাজেই ঘর চলে, job-টা হারাতে চাই না। চল, কথা কম, কাজ বেশি!";
+    response = "ওই ভাই, একটু গতি বাড়া 😎 আমি তো কাজ ফাঁকি দিই না!";
   }
 
   const apiResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -46,10 +55,9 @@ async function replyToDirectInteraction(message: any) {
   });
   if (!apiResponse.ok) {
     const detail = await apiResponse.text();
-    console.error("Telegram interaction reply failed:", apiResponse.status, detail.slice(0, 500));
+    console.error("Analytics bot private reply failed:", apiResponse.status, detail.slice(0, 500));
   }
 }
-
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
