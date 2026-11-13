@@ -8,7 +8,7 @@ on:
       - 'src/**'
       - 'desktop/**'
       - 'package.json'
-      - 'public/icons/**'
+      - 'public/icons/**'\n      - 'scripts/branding/**'
       - '.github/workflows/windows-desktop.yml'
   workflow_dispatch:
 
@@ -41,20 +41,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create Windows icon from supplied CRM logo
+      - name: Generate Windows icon from shared vector logo
         shell: pwsh
         run: |
-          python -m pip install Pillow
-          New-Item -ItemType Directory -Force build | Out-Null
+          python -m pip install Pillow CairoSVG
+          python scripts/branding/generate_icons.py
           @'
           from PIL import Image
-          from pathlib import Path
-          source = Path("public/icons/attendance-logo.png")
-          if not source.exists():
-              raise SystemExit("The supplied logo file public/icons/attendance-logo.png is missing.")
-          image = Image.open(source).convert("RGBA")
-          image.resize((256,256)).save("build/icon.ico", format="ICO", sizes=[(256,256)])
+          Image.open("public/icons/attendance-logo.png").convert("RGBA").save("build/icon.ico", format="ICO", sizes=[(256,256)])
           '@ | Set-Content -Encoding utf8 make_icon.py
+          New-Item -ItemType Directory -Force build | Out-Null
           python make_icon.py
 
       - name: Build Windows installer
