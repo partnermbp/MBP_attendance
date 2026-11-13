@@ -1367,16 +1367,26 @@ export default function App() {
       }
       setSession(authData.session);
       const { data: access, error: accessError } = await supabase.functions.invoke('auth-mfa-login', { body: { action: 'begin' } });
-      if (accessError || !access?.ok || access.stage !== 'complete') {
+      if (accessError || !access?.ok) {
         await supabase.auth.signOut({ scope: 'local' }); setSession(null);
         mfaLoginInProgressRef.current = false;
-        setMessage(access?.error || accessError?.message || 'Registration is complete, but secure first access could not be approved. Please sign in again.');
+        setMessage(access?.error || accessError?.message || 'Registration is complete, but secure first access could not be started. Please sign in again.');
         window.history.replaceState({}, document.title, window.location.pathname); setScreen('login'); return;
       }
-      mfaLoginInProgressRef.current = false;
       setInvitePasswordStep(false); setPassword(''); setConfirmPassword('');
-      setMessage('Registration complete. Both identities are verified and your CRM account is active.');
-      await recordCrmLogin('invitation_registration'); setScreen('signed-in'); await loadDashboard(authData.user.id, true);
+      setMfaChallengeTicket(access.challenge_ticket || '');
+      if (access.stage === 'email') {
+        setEmailOtp(''); setEmailOtpRequested(true); setOtpRequested(false);
+        setMessage('A verification code has been sent to your registered corporate email address.');
+      } else if (access.stage === 'telegram') {
+        setEmailOtpRequested(false); setOtpRequested(true); setTelegramResendSeconds(30); setTelegramOtp('');
+        setMessage('Enter the Telegram code sent to your registered account.');
+      } else if (access.stage === 'complete') {
+        mfaLoginInProgressRef.current = false;
+        await recordCrmLogin('invitation_registration');
+        setMessage('Registration complete. Both identities are verified and your CRM account is active.');
+        setScreen('signed-in'); await loadDashboard(authData.user.id, true);
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch {
       setMessage('Registration could not be completed. Please try again.');
