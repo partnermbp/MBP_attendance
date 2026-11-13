@@ -2865,7 +2865,7 @@ export default function App() {
             ];
             const selectedAvatar = personalProfileDraft.avatar_key || 'male-01';
             const renderAvatar = (avatarKey:string,size:number) => {
-              const [,kind='male',rawIndex='1'] = avatarKey.match(/^(male|female|animal|alien)-(\\d+)$/) || [];
+              const [,kind='male',rawIndex='1'] = avatarKey.match(/^(male|female|animal|alien)-(\d+)$/) || [];
               const index = Math.max(0,Number(rawIndex)-1);
               const palettes = [
                 ['#f6c7a5','#25334b','#f0a36b'],['#d99b72','#253d5b','#e8bd78'],['#f1d0b0','#3b3448','#d98778'],
@@ -2875,11 +2875,11 @@ export default function App() {
               const [skin,hair,shirt]=palettes[index];
               const animalColors=['#e6e2d7','#e8a05b','#e8a65e','#77b99a','#d69b8d'];
               const alienColors=['#86d5bd','#a6b6f2','#b8df79','#9bd4e7','#d3a6e8'];
-              const bg=['#dceafe','#fce7df','#e8e3ff','#dff3ea','#f9e8c9'][index%5];
+              const crmAccent = 'var(--crm-accent-strong)'; const crmAccentSoft = 'var(--crm-accent-soft)'; const bg=['#e7efff','#fff0e4','#eae7ff','#e5f5ee','#fff3d9'][index%5];
               const id='avatar-'+avatarKey;
               return <svg width={size} height={size} viewBox="0 0 96 96" role="img" aria-label={kind+' illustrated avatar'} style={{display:'block',flexShrink:0}}>
                 <defs><linearGradient id={id+'bg'} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={bg}/><stop offset="100%" stopColor="#ffffff"/></linearGradient></defs>
-                <rect x="2" y="2" width="92" height="92" rx="25" fill={'url(#'+id+'bg)'}/>
+                <rect x="2" y="2" width="92" height="92" rx="25" fill={'url(#'+id+'bg)'}/><rect x="2" y="2" width="92" height="92" rx="25" fill="none" stroke="var(--crm-accent)" strokeOpacity=".22" strokeWidth="2"/>
                 {kind==='male'||kind==='female' ? <>
                   <path d="M13 94 Q17 67 48 66 Q79 67 83 94Z" fill={shirt}/>
                   <path d="M37 61 L37 73 Q48 83 59 73 L59 61Z" fill={skin}/>
