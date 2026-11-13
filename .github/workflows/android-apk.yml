@@ -74,7 +74,7 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
 
       - name: Rename APK to the CRM app filename
-        run: cp android/app/build/outputs/apk/debug/attendence_crm.apk android/app/build/outputs/apk/debug/attendence_crm.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/attendence_crm.apk
 
       - name: Keep APK as a workflow artifact
         uses: actions/upload-artifact@v4
