@@ -1180,6 +1180,14 @@ export default function App() {
 
   async function handleStartInviteTelegram() {
     if (!supabase || !inviteToken || !inviteDetails?.valid) return;
+    // Open a blank tab during the click gesture so browsers do not block the
+    // Telegram redirect after the asynchronous challenge request completes.
+    const telegramWindow = window.open('about:blank', '_blank');
+    if (!telegramWindow) {
+      setMessage('Your browser blocked the Telegram window. Allow pop-ups for this CRM page, then try again.');
+      return;
+    }
+    try { telegramWindow.opener = null; } catch { /* Cross-window isolation is best-effort. */ }
     setBusy(true);
     setMessage('');
     try {
@@ -1187,12 +1195,14 @@ export default function App() {
         body: { action: 'create_invite_telegram_challenge', invitation_token: inviteToken },
       });
       if (error) {
+        telegramWindow.close();
         console.error('Telegram invitation Edge Function request failed:', error);
         const projectHost = (() => { try { return new URL(import.meta.env.VITE_SUPABASE_URL).host; } catch { return 'unknown'; } })();
         setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error) + ' (Supabase project: ' + projectHost + ')');
         return;
       }
       if (!data?.ok || !data?.bot_url) {
+        telegramWindow.close();
         setMessage(data?.error || 'The Telegram verification function returned an unexpected response.');
         return;
       }
@@ -1201,9 +1211,10 @@ export default function App() {
       sessionStorage.setItem('mbp_invite_challenge_' + inviteToken, challenge);
       setInviteTelegramVerified(false);
       setInviteOtp('');
-      setMessage('Telegram opened. Press Start in the bot; your verification code will appear in that chat.');
-      window.location.assign(data.bot_url);
+      setMessage('Telegram opened in a new tab. Press Start in the bot; your verification code will appear in that chat. Return here to enter the code.');
+      telegramWindow.location.href = data.bot_url;
     } catch (error) {
+      telegramWindow.close();
       setMessage('Unable to start Telegram verification: ' + getErrorMessage(error));
     } finally {
       setBusy(false);
