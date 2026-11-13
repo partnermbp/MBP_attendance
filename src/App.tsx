@@ -279,23 +279,21 @@ function getErrorMessage(error: unknown) {
 }
 
 async function getFunctionRequestError(error: unknown): Promise<string> {
-  const item = error as { name?: string; message?: string; context?: unknown };
-  const name = typeof item?.name === 'string' ? item.name : 'RequestError';
-  const message = typeof item?.message === 'string' ? item.message : 'The browser could not complete the request.';
+  const item = error as { message?: string; context?: unknown };
+  const message = typeof item?.message === 'string' ? item.message : '';
   const context = item?.context;
+  if (/429|too many requests/i.test(message)) return 'Wait one minute and try again.';
   if (context instanceof Response) {
     let body = '';
-    try { body = (await context.clone().text()).slice(0, 500); } catch { /* response body unavailable */ }
-    return `${name}: HTTP ${context.status}${body ? ' — ' + body : ''}`;
+    try { body = await context.clone().text(); } catch { /* response body unavailable */ }
+    if (context.status === 429 || /429|too many requests/i.test(body)) return 'Wait one minute and try again.';
+    return 'Telegram verification could not be completed. Please try again.';
   }
   if (context && typeof context === 'object') {
-    const response = context as { status?: number; statusText?: string; name?: string; message?: string; cause?: unknown };
-    if (typeof response.status === 'number') return `${name}: HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
-    const nested = [response.name, response.message].filter((value): value is string => typeof value === 'string' && value.length > 0).join(': ');
-    const cause = response.cause instanceof Error ? `${response.cause.name}: ${response.cause.message}` : '';
-    if (nested || cause) return `${name}: ${nested || message}${cause ? ' (cause: ' + cause + ')' : ''}`;
+    const response = context as { status?: number; statusText?: string; message?: string };
+    if (response.status === 429 || /429|too many requests/i.test(response.message || '')) return 'Wait one minute and try again.';
   }
-  return `${name}: ${message}`;
+  return 'Telegram verification could not be completed. Please try again.';
 }
 
 function isApprovedEmail(email: string) {
@@ -1197,8 +1195,7 @@ export default function App() {
       if (error) {
         telegramWindow.close();
         console.error('Telegram invitation Edge Function request failed:', error);
-        const projectHost = (() => { try { return new URL(import.meta.env.VITE_SUPABASE_URL).host; } catch { return 'unknown'; } })();
-        setMessage('Telegram verification request failed: ' + await getFunctionRequestError(error) + ' (Supabase project: ' + projectHost + ')');
+        setMessage(await getFunctionRequestError(error));
         return;
       }
       if (!data?.ok || !data?.bot_url) {
@@ -2756,7 +2753,7 @@ export default function App() {
             <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:16}}>{busy ? 'Verifying password…' : 'Continue'}</button>
             <button type="button" disabled={busy} onClick={()=>void handleForgotPassword()} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Forgot password?</button>
           </form> : emailOtpRequested ? <>
-            <p style={{color:'#b7c0d1'}}>Email verification required · Enter the OTP sent to your registered corporate email address. This is required on first login and every 7 days.</p>
+            <p style={{color:'#b7c0d1'}}>Email verification required · Enter the OTP sent to your registered corporate email address.</p>
             <form onSubmit={handleVerifyEmailCode}>
               <label htmlFor="email-otp" style={{display:'block',marginTop:18}}>Corporate email OTP</label>
               <input id="email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailOtp} onChange={(event)=>setEmailOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
