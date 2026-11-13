@@ -53,6 +53,7 @@ type Profile = {
   id: string;
   email: string | null;
   full_name: string | null;
+  admin_panel_name?: string | null;
   role: string;
   active: boolean;
   telegram_user_id?: number | null;
@@ -61,9 +62,11 @@ type Profile = {
 };
 
 type ManagerAssignment = { manager_id: string; employee_id: string };
+type EmployeePersonalProfile = { user_id: string; avatar_key: string; nickname: string; updated_at?: string };
+type DirectManagerContact = { manager_name: string; manager_role: string; manager_telegram_username: string | null };
 
 type Screen = 'loading' | 'login' | 'set-password' | 'signed-in';
-type CrmPage = 'dashboard' | 'downloads' | 'attendance' | 'attendance-records' | 'workforce-operations' | 'team-attendance' | 'team' | 'manager-hierarchy' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'requests' | 'settings';
+type CrmPage = 'my-profile' | 'dashboard' | 'downloads' | 'attendance' | 'attendance-records' | 'workforce-operations' | 'team-attendance' | 'team' | 'manager-hierarchy' | 'team-roles' | 'team-links' | 'team-assignments' | 'team-invitations' | 'telegram' | 'telegram-human' | 'telegram-analytics' | 'security' | 'requests' | 'settings';
 type CrmPreferences = { theme: 'night' | 'day'; accent: 'orange' | 'blue'; glassy: boolean; nightLight: boolean; compact: boolean; reducedMotion: boolean; timezone: string };
 const DEFAULT_PREFERENCES: CrmPreferences = { theme: 'night', accent: 'orange', glassy: false, nightLight: false, compact: false, reducedMotion: false, timezone: 'local' };
 function loadCrmPreferences(): CrmPreferences { try { const raw = localStorage.getItem('mbp_crm_preferences'); return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES; } catch { return DEFAULT_PREFERENCES; } }
@@ -570,6 +573,11 @@ export default function App() {
   const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null;response_samples?:Array<{response_seconds:number;calculated_at:string|null}>;question_samples?:Array<{calculated_at:string|null;answered:boolean}>}>>([]);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState<CrmPage>('dashboard');
+  const [personalProfile, setPersonalProfile] = useState<EmployeePersonalProfile>({user_id:'',avatar_key:'male-01',nickname:''});
+  const [personalProfileDraft, setPersonalProfileDraft] = useState({avatar_key:'male-01',nickname:''});
+  const [directManager, setDirectManager] = useState<DirectManagerContact | null>(null);
+  const [personalProfileSaving, setPersonalProfileSaving] = useState(false);
+  const [personalProfileNotice, setPersonalProfileNotice] = useState('');
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [telegramHumanNavKey, setTelegramHumanNavKey] = useState(0);
@@ -676,7 +684,7 @@ export default function App() {
     try {
       const profileResult = await supabase
         .from('profiles')
-        .select('id, email, full_name, role, active, telegram_user_id, telegram_verified_at, telegram_username')
+        .select('id, email, full_name, admin_panel_name, role, active, telegram_user_id, telegram_verified_at, telegram_username')
         .eq('id', userId)
         .maybeSingle();
 
@@ -688,6 +696,16 @@ export default function App() {
 
       let currentProfile = profileResult.data as Profile | null;
       setProfile(currentProfile);
+      const [personalResult, managerResult] = await Promise.all([
+        supabase.from('employee_personal_profiles').select('user_id, avatar_key, nickname, updated_at').eq('user_id', userId).maybeSingle(),
+        supabase.rpc('get_my_direct_manager_contact'),
+      ]);
+      const ownPersonal = (personalResult.data as EmployeePersonalProfile | null) || {user_id:userId,avatar_key:'male-01',nickname:''};
+      setPersonalProfile(ownPersonal);
+      setPersonalProfileDraft({avatar_key:ownPersonal.avatar_key,nickname:ownPersonal.nickname || ''});
+      const managerRows = Array.isArray(managerResult.data) ? managerResult.data : managerResult.data ? [managerResult.data] : [];
+      setDirectManager((managerRows[0] as DirectManagerContact | undefined) || null);
+      setPersonalProfileNotice(personalResult.error || managerResult.error ? 'Some profile details could not be loaded. Refresh the page to try again.' : '');
       // The authenticated user's own profile is a reliable fallback if the
       // Telegram status Edge Function is temporarily unavailable.
       const profileTelegramLinked = currentProfile?.telegram_user_id != null || currentProfile?.telegram_verified_at != null;
@@ -1833,7 +1851,7 @@ export default function App() {
     if (!supabase) return;
 
     setMapPreview(null);
-    setAttendance([]); setSalaryAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setTelegramMembers([]); setTelegramResponseMetrics([]); setExpandedManagerIds(new Set()); setProfile(null);
+    setAttendance([]); setSalaryAttendance([]); setShifts([]); setProfiles([]); setManagerAssignments([]); setTelegramMembers([]); setTelegramResponseMetrics([]); setExpandedManagerIds(new Set()); setProfile(null); setPersonalProfile({user_id:'',avatar_key:'male-01',nickname:''}); setPersonalProfileDraft({avatar_key:'male-01',nickname:''}); setDirectManager(null);
     setReportStartDate(''); setReportEndDate(''); setDraftStartDate(''); setDraftEndDate('');
     setBusy(true);
     setMessage('');
@@ -2742,6 +2760,7 @@ export default function App() {
 
           <aside className={`crm-sidebar ${navOpen ? 'is-open' : ''}`} style={{position:'sticky',top:0,alignSelf:'stretch',height:'100vh',minHeight:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',padding:navOpen?'12px 10px':'10px 5px',background:'#101114',borderTop:0,borderBottom:0,borderLeft:0,borderRight:'1px solid #292a31',borderRadius:0,color:'#dce4f2'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:navOpen?'space-between':'center',gap:8,marginBottom:16,paddingBottom:12,borderBottom:'1px solid #24252c',color:'#fff',fontWeight:700}}>{navOpen&&<span>Partner CRM</span>}<button type="button" aria-label={navOpen?'Minimize sidebar':'Expand sidebar'} title={navOpen?'Minimize sidebar':'Expand sidebar'} onClick={()=>setNavOpen(v=>!v)} style={{display:'grid',placeItems:'center',flexShrink:0,width:36,height:36,border:'1px solid #34353e',borderRadius:7,background:'#1a1b20',color:'#fff',cursor:'pointer'}}>{navOpen?<X size={18}/>:<Menu size={18}/>}</button></div>
+            <button type="button" title="My Profile" aria-current={activePage==='my-profile'?'page':undefined} onClick={()=>{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage('my-profile');setMapPreview(null);window.scrollTo(0,0);}} style={{display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'9px 9px':'11px 0',marginBottom:10,textAlign:'left',border:'1px solid '+(activePage==='my-profile'?'var(--crm-accent)':'#34353e'),borderRadius:7,background:activePage==='my-profile'?'var(--crm-accent-soft)':'#17191f',color:activePage==='my-profile'?'var(--crm-accent)':'#e5e7eb',cursor:'pointer'}}><span style={{display:'grid',placeItems:'center',width:28,height:28,borderRadius:99,background:'var(--crm-accent-soft)',fontSize:18}}>{({male:'👨🏻‍💼',female:'👩🏻‍💼',animal:'🐼',alien:'👽'} as Record<string,string>)[personalProfile.avatar_key.split('-')[0]] || '👤'}</span>{navOpen&&<span className="crm-menu-label" style={{fontSize:13,fontWeight:700}}>My Profile</span>}</button>
             <nav aria-label="CRM pages" style={{display:'flex',flexDirection:'column',gap:3}}>
               {[{label:'Dashboard',icon:<LayoutDashboard size={18}/>,id:'dashboard' as CrmPage},{label:'Attendance',icon:<CalendarDays size={18}/>,id:'attendance' as CrmPage},{label:'Team management',icon:<Users size={18}/>,id:'team' as CrmPage},{label:'Telegram chats & analytics',icon:<MessageCircle size={18}/>,id:'telegram' as CrmPage},{label:'Security & devices',icon:<ShieldAlert size={18}/>,id:'security' as CrmPage},{label:'Requests',icon:<MessageCircle size={18}/>,id:'requests' as CrmPage},{label:'Settings',icon:<SettingsIcon size={18}/>,id:'settings' as CrmPage}].filter(item=>item.id==='dashboard'||item.id==='downloads'||item.id==='attendance'||((item.id==='security'||item.id==='requests')&&isAdmin)||item.id==='settings'||(item.id==='team'&&(isAdmin||isSupervisor||canManageTeam))||(item.id==='telegram'&&(isAdmin||isSupervisor||canManageTeam||canUseHumanTelegram))).map(item=><div key={item.id}>
                 <button type="button" title={item.label} aria-current={activePage===item.id || (item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance'||activePage==='workforce-operations')) || (item.id==='team' && ['manager-hierarchy','team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage))?'page':undefined} aria-expanded={item.id==='attendance'?attendanceMenuOpen:item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:undefined} data-branch-active={(item.id==='attendance' && (activePage==='attendance-records'||activePage==='team-attendance')) || (item.id==='team' && ['team-roles','team-links','team-assignments','team-invitations'].includes(activePage)) || (item.id==='telegram' && ['telegram-human','telegram-analytics'].includes(activePage)) ? 'true' : undefined} onClick={()=>{if(item.id==='team'){if(!navOpen){setNavOpen(true);setTeamMenuOpen(true);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}else{setTeamMenuOpen(!teamMenuOpen);setTelegramMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='telegram'){if(!navOpen){setNavOpen(true);setTelegramMenuOpen(true);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}else{setTelegramMenuOpen(!telegramMenuOpen);setTeamMenuOpen(false);setAttendanceMenuOpen(false);}}else if(item.id==='attendance'){if(!navOpen){setNavOpen(true);setAttendanceMenuOpen(true);setTeamMenuOpen(false);setTelegramMenuOpen(false);}else{setAttendanceMenuOpen(!attendanceMenuOpen);setTeamMenuOpen(false);setTelegramMenuOpen(false);}}else{setAttendanceMenuOpen(false);setTeamMenuOpen(false);setTelegramMenuOpen(false);setActivePage(item.id);}setMapPreview(null);window.scrollTo(0,0)}} style={{position:'relative',display:'flex',alignItems:'center',justifyContent:navOpen?'flex-start':'center',gap:10,width:'100%',padding:navOpen?'10px 9px':'11px 0',textAlign:'left',border:0,borderRadius:6,background:activePage===item.id?'var(--crm-accent-soft)':'transparent',color:activePage===item.id?'var(--crm-accent)':'#cbd5e1',cursor:'pointer'}}>{item.icon}{navOpen&&<><span className="crm-menu-label" style={{flex:1}}>{item.label}</span>{item.id==='attendance'&&pendingWorkforceCount>0&&<span aria-label={pendingWorkforceCount+' pending workforce requests'} style={{minWidth:19,height:19,padding:'0 5px',boxSizing:'border-box',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{pendingWorkforceCount>99?'99+':pendingWorkforceCount}</span>}{item.id==='requests'&&newRequestCount>0&&<span aria-label={newRequestCount+' new requests'} style={{minWidth:19,height:19,padding:'0 5px',boxSizing:'border-box',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{newRequestCount>99?'99+':newRequestCount}</span>}{item.id==='security'&&newSecurityLogCount>0&&<span aria-label={newSecurityLogCount+' unreviewed security alerts'} style={{minWidth:19,height:19,padding:'0 5px',boxSizing:'border-box',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{newSecurityLogCount>99?'99+':newSecurityLogCount}</span>}{(item.id==='team'||item.id==='telegram'||item.id==='attendance')&&((item.id==='team'?teamMenuOpen:item.id==='telegram'?telegramMenuOpen:attendanceMenuOpen)?<ChevronDown size={15}/>:<ChevronRight size={15}/>)}</>}{!navOpen&&item.id==='attendance'&&pendingWorkforceCount>0&&<span aria-label={pendingWorkforceCount+' pending workforce requests'} style={{position:'absolute',top:1,right:1,minWidth:16,height:16,padding:'0 3px',boxSizing:'border-box',display:'grid',placeItems:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:9,fontWeight:800}}>{pendingWorkforceCount>99?'99+':pendingWorkforceCount}</span>}{!navOpen&&item.id==='requests'&&newRequestCount>0&&<span aria-label={newRequestCount+' new requests'} style={{position:'absolute',top:1,right:1,minWidth:16,height:16,padding:'0 3px',boxSizing:'border-box',display:'grid',placeItems:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:9,fontWeight:800}}>{newRequestCount>99?'99+':newRequestCount}</span>}{!navOpen&&item.id==='security'&&newSecurityLogCount>0&&<span aria-label={newSecurityLogCount+' unreviewed security alerts'} style={{position:'absolute',top:1,right:1,minWidth:16,height:16,padding:'0 3px',boxSizing:'border-box',display:'grid',placeItems:'center',borderRadius:99,background:'#dc2626',color:'#fff',fontSize:9,fontWeight:800}}>{newSecurityLogCount>99?'99+':newSecurityLogCount}</span>}</button>
@@ -2804,7 +2823,7 @@ export default function App() {
           {supabase && profile?.id && <DeviceTelemetryController supabase={supabase} userId={profile.id} hasActiveShift={attendance.some(record => record.employee_id === profile.id && !record.check_out) || salaryAttendance.some(record => record.employee_id === profile.id && !record.check_out)} showDeviceSecurityInfo={isAdmin} requireShiftLocationSharing={canManageTeam} />}
           <section style={panelStyle}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:18,color:'#98a2b3',fontSize:13}}>
-            <div style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Partner CRM / <strong style={{color:'#fff'}}>{{dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Corporate Telegram Inbox','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
+            <div style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Partner CRM / <strong style={{color:'#fff'}}>{{'my-profile':'My Profile',dashboard:'Dashboard',downloads:'Downloads',attendance:'Attendance', 'attendance-records':'Attendance records','workforce-operations':'Workforce operations','team-attendance':'Team attendance report',team:'Team management','manager-hierarchy':'Manager hierarchy','team-roles':'Employee role management','team-links':'Link Telegram members','team-assignments':'Assign employees to managers','team-invitations':(isAdmin?'Admin invitation':'Employee invitations'),telegram:'Telegram chats & analytics','telegram-human':'Corporate Telegram Inbox','telegram-analytics':'Telegram group analytics',security:'Security',requests:'Requests',settings:'Settings'}[activePage]}</strong></div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
               <button type="button" disabled={loadingDashboard} onClick={()=>{if(session?.user.id)void loadDashboard(session.user.id);}} aria-label="Refresh CRM information" title="Refresh CRM information" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:34,height:32,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:loadingDashboard?'wait':'pointer',opacity:loadingDashboard ? 0.6 : 1}}><RotateCcw size={16}/></button>
               <button type="button" onClick={()=>{setGlobalSearchOpen(true);setGlobalSearchQuery('');}} aria-label="Search CRM" title="Search CRM" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:34,height:32,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-card-raised)',color:'var(--crm-text)',cursor:'pointer'}}><Search size={16}/></button>
@@ -2833,6 +2852,51 @@ export default function App() {
             </div>
           </div>}
 
+          {activePage === 'my-profile' && (() => {
+            const avatarOptions = [
+              {group:'Male',items:[['male-01','👨🏻‍💼'],['male-02','👨🏼‍💻'],['male-03','👨🏽‍🔧'],['male-04','👨🏾‍🚀'],['male-05','👨🏿‍🎨'],['male-06','🧔🏻'],['male-07','🧔🏼‍💼'],['male-08','👨🏽‍🏫'],['male-09','👨🏾‍🍳'],['male-10','👨🏻‍🔬']]},
+              {group:'Female',items:[['female-01','👩🏻‍💼'],['female-02','👩🏼‍💻'],['female-03','👩🏽‍🔧'],['female-04','👩🏾‍🚀'],['female-05','👩🏿‍🎨'],['female-06','👩🏻‍🔬'],['female-07','👩🏼‍🏫'],['female-08','👩🏽‍🍳'],['female-09','👩🏾‍⚕️'],['female-10','👩🏻‍🎤']]},
+              {group:'Animals',items:[['animal-01','🐼'],['animal-02','🦊'],['animal-03','🐯'],['animal-04','🐸'],['animal-05','🐱']]},
+              {group:'Aliens',items:[['alien-01','👽'],['alien-02','👾'],['alien-03','🛸'],['alien-04','👽‍🚀'],['alien-05','👾‍🛸']]}
+            ] as Array<{group:string;items:Array<[string,string]>}>;
+            const avatar = avatarOptions.flatMap(group=>group.items).find(item=>item[0]===personalProfileDraft.avatar_key)?.[1] || '👤';
+            const savePersonalProfile = async () => {
+              if (!supabase || !profile?.id) return;
+              setPersonalProfileSaving(true); setPersonalProfileNotice('');
+              const {error} = await supabase.from('employee_personal_profiles').upsert({user_id:profile.id,avatar_key:personalProfileDraft.avatar_key,nickname:personalProfileDraft.nickname.trim(),updated_at:new Date().toISOString()},{onConflict:'user_id'});
+              setPersonalProfileSaving(false);
+              if (error) { setPersonalProfileNotice('Your profile changes could not be saved. Please try again.'); return; }
+              const next={user_id:profile.id,avatar_key:personalProfileDraft.avatar_key,nickname:personalProfileDraft.nickname.trim()};
+              setPersonalProfile(next); setPersonalProfileDraft({avatar_key:next.avatar_key,nickname:next.nickname}); setPersonalProfileNotice('Your personal profile has been saved.');
+            };
+            const directManagerUrl = directManager?.manager_telegram_username ? 'https://t.me/'+directManager.manager_telegram_username.replace(/^@/,'') : '';
+            return <>
+              <h1 style={{marginTop:0}}>My Profile</h1>
+              <p style={{color:'var(--crm-muted)',maxWidth:760,lineHeight:1.6}}>Your personal account card. Your assigned Dashboard Name and Corporate Email are managed by your inviter and cannot be edited here.</p>
+              <section className="crm-settings-section">
+                <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                  <div aria-label="Selected avatar" style={{width:82,height:82,display:'grid',placeItems:'center',borderRadius:22,border:'1px solid var(--crm-border)',background:'var(--crm-accent-soft)',fontSize:48}}>{avatar}</div>
+                  <div><h2 style={{margin:'0 0 5px'}}>Choose your avatar</h2><p style={{margin:0,color:'var(--crm-muted)',fontSize:13}}>30 built-in illustrations. Choose one for your personal profile.</p></div>
+                </div>
+                {avatarOptions.map(group=><div key={group.group} style={{marginTop:18}}><h3 style={{fontSize:13,margin:'0 0 9px',color:'var(--crm-muted)'}}>{group.group} · {group.items.length}</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(58px,1fr))',gap:8}}>{group.items.map(([key,emoji])=><button key={key} type="button" aria-label={'Select '+group.group.toLowerCase()+' avatar '+key} aria-pressed={personalProfileDraft.avatar_key===key} onClick={()=>setPersonalProfileDraft(current=>({...current,avatar_key:key}))} style={{height:62,border:'1px solid '+(personalProfileDraft.avatar_key===key?'var(--crm-accent)':'var(--crm-border)'),borderRadius:10,background:personalProfileDraft.avatar_key===key?'var(--crm-accent-soft)':'var(--crm-card-bg)',fontSize:31,cursor:'pointer',boxShadow:personalProfileDraft.avatar_key===key?'0 0 0 1px var(--crm-accent) inset':'none'}}>{emoji}</button>)}</div></div>)}
+              </section>
+              <section className="crm-settings-section">
+                <h2 style={{marginTop:0}}>Account information</h2>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,240px),1fr))',gap:14}}>
+                  <label className="crm-settings-field">Dashboard Name<input readOnly disabled value={profile?.admin_panel_name || profile?.full_name || ''} style={{width:'100%',marginTop:7,boxSizing:'border-box',padding:12,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-bg)',color:'var(--crm-muted)',opacity:1}}/><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Set by your inviter · read only</small></label>
+                  <label className="crm-settings-field">Corporate Email<input readOnly disabled value={profile?.email || ''} style={{width:'100%',marginTop:7,boxSizing:'border-box',padding:12,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-bg)',color:'var(--crm-muted)',opacity:1}}/><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Set by your inviter · read only</small></label>
+                </div>
+                <label className="crm-settings-field" style={{display:'block',marginTop:18}}>Nickname <span style={{fontWeight:400,color:'var(--crm-muted)'}}>(optional · private)</span><input maxLength={32} value={personalProfileDraft.nickname} onChange={event=>setPersonalProfileDraft(current=>({...current,nickname:event.target.value}))} placeholder="Choose a nickname for yourself" style={{width:'100%',maxWidth:460,boxSizing:'border-box',marginTop:7,padding:12,border:'1px solid var(--crm-border)',borderRadius:7,background:'var(--crm-bg)',color:'var(--crm-text)'}}/><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Only shown in My Profile. It is not used as your CRM name or in team reports.</small></label>
+                <button type="button" disabled={personalProfileSaving} onClick={()=>void savePersonalProfile()} style={{marginTop:16,padding:'11px 16px',border:0,borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,cursor:personalProfileSaving?'wait':'pointer',opacity:personalProfileSaving?0.7:1}}>{personalProfileSaving?'Saving…':'Save profile'}</button>
+                {personalProfileNotice&&<p role="status" style={{fontSize:13,color:personalProfileNotice.includes('could not')?'#ef8a8a':'var(--crm-muted)'}}>{personalProfileNotice}</p>}
+              </section>
+              <section className="crm-settings-section">
+                <h2 style={{marginTop:0}}>Your reporting manager</h2>
+                {directManager ? <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap',padding:14,border:'1px solid var(--crm-border)',borderRadius:10,background:'var(--crm-card-bg)'}}><div><strong style={{display:'block',fontSize:16}}>{directManager.manager_name}</strong><span style={{fontSize:12,color:'var(--crm-muted)',textTransform:'capitalize'}}>{directManager.manager_role}</span><small style={{display:'block',marginTop:5,color:'var(--crm-muted)'}}>Your direct reporting manager</small></div>{directManagerUrl?<a href={directManagerUrl} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:7,background:'#229ed9',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact manager</a>:<button type="button" disabled style={{padding:'10px 14px',border:0,borderRadius:7,background:'var(--crm-border)',color:'var(--crm-muted)'}}>Telegram contact unavailable</button>}</div> : <p style={{color:'var(--crm-muted)',fontSize:13}}>No direct reporting manager is currently assigned to your account. Please contact company support.</p>}
+                <a href="https://t.me/MbP_Asia_support_bot" target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:16,padding:'11px 15px',borderRadius:7,background:'var(--crm-accent-strong)',color:'#fff',fontWeight:700,textDecoration:'none'}}><MessageCircle size={16}/> Contact company support</a>
+              </section>
+            </>;
+          })()}
           {activePage === 'downloads' && <>
             <h1 style={{marginTop:0}}>Downloads</h1>
             <p style={{color:'var(--crm-muted,#98a2b3)',maxWidth:760,lineHeight:1.6}}>Get MBP Attendance for your device. All versions connect to the same live CRM account and data, so an internet connection is required.</p>
