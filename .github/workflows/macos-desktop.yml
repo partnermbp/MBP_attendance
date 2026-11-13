@@ -1,4 +1,4 @@
-name: Build attendence_crm macOS DMG
+name: Build Attendance CRM macOS DMG
 
 on:
   push:
@@ -85,7 +85,7 @@ jobs:
           }
           trap cleanup EXIT
           hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint" -quiet
-          app_path="$mountpoint/attendence_crm.app"
+          app_path="$mountpoint/Attendance CRM.app"
           test -d "$app_path"
           plutil -lint "$app_path/Contents/Info.plist"
           executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_path/Contents/Info.plist")"
@@ -93,7 +93,7 @@ jobs:
       - name: Upload macOS installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: attendence_crm-macOS-DMG
+          name: Attendance-CRM-macOS-DMG
           path: dist-electron/*.dmg
           if-no-files-found: error
           retention-days: 30
@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: macos-latest
-          name: Latest attendence_crm macOS Installer
+          name: Latest Attendance CRM macOS Installer
           prerelease: true
           make_latest: false
           files: dist-electron/*.dmg
