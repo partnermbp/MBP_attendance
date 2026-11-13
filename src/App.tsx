@@ -605,6 +605,14 @@ export default function App() {
   // Provide a brief physical press animation without implying that every click
   // completed successfully. Actual success/error feedback belongs to each action.
   useEffect(() => {
+    if (!otpRequested || telegramResendSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setTelegramResendSeconds(seconds => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [otpRequested, telegramResendSeconds]);
+
+  useEffect(() => {
     const getButton = (event: Event) => {
       const target = event.target;
       return target instanceof Element ? target.closest('button') : null;
@@ -674,6 +682,7 @@ export default function App() {
   const mfaLoginInProgressRef = useRef(false);
   const attendanceActionInFlightRef = useRef(false);
   const [otpRequested, setOtpRequested] = useState(false);
+  const [telegramResendSeconds, setTelegramResendSeconds] = useState(0);
   const [showTelegramIdRequest, setShowTelegramIdRequest] = useState(false);
   const [oldTelegramIdInput, setOldTelegramIdInput] = useState('');
   const [newTelegramIdInput, setNewTelegramIdInput] = useState('');
@@ -1419,6 +1428,7 @@ export default function App() {
       } else if (result.stage === 'telegram') {
         setEmailOtpRequested(false);
         setOtpRequested(true);
+        setTelegramResendSeconds(30);
         setTelegramOtp('');
         setMessage('Password verified. Enter the Telegram code sent to your registered account.');
       } else if (result.stage === 'complete') {
@@ -1467,6 +1477,7 @@ export default function App() {
       setEmailOtpRequested(false);
       if (result.stage === 'telegram') {
         setOtpRequested(true);
+        setTelegramResendSeconds(30);
         setTelegramOtp('');
         setMessage('Corporate email verified. Now enter the Telegram code sent to your registered account.');
       } else if (result.stage === 'complete') {
@@ -1601,6 +1612,29 @@ export default function App() {
     }
   }
 
+
+  async function handleResendTelegramCode() {
+    if (!supabase || !mfaChallengeTicket || busy || telegramResendSeconds > 0) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data: result, error } = await supabase.functions.invoke('auth-mfa-login', {
+        body: { action: 'resend_telegram', challenge_ticket: mfaChallengeTicket },
+      });
+      if (error || !result?.ok) {
+        setMessage(result?.error || error?.message || 'Could not resend the Telegram code. Please try again.');
+        if (result?.retry_after_seconds) setTelegramResendSeconds(result.retry_after_seconds);
+        return;
+      }
+      setTelegramOtp('');
+      setTelegramResendSeconds(30);
+      setMessage('A new Telegram verification code has been sent.');
+    } catch {
+      setMessage('Could not resend the Telegram code. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleVerifyTelegramCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2777,6 +2811,7 @@ export default function App() {
               <input id="telegram-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={telegramOtp} onChange={(event)=>setTelegramOtp(event.target.value.replace(/\D/g,''))} style={inputStyle}/>
               <button type="submit" disabled={busy} style={{...buttonStyle,width:'100%',marginTop:12}}>{busy ? 'Verifying…' : 'Verify code and sign in'}</button>
             </form>
+            <button type="button" disabled={busy || telegramResendSeconds > 0} onClick={()=>void handleResendTelegramCode()} style={{display:'block',margin:'12px auto 0',border:0,background:'transparent',color:telegramResendSeconds>0?'#98a2b3':'var(--crm-accent)',cursor:busy||telegramResendSeconds>0?'not-allowed':'pointer',textDecoration:'underline'}}>{telegramResendSeconds>0 ? `Request a new Telegram OTP in ${telegramResendSeconds}s` : 'Resend Telegram OTP'}</button>
             <button type="button" disabled={busy} onClick={()=>{setShowTelegramIdRequest(v=>!v);setMessage('');}} style={{display:'block',margin:'14px auto 0',border:0,background:'transparent',color:'var(--crm-accent)',cursor:'pointer',textDecoration:'underline'}}>Update Telegram ID</button>
             {showTelegramIdRequest && <form onSubmit={submitTelegramIdChange} style={{marginTop:16,padding:14,border:'1px solid var(--crm-border)',borderRadius:8}}>
               <h3 style={{marginTop:0}}>Request Telegram ID change</h3>
