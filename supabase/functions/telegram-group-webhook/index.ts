@@ -8,7 +8,7 @@ const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const ANALYTICS_BOT_USERNAME = "md_shobbot";
 
 async function replyToDirectInteraction(message: any) {
-  if (!TELEGRAM_BOT_TOKEN || !message?.chat?.id) return;
+  if (!TELEGRAM_BOT_TOKEN || !message?.chat?.id || message.chat.type !== "private") return;
   const sender = message.from;
   if (!sender || sender.is_bot) return;
 
@@ -17,12 +17,8 @@ async function replyToDirectInteraction(message: any) {
     : typeof message.caption === "string" ? message.caption : "";
   if (!textValue.trim() || /^\s*\//.test(textValue)) return;
 
-  // Only reply when a participant explicitly mentions @md_shobbot or replies
-  // to a message authored by this bot. Ordinary group traffic stays silent.
-  const isPrivateChat = message.chat.type === "private";
-  const explicitlyMentioned = new RegExp("(^|\\s|[^\\w])@" + ANALYTICS_BOT_USERNAME + "(?=$|\\s|[^\\w])", "i").test(textValue);
-  const replyingToBot = String(message.reply_to_message?.from?.username ?? "").toLowerCase() === ANALYTICS_BOT_USERNAME;
-  if (!isPrivateChat && !explicitlyMentioned && !replyingToBot) return;
+  // Conversational persona is private-chat-only. Never reply in groups,
+  // including mentions, replies, or commands; group ingestion stays separate.
 
   const normalized = textValue.toLowerCase();
   let response: string;
