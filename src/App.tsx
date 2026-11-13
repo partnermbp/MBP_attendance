@@ -737,7 +737,7 @@ export default function App() {
   useEffect(() => {
     if (!supabase || !profile?.id) { setAvatarByUserId({}); return; }
     let cancelled = false;
-    void supabase.from('employee_personal_profiles').select('user_id,avatar_key').then(({data,error}) => {
+    void supabase.rpc('get_crm_profile_avatars').then(({data,error}) => {
       if (cancelled) return;
       if (error) { setAvatarByUserId({}); return; }
       const next: Record<string,string> = {};
