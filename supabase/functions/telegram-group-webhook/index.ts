@@ -4,7 +4,8 @@
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const WEBHOOK_SECRET = Deno.env.get("MBP_ANALYTICS_TELEGRAM_WEBHOOK_SECRET");
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+// Dedicated token for @md_shobbot. Never reuse the authentication bot token.
+const TELEGRAM_BOT_TOKEN = Deno.env.get("MBP_ANALYTICS_TELEGRAM_BOT_TOKEN");
 const ANALYTICS_BOT_USERNAME = "md_shobbot";
 
 async function replyToDirectInteraction(message: any) {
