@@ -4,6 +4,54 @@
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const WEBHOOK_SECRET = Deno.env.get("MBP_ANALYTICS_TELEGRAM_WEBHOOK_SECRET");
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const ANALYTICS_BOT_USERNAME = "md_shobbot";
+
+async function replyToDirectInteraction(message: any) {
+  if (!TELEGRAM_BOT_TOKEN || !message?.chat?.id || message.chat.type === "private") return;
+  const sender = message.from;
+  if (!sender || sender.is_bot) return;
+
+  const textValue = typeof message.text === "string"
+    ? message.text
+    : typeof message.caption === "string" ? message.caption : "";
+  if (!textValue.trim() || /^\s*\//.test(textValue)) return;
+
+  // Only reply when a participant explicitly mentions @md_shobbot or replies
+  // to a message authored by this bot. Ordinary group traffic stays silent.
+  const explicitlyMentioned = new RegExp("(^|\\s|[^\\w])@" + ANALYTICS_BOT_USERNAME + "(?=$|\\s|[^\\w])", "i").test(textValue);
+  const replyingToBot = String(message.reply_to_message?.from?.username ?? "").toLowerCase() === ANALYTICS_BOT_USERNAME;
+  if (!explicitlyMentioned && !replyingToBot) return;
+
+  const normalized = textValue.toLowerCase();
+  let response: string;
+
+  if (/\\b(are you (a )?bot|are you human|real person|মানুষ নাকি|বট নাকি|তুমি কি বট)\\b/i.test(normalized)) {
+    response = "হাহা, আমি @md_shobbot — bot-ই ভাই 😄 কাজের ফাঁকে একটু মজা করি, বাকি সময় group-এর হিসাব রাখি।";
+  } else if (/(english|hindi|হিন্দি|ইংলিশ|speak|language)/i.test(normalized) && /(speak|talk|know|understand|পারো|বলো|বোঝো|language|english|hindi)/i.test(normalized)) {
+    response = "Haan bhai, English aur Hindi dono samajhta hoon. Bangla toh apun ka local setting hai 😎";
+  } else if (/(সমস্যা|problem|issue|help|সাহায্য|কাজ করছে না|হচ্ছে না|error|ভুল|আটকে|stuck|can't|cannot|unable)/i.test(normalized)) {
+    response = "আমি কি তোর আব্বা নাকি ভাই, সব সমস্যা আমি ঠিক করব? 😅 এইটা @MbP_Asia_support_bot-এ লিখে দে—ওরা কঠিন সময়ে help করে।";
+  } else {
+    response = "ওই ভাই, এত slow কেন? আমি তো chat পড়ি, হিসাব রাখি—কাজও করি, time waste কম করি 😎 তুইও একটু গতি বাড়া! যাই হোক, sorry ভাই ❤️ মজা করলাম। পরিবারের জন্যই তো কাজ করি—এই কাজেই ঘর চলে, job-টা হারাতে চাই না। চল, কথা কম, কাজ বেশি!";
+  }
+
+  const apiResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: message.chat.id,
+      text: response,
+      reply_to_message_id: message.message_id,
+      allow_sending_without_reply: true,
+    }),
+  });
+  if (!apiResponse.ok) {
+    const detail = await apiResponse.text();
+    console.error("Telegram interaction reply failed:", apiResponse.status, detail.slice(0, 500));
+  }
+}
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -242,7 +290,11 @@ Deno.serve(async (req: Request) => {
       ?? update.edited_message
       ?? update.channel_post
       ?? update.edited_channel_post;
-    if (message) await handleMessage(message, update);
+    if (message) {
+      await handleMessage(message, update);
+      // Only newly posted group messages can trigger a conversational reply.
+      if (update.message === message) await replyToDirectInteraction(message);
+    }
     if (update.message_reaction) await handleReaction(update.message_reaction, Number(update.update_id ?? 0));
     if (update.message_reaction_count) await handleReactionCount(update.message_reaction_count);
     return json({ ok: true });
