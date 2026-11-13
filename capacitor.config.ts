@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.mostbetpartners.attendancecrm',
-  appName: 'attendence_crm',
+  appName: 'Attendance CRM',
   webDir: 'dist',
 };
 
