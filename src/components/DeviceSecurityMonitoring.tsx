@@ -242,7 +242,10 @@ export default function DeviceSecurityMonitoring({supabase}:{supabase:SupabaseCl
   },[supabase]);
   useEffect(()=>{void reload();},[reload]);
   useEffect(()=>{const timer=window.setInterval(()=>{void reload();},60000);return()=>window.clearInterval(timer);},[reload]);
-  const allRiskAlerts=[...riskAlerts,...locationAlerts,...concurrentAlerts,...authFailureAlerts];
+  // Render every risk category in one shared timeline, newest observed event first.
+  // Severity remains a badge only and never controls grouping or display order.
+  const allRiskAlerts=[...riskAlerts,...locationAlerts,...concurrentAlerts,...authFailureAlerts]
+    .sort((a,b)=>new Date(b.last_seen||b.first_seen).getTime()-new Date(a.last_seen||a.first_seen).getTime());
   const saveReview=async(alert:RiskAlert)=>{
     const status=reviewStatuses[alert.alert_key]||reviews.find(r=>r.alert_key===alert.alert_key)?.status||'in_review';
     setReviewBusy(alert.alert_key);
