@@ -16,7 +16,7 @@ async function replyToDirectInteraction(message: any) {
   const textValue = typeof message.text === "string"
     ? message.text.trim()
     : typeof message.caption === "string" ? message.caption.trim() : "";
-  if (!textValue || /^\\s*\\//.test(textValue)) return;
+  if (!textValue || textValue.startsWith("/")) return;
 
   // Confirm this dedicated token really belongs to @md_shobbot.
   // Fail closed so the authentication bot can never send this persona.
