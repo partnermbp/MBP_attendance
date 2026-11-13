@@ -1,9 +1,10 @@
-const { app, BrowserWindow, shell } = require("electron");
-const path = require("path");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const os = require("node:os");
-const { ipcMain } = require("electron");
+const path = require("node:path");
 
 const APP_URL = "https://attendence.dpdns.org/";
+
+app.setName("attendence_crm");
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -13,39 +14,50 @@ function createWindow() {
     minHeight: 680,
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "..", "build", "icon.ico"),
     backgroundColor: "#03091F",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      preload: path.join(__dirname, 'preload.cjs')
+      preload: path.join(__dirname, "preload.cjs")
     }
   });
 
   win.once("ready-to-show", () => win.show());
+
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://") || url.startsWith("http://")) {
       shell.openExternal(url);
     }
     return { action: "deny" };
   });
+
   win.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith("https://attendence.dpdns.org/")) {
+    if (!url.startsWith(APP_URL)) {
       event.preventDefault();
-      if (url.startsWith("https://") || url.startsWith("http://")) shell.openExternal(url);
+      if (url.startsWith("https://") || url.startsWith("http://")) {
+        shell.openExternal(url);
+      }
     }
   });
 
   win.loadURL(APP_URL);
 }
 
-ipcMain.handle("mbp-device-info", () => ({\n  platform: process.platform,\n  osVersion: os.release(),\n  architecture: os.arch(),\n  appVersion: app.getVersion()\n}));\n\napp.whenReady().then(() => {
-  // Leave Chromium's permission flow intact. Location access must be explicitly
-  // granted by the employee from the CRM; never silently auto-approve it.
+ipcMain.handle("mbp-device-info", () => ({
+  platform: process.platform,
+  osVersion: os.release(),
+  architecture: os.arch(),
+  appVersion: app.getVersion()
+}));
+
+app.whenReady().then(() => {
   createWindow();
+
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
   });
 });
 
