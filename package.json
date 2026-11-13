@@ -1,5 +1,5 @@
 {
-  "name": "attendence_crm",
+  "name": "attendance-crm",
   "private": true,
   "version": "0.1.1",
   "type": "module",
@@ -34,7 +34,7 @@
   "main": "desktop/main.cjs",
   "build": {
     "appId": "com.mostbetpartners.attendancecrm",
-    "productName": "attendence_crm",
+    "productName": "Attendance CRM",
     "directories": {
       "output": "dist-electron",
       "buildResources": "build"
@@ -56,7 +56,7 @@
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "attendence_crm.${ext}"
+      "artifactName": "Attendance CRM.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -64,7 +64,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "attendence_crm"
+      "shortcutName": "Attendance CRM"
     },
     "mac": {
       "target": [
@@ -79,7 +79,7 @@
       "category": "public.app-category.productivity",
       "artifactName": "attendence_crm.${ext}",
       "extendInfo": {
-        "NSLocationWhenInUseUsageDescription": "attendence_crm records location automatically when you start and stop a shift."
+        "NSLocationWhenInUseUsageDescription": "Attendance CRM records location automatically when you start and stop a shift."
       }
     }
   }
