@@ -126,6 +126,32 @@ function reactionLabel(reaction: any): string {
   return "Reaction";
 }
 
+async function syncGroupAdmins(chatId: number) {
+  if (!TELEGRAM_BOT_TOKEN || !chatId) return;
+  try {
+    const cached = await db(
+      `telegram_groups?telegram_chat_id=eq.${chatId}&select=admins_synced_at&limit=1`,
+      "GET",
+    );
+    const syncedAt = Array.isArray(cached) ? cached[0]?.admins_synced_at : null;
+    if (syncedAt && Date.now() - new Date(syncedAt).getTime() < 10 * 60 * 1000) return;
+
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatAdministrators?chat_id=${chatId}`);
+    const payload = response.ok ? await response.json() : null;
+    if (!payload?.ok || !Array.isArray(payload.result)) {
+      console.warn("Could not refresh Telegram group administrators:", chatId, payload?.description ?? response.status);
+      return;
+    }
+    await db("rpc/sync_telegram_group_admins", "POST", {
+      p_chat_id: chatId,
+      p_admins: payload.result,
+    });
+  } catch (error) {
+    // Ownership refresh is best-effort; do not interrupt message ingestion.
+    console.error("Telegram group administrator sync failed:", chatId, error);
+  }
+}
+
 async function ensureGroup(chat: any) {
   if (!chat?.id) return;
   const title = chat.title || chat.username || String(chat.id);
@@ -134,6 +160,7 @@ async function ensureGroup(chat: any) {
     title,
     enabled: true,
   }], "resolution=merge-duplicates,return=minimal");
+  await syncGroupAdmins(Number(chat.id));
 }
 
 async function upsertMember(chatId: number, user: any) {
