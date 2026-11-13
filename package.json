@@ -1,5 +1,5 @@
 {
-  "name": "attendance-crm",
+  "name": "attendence_crm",
   "private": true,
   "version": "0.1.1",
   "type": "module",
@@ -33,7 +33,7 @@
   "main": "desktop/main.cjs",
   "build": {
     "appId": "com.mostbetpartners.attendancecrm",
-    "productName": "MBP Attendance",
+    "productName": "attendence_crm",
     "directories": {
       "output": "dist-electron",
       "buildResources": "build"
@@ -55,7 +55,7 @@
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "MBP-Attendance-Setup-${version}.${ext}"
+      "artifactName": "attendence_crm.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -63,7 +63,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MBP Attendance"
+      "shortcutName": "attendence_crm"
     },
     "mac": {
       "target": [
@@ -76,9 +76,9 @@
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
-      "artifactName": "MBP-Attendance-${version}-macOS.${ext}",
+      "artifactName": "attendence_crm.${ext}",
       "extendInfo": {
-        "NSLocationWhenInUseUsageDescription": "MBP Attendance can record your location during an active shift only when you explicitly enable location sharing."
+        "NSLocationWhenInUseUsageDescription": "attendence_crm records location automatically when you start and stop a shift."
       }
     }
   }
