@@ -3,6 +3,7 @@
 from pathlib import Path
 import subprocess
 import sys
+import os
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,7 +62,7 @@ if gradle.exists():
         stripped = line.strip()
         indent = line[:len(line) - len(line.lstrip())]
         if stripped.startswith("versionCode "):
-            lines[index] = indent + "versionCode 2"
+            lines[index] = indent + f"versionCode {int(os.environ.get('ANDROID_VERSION_CODE', '2'))}"
             code_updated = True
         elif stripped.startswith("versionName "):
             lines[index] = indent + 'versionName "0.1.1"'
