@@ -707,7 +707,15 @@ export default function App() {
   const [telegramMembers, setTelegramMembers] = useState<Array<{telegram_user_id:number;profile_id:string|null}>>([]);
   const [telegramResponseMetrics, setTelegramResponseMetrics] = useState<Array<{question_user_id:number|null;first_reply_user_id:number|null;response_seconds:number|null;calculated_at?:string|null;profile_id?:string;asked_count?:number;reply_count?:number;average_response_seconds?:number|null;response_samples?:Array<{response_seconds:number;calculated_at:string|null}>;question_samples?:Array<{calculated_at:string|null;answered:boolean}>}>>([]);
   const [telegramMenuOpen, setTelegramMenuOpen] = useState(false);
-  const [activePage, setActivePage] = useState<CrmPage>('dashboard');
+  const [activePage, setActivePage] = useState<CrmPage>(() => {
+    try {
+      const saved = sessionStorage.getItem('mbp_crm_active_page') as CrmPage | null;
+      const validPages: CrmPage[] = ['my-profile','dashboard','downloads','attendance','attendance-records','workforce-operations','team-attendance','team','manager-hierarchy','team-roles','team-links','team-assignments','team-invitations','telegram','telegram-human','telegram-analytics','security','requests','settings'];
+      return saved && validPages.includes(saved) ? saved : 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [personalProfile, setPersonalProfile] = useState<EmployeePersonalProfile>({user_id:'',avatar_key:'male-01',nickname:''});
   const [personalProfileDraft, setPersonalProfileDraft] = useState({avatar_key:'male-01',nickname:''});
   const [directManager, setDirectManager] = useState<DirectManagerContact | null>(null);
@@ -1078,7 +1086,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
       if (error) setMessage(error.message);
-      applySession(data.session, true);
+      // Restore the existing CRM page after a browser/tab reload. Only a fresh SIGNED_IN event should explicitly open Dashboard.\n      applySession(data.session, false);
     });
 
     const {
@@ -1128,6 +1136,11 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [loadDashboard, passwordFlow]);
+
+  useEffect(() => {
+    if (screen !== 'signed-in') return;
+    try { sessionStorage.setItem('mbp_crm_active_page', activePage); } catch { /* storage may be unavailable */ }
+  }, [activePage, screen]);
 
   // Sign out after 60 minutes without real user interaction. The timestamp is
   // shared between tabs so activity in one CRM tab keeps the others alive too.
