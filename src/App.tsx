@@ -1088,7 +1088,8 @@ export default function App() {
     supabase.auth.getSession().then(({ data, error }) => {
       if (!alive) return;
       if (error) setMessage(error.message);
-      // Restore the existing CRM page after a browser/tab reload. Only a fresh SIGNED_IN event should explicitly open Dashboard.\n      applySession(data.session, false);
+      // Restore the existing CRM page after a browser/tab reload. Only a fresh SIGNED_IN event should explicitly open Dashboard.
+      applySession(data.session, false);
     });
 
     const {
