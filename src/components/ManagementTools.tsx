@@ -87,7 +87,6 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [analyticsOptions, setAnalyticsOptions] = useState<GroupAnalyticsOption[]>([]);
   const [analyticsOptionsLoading, setAnalyticsOptionsLoading] = useState(false);
   const [analyticsOptionsError, setAnalyticsOptionsError] = useState('');
-  const visibleAnalyticsOptionsError = isAdminAccount ? analyticsOptionsError : (analyticsOptionsError ? 'Oops ! something was wrong, we are working on it' : '');
   const [selectedTeamLeader, setSelectedTeamLeader] = useState('');
   const [selectedGroupOwner, setSelectedGroupOwner] = useState('');
   const [telegramMembers, setTelegramMembers] = useState<TelegramMember[]>([]);
@@ -117,6 +116,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [inviteLoading, setInviteLoading] = useState(false);
   const [notice, setNoticeRaw] = useState('');
   const isAdminAccount = profile?.role?.toLowerCase().replaceAll(' ', '_') === 'admin';
+  const visibleAnalyticsOptionsError = isAdminAccount ? analyticsOptionsError : (analyticsOptionsError ? 'Oops ! something was wrong, we are working on it' : '');
   const setNotice = (value: string | ((current: string) => string)) => setNoticeRaw(current => {
     const next = typeof value === 'function' ? value(current) : value;
     const technicalFailure = /could not|failed|failure|unable to|unexpected|migration|database|service error|error:/i.test(next);
