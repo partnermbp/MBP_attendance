@@ -6,11 +6,11 @@ The Android app packages the existing React CRM with Capacitor. It uses the same
 
 The GitHub Actions workflow `.github/workflows/android-apk.yml` builds an installable debug APK automatically when relevant app files are pushed to `main`, or when manually started from the Actions tab.
 
-Download the artifact named **attendence_crm-Android-APK** from the successful workflow run. The APK is at `android/app/build/outputs/apk/debug/attendence_crm.apk` during the build.
+Download the artifact named **Attendance-CRM-Android-APK** from the successful workflow run. The APK is at `android/app/build/outputs/apk/debug/Attendence CRM.apk` during the build.
 
 ## Android app details
 
-- App name: attendence_crm
+- App name: Attendance CRM
 - Application ID: `com.mostbetpartners.attendancecrm`
 - Native location permission: approximate and precise location (requested by Android when check-in/check-out needs GPS)
 - Web interface: bundled inside the APK; business data and authentication continue to use Supabase over the internet.
