@@ -690,7 +690,7 @@ export default function App() {
   const [telegramIdLookupBusy, setTelegramIdLookupBusy] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessageRaw] = useState('');
   const [showCorrectionShortcut, setShowCorrectionShortcut] = useState(false);
   const [showAttendanceLocationNotice, setShowAttendanceLocationNotice] = useState(false);
   const [workforceInitialTab, setWorkforceInitialTab] = useState<'leave'|'corrections'>('leave');
@@ -732,6 +732,12 @@ export default function App() {
   const [approvedLeave, setApprovedLeave] = useState<Array<{employee_id:string;start_date:string;end_date:string;status:string}>>([]);
   const [workforceHolidays, setWorkforceHolidays] = useState<Array<{holiday_date:string;name:string}>>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const isAdminAccount = profile?.role?.toLowerCase().replaceAll(' ', '_') === 'admin';
+  const setMessage = (value: string | ((current: string) => string)) => setMessageRaw(current => {
+    const next = typeof value === 'function' ? value(current) : value;
+    const technicalFailure = /could not|failed|failure|unable to|unexpected|migration|database|service error|error:/i.test(next);
+    return technicalFailure && !isAdminAccount ? 'Oops ! something was wrong, we are working on it' : next;
+  });
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [avatarByUserId, setAvatarByUserId] = useState<Record<string,string>>({});
   const [managerAssignments, setManagerAssignments] = useState<ManagerAssignment[]>([]);
