@@ -87,6 +87,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const [analyticsOptions, setAnalyticsOptions] = useState<GroupAnalyticsOption[]>([]);
   const [analyticsOptionsLoading, setAnalyticsOptionsLoading] = useState(false);
   const [analyticsOptionsError, setAnalyticsOptionsError] = useState('');
+  const visibleAnalyticsOptionsError = isAdminAccount ? analyticsOptionsError : (analyticsOptionsError ? 'Oops ! something was wrong, we are working on it' : '');
   const [selectedTeamLeader, setSelectedTeamLeader] = useState('');
   const [selectedGroupOwner, setSelectedGroupOwner] = useState('');
   const [telegramMembers, setTelegramMembers] = useState<TelegramMember[]>([]);
@@ -114,7 +115,13 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
   const groupOlderCacheTimerRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [notice, setNoticeRaw] = useState('');
+  const isAdminAccount = profile?.role?.toLowerCase().replaceAll(' ', '_') === 'admin';
+  const setNotice = (value: string | ((current: string) => string)) => setNoticeRaw(current => {
+    const next = typeof value === 'function' ? value(current) : value;
+    const technicalFailure = /could not|failed|failure|unable to|unexpected|migration|database|service error|error:/i.test(next);
+    return technicalFailure && !isAdminAccount ? 'Oops ! something was wrong, we are working on it' : next;
+  });
   const [assignmentNotice, setAssignmentNotice] = useState('');
   const [humanAccessIds, setHumanAccessIds] = useState<Set<string>>(() => new Set());
   const [activeMedia, setActiveMedia] = useState<{ url: string; mime: string; name: string } | null>(null);
@@ -825,7 +832,7 @@ export default function ManagementTools({ supabase, profile, profiles, page = 'a
       <option value="">{analyticsOptionsLoading ? 'Synchronising group chats…' : (isAdmin || isSupervisor) && !selectedGroupOwner ? 'Select a group owner first…' : analyticsGroups.length ? 'Choose a Telegram group to open…' : 'No synced groups for this owner yet'}</option>
       {analyticsGroups.map(g => <option key={g.telegram_chat_id} value={String(g.telegram_chat_id)}>{g.group_title}</option>)}
     </select></label>
-    {analyticsOptionsError && <p role="alert" style={{...muted,color:'#fda29b'}}>Could not synchronise group owners: {analyticsOptionsError}</p>}
+    {visibleAnalyticsOptionsError && <p role="alert" style={{...muted,color:'#fda29b'}}>{isAdminAccount ? 'Could not synchronise group owners: ' + visibleAnalyticsOptionsError : visibleAnalyticsOptionsError}</p>}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, margin: '14px 0' }}>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Messages loaded</div><strong style={{ fontSize: 24 }}>{messages.length}</strong></article>
       <article style={{ padding: 14, border: '1px solid #344054', borderRadius: 10 }}><div style={muted}>Replies measured</div><strong style={{ fontSize: 24 }}>{answered.length}</strong></article>
