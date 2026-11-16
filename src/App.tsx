@@ -1889,6 +1889,7 @@ export default function App() {
     if (todayCompletedRecord) {
       setMessage('You have already ended your shift today. To correct your recorded work hours, submit an Attendance Correction request.');
       setShowCorrectionShortcut(true);
+      attendanceActionInFlightRef.current = false;
       return;
     }
     setShowCorrectionShortcut(false);
