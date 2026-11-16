@@ -670,6 +670,7 @@ export default function App() {
   const [emailOtpRequested, setEmailOtpRequested] = useState(false);
   const [mfaChallengeTicket, setMfaChallengeTicket] = useState('');
   const mfaLoginInProgressRef = useRef(false);
+  const signedInUserIdRef = useRef<string | null>(null);
   const attendanceActionInFlightRef = useRef(false);
   const [otpRequested, setOtpRequested] = useState(false);
   const [telegramResendSeconds, setTelegramResendSeconds] = useState(0);
@@ -1068,6 +1069,7 @@ export default function App() {
             await supabase!.auth.signOut({ scope: 'local' });
             return;
           }
+          signedInUserIdRef.current = nextSession.user.id;
           setScreen('signed-in');
           await loadDashboard(nextSession.user.id, openDashboard);
         } catch {
@@ -1108,11 +1110,19 @@ export default function App() {
         return;
       }
 
+      // Supabase may emit SIGNED_IN again when an existing tab regains focus.
+      // Treat the same authenticated user as a session refresh, not a new login.
+      if (event === 'SIGNED_IN' && nextSession?.user.id && signedInUserIdRef.current === nextSession.user.id) {
+        setSession(nextSession);
+        return;
+      }
+
       if (event === 'SIGNED_OUT') {
         if (mfaLoginInProgressRef.current) return;
         if (nextSession?.user.id) {
           try { localStorage.removeItem(INACTIVITY_STORAGE_PREFIX + nextSession.user.id); } catch { /* storage may be unavailable */ }
         }
+        signedInUserIdRef.current = null;
         setSession(null);
         setScreen('login');
         setAttendance([]);
@@ -1695,6 +1705,7 @@ export default function App() {
         await supabase.auth.signOut({ scope: 'local' });
         return;
       }
+      signedInUserIdRef.current = authData.session.user.id;
       setSession(authData.session);
       setTelegramOtp('');
       setOtpRequested(false);
