@@ -316,7 +316,7 @@ export default function ManagerHierarchy({ avatarByUserId = {}, profile, profile
     <header><h1 style={{margin:0,fontSize:25}}>Manager hierarchy</h1><KnowMore>Select a manager to view their reporting line and activity.</KnowMore></header>
     {profile && profile.role.toLowerCase() !== 'admin' && <section style={panel}>
       <strong>Today's reporting-line attendance</strong>
-      <p style={muted}>Current shift status for you and everyone assigned below you. Exact GPS data is not displayed.</p>
+      <p style={muted}>Current shift status for you and everyone assigned below you.</p>
       <div style={{display:'grid',gap:8,marginTop:12}}>
         {[...visiblePeople].map(id => {
           const person = people.get(id);
