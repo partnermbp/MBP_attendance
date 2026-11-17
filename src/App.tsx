@@ -78,7 +78,7 @@ type Coordinates = {
 };
 
 const CRM_WEB_APP_URL = 'https://attendence.dpdns.org/';
-const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/Attendance.CRM.apk';
+const ANDROID_APK_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/android-latest/Attendence.CRM.apk';
 const WINDOWS_EXE_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/windows-latest/Attendance.CRM.exe';
 const MACOS_DMG_DOWNLOAD_URL = 'https://github.com/partnermbp/MBP_attendance/releases/download/macos-latest/attendence_crm.dmg';
 const IOS_WEBCLIP_DOWNLOAD_URL = '/mbp-attendance-ios.mobileconfig';
