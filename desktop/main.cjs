@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const APP_URL = "https://attendence.dpdns.org/";
 
-app.setName("attendence_crm");
+app.setName("Attendance CRM");
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -44,12 +44,14 @@ function createWindow() {
   win.loadURL(APP_URL);
 }
 
-ipcMain.handle("mbp-device-info", () => ({
-  platform: process.platform,
-  osVersion: os.release(),
-  architecture: os.arch(),
-  appVersion: app.getVersion()
-}));
+ipcMain.handle("mbp-device-info", function mbpDeviceInfo() {
+  return {
+    platform: process.platform,
+    osVersion: os.release(),
+    architecture: os.arch(),
+    appVersion: app.getVersion()
+  };
+});
 
 app.whenReady().then(() => {
   createWindow();
