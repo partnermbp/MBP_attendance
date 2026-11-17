@@ -55,6 +55,11 @@ jobs:
           New-Item -ItemType Directory -Force build | Out-Null
           python make_icon.py
 
+      - name: Validate Electron main and preload syntax
+        run: |
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
+
       - name: Build Windows installer
         run: npx electron-builder --win nsis --x64 --publish never
 
