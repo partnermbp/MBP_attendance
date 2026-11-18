@@ -1719,6 +1719,9 @@ export default function App() {
       setMfaChallengeTicket('');
       mfaLoginInProgressRef.current = false;
       await recordCrmLogin('password_2fa');
+      // A newly completed MFA login starts a fresh inactivity window.
+      // Remove any stale timestamp left by a previous session on this device.
+      try { localStorage.removeItem(INACTIVITY_STORAGE_PREFIX + authData.session.user.id); } catch { /* storage may be unavailable */ }
       setMessage('');
       setScreen('signed-in');
       await loadDashboard(authData.session.user.id, true);
